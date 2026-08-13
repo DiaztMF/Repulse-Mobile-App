@@ -17,6 +17,8 @@
     "@capacitor/android": "^7.6.8",
     "@capacitor/cli": "^7.6.8",
     "@capacitor/core": "^7.6.8",
+    "@capawesome-team/capacitor-android-battery-optimization": "^7.0.0",
+    "@capawesome-team/capacitor-android-foreground-service": "^7.0.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "firebase": "^12.17.1",
