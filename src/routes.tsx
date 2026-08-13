@@ -11,6 +11,8 @@ import { PairTrouble } from "@/screens/onboarding/PairTrouble";
 import { PairBand } from "@/screens/onboarding/PairBand";
 import { PairBedside } from "@/screens/onboarding/PairBedside";
 import { Calibration } from "@/screens/onboarding/Calibration";
+import { Contacts } from "@/screens/onboarding/Contacts";
+import { Ready } from "@/screens/onboarding/Ready";
 import { Wordmark } from "@/components/brand/Wordmark";
 
 /**
@@ -30,8 +32,8 @@ export const router = createBrowserRouter([
   { path: "/pair/bedside", element: <PairBedside /> },
   { path: "/pair/:device/trouble", element: <PairTrouble /> },
   { path: "/calibration", element: <Calibration /> },
-  { path: "/contacts", element: <Placeholder code="O9 · D3" name="Emergency contacts" /> },
-  { path: "/ready", element: <Placeholder code="O10" name="Ready" /> },
+  { path: "/contacts", element: <Contacts /> },
+  { path: "/ready", element: <Ready /> },
 
   // Three tabs — inside the shell
   {

@@ -96,7 +96,9 @@ Four rules are deliberately hard to break. If one feels like it is in the way, t
 
 ## Status
 
-Shell and design system are complete. Three screens built so far: `O1` splash, `O2` sign-in, and `O3` permissions. Every other route renders `Placeholder`. Screens are built one at a time in priority order.
+Shell, design system, and the full onboarding flow are complete: `O1` splash, `O2` sign-in, `O3` permissions, `O4` autostart, `O5` setup guide, `O6` pair band, `O6b` pairing trouble, `O7` pair bedside, `O8` calibration, `O9` emergency contacts, `O10` ready.
+
+The main app — home, vitals, health, settings and the emergency screens — still renders `Placeholder`. Screens are built one at a time in priority order.
 
 ## License
 
