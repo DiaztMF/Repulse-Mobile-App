@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check:data": "node --experimental-strip-types --disable-warning=ExperimentalWarning src/data/mock.check.ts"
   },
   "dependencies": {
     "@capacitor/android": "^7.6.8",
