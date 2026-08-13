@@ -16,6 +16,10 @@ import { Ready } from "@/screens/onboarding/Ready";
 import { Home } from "@/screens/home/Home";
 import { Session } from "@/screens/home/Session";
 import { Vital } from "@/screens/vitals/Vital";
+import { Health } from "@/screens/health/Health";
+import { NightDetail } from "@/screens/health/NightDetail";
+import { BreathingTrend } from "@/screens/health/BreathingTrend";
+import { Insights } from "@/screens/health/Insights";
 import { Wordmark } from "@/components/brand/Wordmark";
 
 /**
@@ -50,10 +54,10 @@ export const router = createBrowserRouter([
       { path: "/vitals", element: <Navigate to="/vitals/pulse" replace /> },
       { path: "/vitals/:metric", element: <Vital /> },
 
-      { path: "/health", element: <Placeholder code="S1" name="History" /> },
-      { path: "/health/night/:date", element: <Placeholder code="S2" name="Night detail" /> },
-      { path: "/health/breathing", element: <Placeholder code="S3" name="Breathing trend" /> },
-      { path: "/health/insights", element: <Placeholder code="S4" name="Intervention insights" /> },
+      { path: "/health", element: <Health /> },
+      { path: "/health/night/:date", element: <NightDetail /> },
+      { path: "/health/breathing", element: <BreathingTrend /> },
+      { path: "/health/insights", element: <Insights /> },
 
       { path: "/settings", element: <Placeholder code="D1" name="Settings" /> },
       { path: "/devices", element: <Placeholder code="D2" name="Devices & battery" /> },
