@@ -2,6 +2,7 @@
   "firestore": { "rules": "firestore.rules" },
   "database": { "rules": "database.rules.json" },
   "hosting": {
+    "site": "repulse",
     "public": "dist",
     "ignore": [
       "firebase.json",
