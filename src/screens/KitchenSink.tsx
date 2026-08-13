@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { HeartPulse, Wind, Home } from "lucide-react";
 import { Wordmark } from "@/components/brand/Wordmark";
-import { BrandSpinner } from "@/components/brand/BrandSpinner";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { StepBar } from "@/components/ui/StepBar";
@@ -48,15 +47,6 @@ export function KitchenSink() {
   return (
     <div className="space-y-10 px-5 py-8">
       <Viewport />
-
-      <section className="space-y-4">
-        <p className="label text-[var(--color-ash)]">Brand Spinner (WHOOP-style Emblem)</p>
-        <div className="flex items-center gap-8 rounded-[var(--radius-card)] bg-[var(--color-surface)] p-6">
-          <BrandSpinner size="sm" />
-          <BrandSpinner size="md" label="SYNCING" />
-          <BrandSpinner size="lg" />
-        </div>
-      </section>
 
       <section className="space-y-4">
         <p className="label text-[var(--color-ash)]">Wordmark</p>
@@ -167,7 +157,7 @@ export function KitchenSink() {
         <p className="label text-[var(--color-ash)]">Regulated copy</p>
         <p className="text-[var(--color-ash)]">{COPY.breathingScreening}</p>
         <p className="text-[var(--color-ash)]">{COPY.sosPending}</p>
-        <p className="label text-[var(--color-ash-dim)]">{COPY.disclaimer}</p>
+        <p className="label text-[var(--color-ash)]">{COPY.disclaimer}</p>
       </section>
     </div>
   );
