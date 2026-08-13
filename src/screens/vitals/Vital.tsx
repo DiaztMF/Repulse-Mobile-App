@@ -7,7 +7,8 @@ import {
   type Row,
 } from "@/components/vitals/VitalLayout";
 import { Hypnogram } from "@/components/vitals/Hypnogram";
-import { lastNight, seriesFor, formatDuration, bandOfScore } from "@/data/mock";
+import { seriesFor, formatDuration, bandOfScore } from "@/data/mock";
+import { useLastNight } from "@/data/store";
 import { METRIC_COLOR, BAND_LABEL } from "@/lib/metrics";
 import { COPY } from "@/lib/copy";
 
@@ -19,7 +20,7 @@ export function Vital() {
   const { metric } = useParams<{ metric: Key }>();
   if (!metric || !KEYS.includes(metric)) return <Navigate to="/vitals/pulse" replace />;
 
-  const n = lastNight;
+  const n = useLastNight();
   const s = seriesFor(n.date);
   const total = n.sleep.durationMin || 1;
 

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Check } from "lucide-react";
 import { EcgTrace } from "@/components/home/EcgTrace";
-import { lastNight } from "@/data/mock";
+import { useLastNight } from "@/data/store";
 
 type State = "monitoring" | "wind_down" | "comfort" | "wake_window" | "offline";
 
@@ -24,7 +24,7 @@ const DIM = 0.85;
 
 export function Session() {
   const navigate = useNavigate();
-  const night = lastNight;
+  const night = useLastNight();
   const [state] = useState<State>("monitoring");
   const [dim, setDim] = useState(false);
   const [confirming, setConfirming] = useState(false);

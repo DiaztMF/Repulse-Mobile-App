@@ -1,0 +1,63 @@
+rules_version = '2';
+
+// Health data. The default is deny; every read below is an explicit
+// exception, because §12 of the brief asks for this data to stay
+// protected and Firebase is a server.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function isOwner(uid) { return signedIn() && request.auth.uid == uid; }
+
+    // A viewer is someone the owner explicitly added.
+    function isViewer(uid) {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/users/$(uid)/viewers/$(request.auth.uid));
+    }
+
+    match /users/{uid} {
+      allow read, write: if isOwner(uid);
+
+      // Night summaries are the only thing a viewer ever sees.
+      match /nights/{date} {
+        allow read: if isOwner(uid) || isViewer(uid);
+        allow write: if isOwner(uid);
+
+        // Raw readings never leave the owner. A viewer who could read
+        // these would have minute-by-minute presence data for someone
+        // else's bedroom.
+        match /series/{hour} {
+          allow read, write: if isOwner(uid);
+        }
+
+        match /events/{eventId} {
+          allow read: if isOwner(uid) || isViewer(uid);
+          allow write: if isOwner(uid);
+        }
+      }
+
+      match /interventions/{type} {
+        allow read, write: if isOwner(uid);
+      }
+
+      // The owner grants and revokes; a viewer cannot add themselves.
+      match /viewers/{viewerUid} {
+        allow read, write: if isOwner(uid);
+      }
+
+      // Denormalised index so a viewer can list who they watch without a
+      // collection-group query. Written by the owner on acceptance.
+      match /watching/{ownerUid} {
+        allow read: if isOwner(uid);
+        allow write: if isOwner(uid);
+      }
+    }
+
+    // Only the code itself is public, and it carries nothing but the
+    // owner's uid and an expiry.
+    match /invites/{code} {
+      allow read: if signedIn();
+      allow create, delete: if signedIn() && request.resource.data.owner_uid == request.auth.uid;
+    }
+  }
+}

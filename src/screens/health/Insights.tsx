@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
-import { INTERVENTIONS } from "@/data/mock";
+import { useStore } from "@/data/store";
 import { BAND_COLOR } from "@/lib/metrics";
 
 /** Below this a rate is noise, so the app refuses to act on it or to
@@ -14,6 +14,7 @@ const MIN_TRIES = 3;
  */
 export function Insights() {
   const navigate = useNavigate();
+  const { interventions: INTERVENTIONS } = useStore();
 
   const ranked = [...INTERVENTIONS].sort((a, b) => {
     const ra = a.tries >= MIN_TRIES ? a.success / a.tries : -1;

@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/firebase/auth";
 import {
   Settings,
   Watch,
@@ -8,6 +9,7 @@ import {
   Download,
   Activity,
   X,
+  LogOut,
 } from "lucide-react";
 
 const ITEMS = [
@@ -25,6 +27,7 @@ const ITEMS = [
  *  you were, mid-scroll included. */
 export function Drawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   const navigate = useNavigate();
+  const { user, leave } = useAuth();
   if (!open) return null;
 
   const go = (to: string) => {
@@ -57,6 +60,25 @@ export function Drawer({ open, onClose }: { open: boolean; onClose: () => void }
             </li>
           ))}
         </ul>
+
+        {user && (
+          <div className="mt-6 border-t border-[var(--color-ash-dim)]/25 pt-4">
+            <p className="truncate px-3 text-[length:var(--text-meta)] text-[var(--color-ash)]">
+              {user.email}
+            </p>
+            <button
+              onClick={() => {
+                onClose();
+                void leave();
+                navigate("/sign-in", { replace: true });
+              }}
+              className="mt-2 flex w-full items-center gap-4 rounded-[var(--radius-control)] px-3 py-3.5 text-left"
+            >
+              <LogOut className="size-5 text-[var(--color-ash)]" strokeWidth={1.5} />
+              <span>Sign out</span>
+            </button>
+          </div>
+        )}
       </nav>
     </div>
   );

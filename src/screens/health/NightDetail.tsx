@@ -4,7 +4,8 @@ import { Sparkline } from "@/components/ui/Sparkline";
 import { Hypnogram } from "@/components/vitals/Hypnogram";
 import { Timeline } from "@/components/home/Timeline";
 import { MetricGrid } from "@/components/vitals/VitalLayout";
-import { nightByDate, seriesFor, formatDuration, bandOfScore } from "@/data/mock";
+import { seriesFor, formatDuration, bandOfScore } from "@/data/mock";
+import { useNight } from "@/data/store";
 import { BAND_COLOR, BAND_LABEL, METRIC_COLOR } from "@/lib/metrics";
 import { COPY } from "@/lib/copy";
 
@@ -17,7 +18,7 @@ import { COPY } from "@/lib/copy";
 export function NightDetail() {
   const navigate = useNavigate();
   const { date } = useParams<{ date: string }>();
-  const n = date ? nightByDate(date) : undefined;
+  const n = useNight(date);
   if (!n) return <Navigate to="/health" replace />;
 
   const s = seriesFor(n.date);

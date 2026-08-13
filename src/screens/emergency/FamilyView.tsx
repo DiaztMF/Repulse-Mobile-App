@@ -1,5 +1,6 @@
 import { PageHeader } from "@/components/shell/PageHeader";
-import { lastNight, formatDuration, bandOfScore } from "@/data/mock";
+import { formatDuration, bandOfScore } from "@/data/mock";
+import { useLastNight } from "@/data/store";
 import { BAND_COLOR, BAND_LABEL } from "@/lib/metrics";
 import { COPY } from "@/lib/copy";
 
@@ -16,7 +17,7 @@ const ALERTS = [
  * of every screen for leaks.
  */
 export function FamilyView() {
-  const n = lastNight;
+  const n = useLastNight();
   const band = n.score !== null ? bandOfScore(n.score) : null;
 
   return (

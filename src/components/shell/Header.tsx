@@ -1,6 +1,7 @@
 import { Menu, Share, Zap } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Wordmark } from "@/components/brand/Wordmark";
+import { SampleBadge } from "./SampleBadge";
 
 export type DeviceState = "both" | "one" | "none" | "charging";
 
@@ -43,7 +44,7 @@ export function Header({
     // Grid, not flex-between: the wordmark centers on the screen rather
     // than between two unequal zones, and an SVG flex item drags its
     // viewBox width into the layout.
-    <header className="safe-t sticky top-0 z-30 grid h-14 grid-cols-[1fr_auto_1fr] items-center bg-[var(--color-base)]/90 px-5 backdrop-blur-xl">
+    <header className="safe-t sticky top-0 z-30 relative grid h-14 grid-cols-[1fr_auto_1fr] items-center bg-[var(--color-base)]/90 px-5 backdrop-blur-xl">
       <button
         onClick={onMenu}
         aria-label="Menu"
@@ -69,6 +70,8 @@ export function Header({
           <DeviceRing state={devices} />
         </button>
       </div>
+
+      <SampleBadge />
     </header>
   );
 }

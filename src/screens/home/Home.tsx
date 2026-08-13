@@ -8,7 +8,8 @@ import { Header } from "@/components/shell/Header";
 import { Drawer } from "@/components/shell/Drawer";
 import { ScoreChips } from "@/components/home/ScoreChips";
 import { Timeline } from "@/components/home/Timeline";
-import { lastNight, seriesFor, formatDuration, bandOfScore } from "@/data/mock";
+import { seriesFor, formatDuration, bandOfScore } from "@/data/mock";
+import { useLastNight } from "@/data/store";
 import { BAND_COLOR, BAND_LABEL, METRIC_COLOR } from "@/lib/metrics";
 
 /**
@@ -32,7 +33,7 @@ const HEADLINE: Record<string, string> = {
 export function Home() {
   const navigate = useNavigate();
   const [menu, setMenu] = useState(false);
-  const night = lastNight;
+  const night = useLastNight();
   const series = seriesFor(night.date);
   const scored = night.score !== null;
   const band = scored ? bandOfScore(night.score!) : "fair";

@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronRight, Wind, Sparkles, AlertTriangle, Moon, Menu } from "lucide-react";
 import { Drawer } from "@/components/shell/Drawer";
-import { NIGHTS, formatDuration, bandOfScore } from "@/data/mock";
+import { formatDuration, bandOfScore } from "@/data/mock";
+import { useStore } from "@/data/store";
 import { BAND_COLOR, BAND_LABEL, METRIC_COLOR } from "@/lib/metrics";
 
 function shortDate(iso: string) {
@@ -21,6 +22,7 @@ function shortDate(iso: string) {
 export function Health() {
   const navigate = useNavigate();
   const [menu, setMenu] = useState(false);
+  const { nights: NIGHTS } = useStore();
   const nightsWithBreathing = NIGHTS.filter((n) => n.breathing.desatPerHour >= 1);
 
   return (

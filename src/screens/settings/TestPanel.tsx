@@ -3,6 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
+import { useAuth } from "@/firebase/auth";
+import { configured } from "@/firebase/app";
+import { seed, reset } from "@/firebase/nights";
+import { NIGHTS, INTERVENTIONS } from "@/data/mock";
 
 type Actuator = { key: string; label: string; note: string };
 
@@ -25,8 +29,20 @@ const BAND: Actuator[] = [
  */
 export function TestPanel() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [on, setOn] = useState<Record<string, boolean>>({});
   const [aromaAllowed, setAromaAllowed] = useState(false);
+  const [dataMsg, setDataMsg] = useState<string | null>(null);
+
+  const run = async (label: string, fn: () => Promise<void>) => {
+    setDataMsg(`${label}…`);
+    try {
+      await fn();
+      setDataMsg(`${label} done`);
+    } catch {
+      setDataMsg(`${label} failed`);
+    }
+  };
 
   const toggle = (k: string) => setOn((s) => ({ ...s, [k]: !s[k] }));
 
@@ -117,6 +133,34 @@ export function TestPanel() {
         <Button variant="secondary" className="mt-4" onClick={() => navigate("/ready")}>
           Skip calibration
         </Button>
+
+        <h2 className="label mt-8 text-[var(--color-ash)]">Demo data</h2>
+        <p className="mt-2 text-[length:var(--text-meta)] text-[var(--color-ash)]">
+          {configured
+            ? "Writes or clears the synthetic fortnight on this account. The insight screens need a fortnight of history before they say anything."
+            : "Firebase is not configured, so the app is already running on synthetic data."}
+        </p>
+        <div className="mt-4 space-y-3">
+          <Button
+            variant="secondary"
+            disabled={!configured || !user}
+            onClick={() => user && run("Seed", () => seed(user.uid, NIGHTS, INTERVENTIONS))}
+          >
+            Seed 14 nights
+          </Button>
+          {/* Synthetic rows left behind in a real account are worse than
+              an empty screen, so clearing is one tap. */}
+          <Button
+            variant="secondary"
+            disabled={!configured || !user}
+            onClick={() => user && run("Reset", () => reset(user.uid))}
+          >
+            Clear all night data
+          </Button>
+        </div>
+        {dataMsg && (
+          <p className="label mt-4 text-[var(--color-ash)]">{dataMsg}</p>
+        )}
       </div>
     </div>
   );

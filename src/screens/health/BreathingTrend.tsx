@@ -1,11 +1,10 @@
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
-import { NIGHTS, formatDuration } from "@/data/mock";
+import { formatDuration } from "@/data/mock";
+import { useStore } from "@/data/store";
 import { METRIC_COLOR, BAND_COLOR } from "@/lib/metrics";
 import { COPY } from "@/lib/copy";
 import { RowList } from "@/components/vitals/VitalLayout";
-
-const WEEK = NIGHTS.slice(0, 7);
 
 /**
  * S3 — Breathing trend. Reports a pattern across nights, never a
@@ -14,6 +13,7 @@ const WEEK = NIGHTS.slice(0, 7);
  */
 export function BreathingTrend() {
   const navigate = useNavigate();
+  const WEEK = useStore().nights.slice(0, 7);
 
   const flagged = WEEK.filter((n) => n.breathing.desatPerHour >= 1);
   const snoring = WEEK.filter((n) => n.breathing.snoreMin >= 15);

@@ -4,6 +4,7 @@ import { Wordmark } from "@/components/brand/Wordmark";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { COPY } from "@/lib/copy";
+import { useAuth } from "@/firebase/auth";
 
 /** Only decides whether the button may light up. Firebase does the
  *  real verification. */
@@ -19,13 +20,46 @@ const looksLikeEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s);
  */
 export function SignIn() {
   const navigate = useNavigate();
+  const auth = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const valid = looksLikeEmail(email) && password.length >= 6;
 
-  // TODO: wire to Firebase auth.
-  const signIn = () => navigate("/permissions");
+  // Sign in, or create the account if there is none. Onboarding is the
+  // first run, so a separate register screen would only ask people to
+  // choose a door before they know which one they are behind.
+  const run = async (fn: () => Promise<void>) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await fn();
+      navigate("/permissions");
+    } catch (e) {
+      const code = (e as { code?: string }).code ?? "";
+      if (code === "auth/user-not-found") {
+        try {
+          await auth.register(email, password);
+          navigate("/permissions");
+          return;
+        } catch {
+          setError("Could not create that account.");
+        }
+      } else if (code === "auth/wrong-password" || code === "auth/invalid-credential") {
+        setError("That email and password do not match.");
+      } else if (code === "auth/email-already-in-use") {
+        setError("That email already has an account.");
+      } else {
+        setError("Could not sign in. Check your connection.");
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const signIn = () => run(() => auth.signIn(email, password));
 
   return (
     <div className="bg-setup flex min-h-screen flex-col px-6 pb-8">
@@ -55,13 +89,24 @@ export function SignIn() {
         />
       </div>
 
+      {error && (
+        <p className="mt-5 text-center text-[length:var(--text-meta)] text-[var(--color-breath)]">
+          {error}
+        </p>
+      )}
+
       <button className="label mt-7 self-center text-[var(--color-ivory)]">
         Forgot your password?
       </button>
 
       <div className="mt-6 space-y-3">
-        <Button size="lg" register="system" disabled={!valid} onClick={signIn}>
-          Sign in
+        <Button
+          size="lg"
+          register="system"
+          disabled={!valid || busy}
+          onClick={signIn}
+        >
+          {busy ? "Signing in…" : "Sign in"}
         </Button>
         {/* Same register as the button above — two adjacent sign-in
             actions with different casing read as two systems. */}
@@ -69,7 +114,7 @@ export function SignIn() {
           variant="secondary"
           size="lg"
           register="system"
-          onClick={signIn}
+          onClick={() => run(auth.google)}
         >
           Continue with Google
         </Button>
@@ -78,7 +123,10 @@ export function SignIn() {
       <p className="mt-14 text-center text-[var(--color-ash)]">
         Don't have an account yet?
       </p>
-      <button className="label mt-3 self-center text-[var(--color-pulse)]">
+      <button
+        onClick={() => valid && run(() => auth.register(email, password))}
+        className="label mt-3 self-center text-[var(--color-pulse)]"
+      >
         Create account
       </button>
 

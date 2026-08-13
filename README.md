@@ -9,6 +9,7 @@ Android app for the RePulse sleep and heart monitoring system. Built as a web ap
 - **Tailwind CSS 4** — styling, with design tokens declared in `@theme`
 - **React Router 7** — navigation
 - **Capacitor 7** — native Android wrapper
+- **Firebase 12** — auth, Firestore, Realtime Database
 - **lucide-react** — icons
 - **class-variance-authority** — component variants
 
@@ -21,6 +22,25 @@ Android app for the RePulse sleep and heart monitoring system. Built as a web ap
 - Regulated copy kept as constants so wording cannot drift
 - English throughout — UI, routes, and code
 - Self-hosted variable font, so the app renders correctly offline
+
+## Environment Variables
+
+Copy `.env.example` to `.env.local` and fill from Firebase console →
+Project settings → Your apps → Web app. **With none of these set the app
+runs on synthetic data**, which is a supported state: the whole flow is
+walkable without a project.
+
+| Variable | Description | Example | Required |
+|----------|-------------|---------|----------|
+| `VITE_FB_API_KEY` | Firebase web API key | `AIzaSy...` | No |
+| `VITE_FB_AUTH_DOMAIN` | Auth domain | `repulse.firebaseapp.com` | No |
+| `VITE_FB_PROJECT_ID` | Project id | `repulse-prod` | No |
+| `VITE_FB_STORAGE_BUCKET` | Storage bucket | `repulse-prod.appspot.com` | No |
+| `VITE_FB_SENDER_ID` | Messaging sender id | `481029384756` | No |
+| `VITE_FB_APP_ID` | Web app id | `1:4810:web:9f2c` | No |
+| `VITE_FB_DATABASE_URL` | Realtime Database, live node only | `https://repulse-prod.firebaseio.com` | No |
+
+Deploy the rules with `firebase deploy --only firestore:rules,database`.
 
 ## Prerequisites
 
@@ -109,9 +129,13 @@ All 34 screens are built and reachable. Every screen reads from the
 synthetic dataset in `src/data/mock.ts`, so the whole app is walkable
 end to end without hardware.
 
-Still to come: the BLE transport, Firebase auth and persistence, and the
-Capacitor plugins behind the foreground service. Integration points are
-marked `TODO` where they belong.
+Firebase is wired: email and Google auth, Firestore reads through a
+single store, seed and reset from the test panel, and security rules for
+both databases.
+
+Still to come: the BLE transport and the Capacitor plugins behind the
+foreground service. Integration points are marked `TODO` where they
+belong.
 
 ## License
 
