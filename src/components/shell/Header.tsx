@@ -53,9 +53,9 @@ export function Header({
       <button
         onClick={onMenu}
         aria-label="Menu"
-        className="relative justify-self-start"
+        className="relative justify-self-start flex size-10 items-center justify-center -ml-2 rounded-full hover:bg-[var(--color-surface)] active:scale-90 transition-all duration-200"
       >
-        <Menu className="size-6" strokeWidth={1.5} />
+        <Menu className="size-6 text-[var(--color-ivory)]" strokeWidth={1.5} />
         {unread && (
           <span className="absolute -right-0.5 -top-0.5 size-1.5 rounded-full bg-[var(--color-pulse)]" />
         )}

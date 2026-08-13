@@ -3,11 +3,11 @@
 export type MetricKey = "pulse" | "sleep" | "breath" | "room" | "intervention";
 
 export const METRIC_COLOR: Record<MetricKey, string> = {
-  pulse: "#e8a33d",
-  sleep: "#d0a17a",
-  breath: "#c9846b",
-  room: "#8c8175",
-  intervention: "#3d2e1c",
+  pulse: "var(--color-pulse)",
+  sleep: "var(--color-sleep)",
+  breath: "var(--color-breath)",
+  room: "var(--color-room)",
+  intervention: "var(--color-faint)",
 };
 
 export type Band = "good" | "fair" | "poor";
@@ -21,9 +21,9 @@ export function bandOf(score: number): Band {
 /** Rust for the low band, not the danger red — that one is reserved
  *  for ALERT and SOS and stops meaning anything if reused. */
 export const BAND_COLOR: Record<Band, string> = {
-  good: "#f0b65c",
-  fair: "#b98243",
-  poor: "#b4522f",
+  good: "var(--color-band-good)",
+  fair: "var(--color-band-fair)",
+  poor: "var(--color-band-poor)",
 };
 
 export const BAND_LABEL: Record<Band, string> = {

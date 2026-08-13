@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { PageHeader } from "@/components/shell/PageHeader";
+import { useTheme } from "@/state/theme";
 import { COPY } from "@/lib/copy";
 import { cn } from "@/lib/cn";
 
@@ -88,12 +89,22 @@ function Section({ title, children }: { title: string; children: React.ReactNode
  */
 export function SettingsScreen() {
   const [monitorOnly, setMonitorOnly] = useState(false);
+  const { theme, setTheme } = useTheme();
 
   return (
     <div className="pb-8">
-      <PageHeader title="Settings" />
+      <PageHeader title="Settings" showMenu />
 
       <div className="px-5">
+        <Section title="Appearance">
+          <Toggle
+            label="Light mode"
+            note="Warm linen paper palette, calibrated for daylight readability while maintaining dark mode as default."
+            on={theme === "light"}
+            onChange={(light) => setTheme(light ? "light" : "dark")}
+          />
+        </Section>
+
         <Section title="Night">
           <Row label="Wake window" value="06:00–06:30" />
           <Row label="Sunset starts" value="21:40" note="20 minutes before bed" />

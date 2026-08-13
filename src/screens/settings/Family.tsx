@@ -17,7 +17,7 @@ export function Family() {
 
   return (
     <div className="pb-8">
-      <PageHeader title="Family" />
+      <PageHeader title="Family" showMenu />
 
       <div className="px-5">
         <p className="text-[var(--color-ash)]">

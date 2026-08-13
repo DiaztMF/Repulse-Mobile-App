@@ -90,7 +90,7 @@ export function Export() {
 
   return (
     <div className="pb-8">
-      <PageHeader title="Export" />
+      <PageHeader title="Export" showMenu />
 
       <div className="px-5">
         <h2 className="label text-[var(--color-ash)]">Range</h2>

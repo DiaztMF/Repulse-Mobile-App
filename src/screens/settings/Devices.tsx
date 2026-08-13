@@ -64,7 +64,7 @@ function DeviceCard({
 export function Devices() {
   return (
     <div className="pb-8">
-      <PageHeader title="Devices" />
+      <PageHeader title="Devices" showMenu />
 
       <div className="space-y-3 px-5">
         <DeviceCard

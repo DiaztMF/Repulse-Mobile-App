@@ -63,6 +63,34 @@
   --color-surface: #14100d;
 }
 
+/* Light Mode — Warm Linen / Organic Paper Theme.
+   Calibrated to stay soft on the eyes while offering daylight readability.
+
+   Every light rule below is held off while a session runs. Both attributes
+   sit on <html> at equal specificity, so without the :not() the later block
+   would simply win — and a linen-white phone at 2am is the one outcome
+   night mode exists to prevent. */
+[data-theme="light"]:not([data-night="true"]) {
+  --color-base: #f4efe6;
+  --color-surface: #e8e1d5;
+  --color-raised: #dcd4c6;
+
+  --color-ivory: #1c1611;
+  --color-ash: #5c5348;
+  --color-ash-dim: #9e9386;
+
+  --color-pulse: #d48c26;
+  --color-sleep: #b07d56;
+  --color-breath: #b56c54;
+  --color-room: #5c5348;
+  --color-faint: #e2d6c5;
+  --color-pulse-dim: #c58631;
+
+  --color-band-good: #d99a38;
+  --color-band-fair: #aa7334;
+  --color-band-poor: #b4522f;
+}
+
 /* Hero field. Brightness follows measured lux and hue follows the lamp,
    so a glance shows the room was too bright before a number is read.
    At 2am the correct hero is one you can barely see. */
@@ -78,13 +106,31 @@
     linear-gradient(180deg, #1c1611, #100d0a);
 }
 
+[data-theme="light"]:not([data-night="true"]) .hero-day {
+  background: radial-gradient(110% 80% at 50% 0%, #e5dccf, #f4efe6 60%);
+}
+[data-theme="light"]:not([data-night="true"]) .hero-dark {
+  background: linear-gradient(180deg, #ebe4d7, #f4efe6);
+}
+[data-theme="light"]:not([data-night="true"]) .hero-polluted {
+  background:
+    radial-gradient(120% 90% at 100% 0%, #c9846b33, transparent 55%),
+    linear-gradient(180deg, #e5dccf, #f4efe6);
+}
+
 /* Emergency screens. Flat and still — no gradient, because motion or
    depth here would soften a screen that must not be soft. */
 .bg-alert {
   background: #1a0e0e;
 }
+[data-theme="light"]:not([data-night="true"]) .bg-alert {
+  background: #fcedec;
+}
 
 /* Onboarding, pairing, and calibration only. Not used in daily screens. */
 .bg-setup {
   background: linear-gradient(180deg, #1c1611 0%, #0c0a08 100%);
+}
+[data-theme="light"] .bg-setup {
+  background: linear-gradient(180deg, #e8e1d5 0%, #f4efe6 100%);
 }

@@ -1,35 +1,51 @@
 import type { ReactNode } from "react";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Menu } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useDrawer } from "./AppShell";
 import { SampleBadge } from "./SampleBadge";
 
 /** The single header for every screen that is not a tab root. Back sits
- *  left, title centred, an optional action right.
- *
- *  There is deliberately no second variant: an earlier circled-chevron
- *  version existed for onboarding, copied from a reference that puts it
- *  over photography. Our onboarding is a flat gradient, so the circle
- *  bought nothing and cost a second thing to keep in step. */
+ *  left (or Hamburger Menu if showMenu is true), title centred, an optional action right. */
 export function PageHeader({
   title,
   right,
   onBack,
+  showMenu,
 }: {
   title: string;
   right?: ReactNode;
   onBack?: () => void;
+  showMenu?: boolean;
 }) {
   const navigate = useNavigate();
+  const { openDrawer } = useDrawer();
+
+  const isMenu = showMenu && openDrawer;
+
   return (
     <div className="safe-t">
-      <header className="grid h-14 grid-cols-[auto_1fr_auto] items-center px-5">
-        <button onClick={onBack ?? (() => navigate(-1))} aria-label="Back">
-          <ChevronLeft className="size-6" strokeWidth={1.5} />
+      <header className="grid h-14 grid-cols-[1fr_auto_1fr] items-center px-5">
+        <button
+          onClick={isMenu ? openDrawer : (onBack ?? (() => navigate(-1)))}
+          aria-label={isMenu ? "Open menu" : "Back"}
+          className="flex size-11 items-center justify-center -ml-2.5 rounded-full text-[var(--color-ivory)] hover:text-white transition-colors justify-self-start"
+        >
+          {isMenu ? (
+            <Menu className="size-6" strokeWidth={1.5} />
+          ) : (
+            <ChevronLeft className="size-6" strokeWidth={1.5} />
+          )}
         </button>
-        <span className="label truncate text-center text-[var(--color-ivory)]">
+        <span className="label truncate text-center text-[var(--color-ivory)] justify-self-center max-w-[200px] sm:max-w-xs">
           {title}
         </span>
-        <span className="min-w-6 text-right">{right}</span>
+        <div className="justify-self-end flex items-center justify-end min-w-6">
+          {typeof right === "string" ? (
+            <span className="label text-[var(--color-ash)]">{right}</span>
+          ) : (
+            right
+          )}
+        </div>
       </header>
       <SampleBadge />
     </div>

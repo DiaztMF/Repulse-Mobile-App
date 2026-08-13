@@ -41,7 +41,7 @@ export function Ecg() {
 
   return (
     <div className="pb-8">
-      <PageHeader title="Record ECG" />
+      <PageHeader title="Record ECG" showMenu />
 
       <div className="px-5">
         {stage === "idle" && (

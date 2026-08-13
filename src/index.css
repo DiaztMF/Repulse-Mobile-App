@@ -34,6 +34,13 @@ body {
   overscroll-behavior: none;
 }
 
+/* Otherwise the form controls, scrollbars and autofill stay dark against
+   linen. Not applied while a session runs, for the same reason the light
+   tokens aren't. */
+[data-theme="light"]:not([data-night="true"]) body {
+  color-scheme: light;
+}
+
 /* Numbers that tick every second must be tabular or they wobble. */
 .num {
   font-family: var(--font-numeric);
