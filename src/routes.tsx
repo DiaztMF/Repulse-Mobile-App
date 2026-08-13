@@ -5,6 +5,7 @@ import { KitchenSink } from "@/screens/KitchenSink";
 import { Splash } from "@/screens/onboarding/Splash";
 import { SignIn } from "@/screens/onboarding/SignIn";
 import { Permissions } from "@/screens/onboarding/Permissions";
+import { Autostart } from "@/screens/onboarding/Autostart";
 import { Wordmark } from "@/components/brand/Wordmark";
 
 /**
@@ -18,7 +19,7 @@ export const router = createBrowserRouter([
   { path: "/brand", element: <Wordmark /> },
   { path: "/sign-in", element: <SignIn /> },
   { path: "/permissions", element: <Permissions /> },
-  { path: "/permissions/autostart", element: <Placeholder code="O4" name="Autostart permission" /> },
+  { path: "/permissions/autostart", element: <Autostart /> },
   { path: "/setup-guide", element: <Placeholder code="O5" name="Setup guide" /> },
   { path: "/pair/band", element: <Placeholder code="O6" name="Pair band" /> },
   { path: "/pair/bedside", element: <Placeholder code="O7" name="Pair bedside" /> },
