@@ -1,30 +1,54 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Wordmark } from "@/components/brand/Wordmark";
+import { useAuth } from "@/firebase/auth";
+
+/** Long enough for the 1100ms draw to finish and be seen. */
+const DRAW_DWELL_MS = 1750;
+
+/** PRD §10.2a: if auth has not answered by two seconds, go anyway. The
+ *  guard pulls a signed-in user back once the answer arrives. */
+const AUTH_CAP_MS = 2000;
 
 /**
- * O1 — Splash. Holds until auth state is known. No spinner: if it takes
+ * O1 — Splash. Holds until auth state is known, then forwards to M1 for a
+ * signed-in user and to O2 for everyone else. No spinner: if it takes
  * longer than two seconds, the animation isn't the problem.
- * No tagline, no version number.
+ *
+ * The previous version used a fixed timer and always went to sign-in,
+ * which asked a signed-in user to sign in again on every cold start.
  */
 export function Splash() {
   const navigate = useNavigate();
-  const [fading, setFading] = useState(false);
+  const { ready, user } = useAuth();
+  const [drawn, setDrawn] = useState(false);
+  const [capped, setCapped] = useState(false);
 
   useEffect(() => {
-    // Fixed duration until Firebase auth exists.
-    const fade = setTimeout(() => setFading(true), 1750);
-    const go = setTimeout(() => navigate("/sign-in", { replace: true }), 2250);
+    const draw = setTimeout(() => setDrawn(true), DRAW_DWELL_MS);
+    const cap = setTimeout(() => setCapped(true), AUTH_CAP_MS);
     return () => {
-      clearTimeout(fade);
-      clearTimeout(go);
+      clearTimeout(draw);
+      clearTimeout(cap);
     };
-  }, [navigate]);
+  }, []);
+
+  const settled = (ready && drawn) || capped;
+
+  useEffect(() => {
+    if (!settled) return;
+    // Fades first, then leaves. `replace` so back never returns here.
+    const go = setTimeout(
+      () => navigate(user ? "/tonight" : "/sign-in", { replace: true }),
+      500,
+    );
+    return () => clearTimeout(go);
+  }, [settled, user, navigate]);
 
   return (
     <div
       className="flex min-h-screen items-center justify-center bg-[var(--color-base)] px-12 transition-opacity duration-500"
-      style={{ opacity: fading ? 0 : 1 }}
+      style={{ opacity: settled ? 0 : 1 }}
     >
       <div className="w-full max-w-[260px]">
         <Wordmark animate className="block h-auto w-full" />

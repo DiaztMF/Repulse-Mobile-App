@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { Navigate } from "react-router-dom";
 import {
   GoogleAuthProvider,
   createUserWithEmailAndPassword,
@@ -66,4 +67,26 @@ export function useAuth() {
   const c = useContext(AuthContext);
   if (!c) throw new Error("useAuth outside AuthProvider");
   return c;
+}
+
+/**
+ * Everything behind the tab bar and the drawer needs a session. PRD §10.2a.
+ *
+ * Emergency screens are deliberately outside this: a screen that appears
+ * over the lock screen while someone is in danger must not fail on an
+ * expired token, and neither of them reads Firestore.
+ */
+export function RequireAuth({ children }: { children: ReactNode }) {
+  const { user, ready } = useAuth();
+
+  // No project means there is nobody to be signed in as, and the app still
+  // has to be walkable on synthetic data — a guard that locks the app
+  // without a backend would kill the demo safety net.
+  if (!configured) return <>{children}</>;
+
+  // Blank rather than a spinner, and short: this only spans the first
+  // auth callback. DESIGN.md §8 bans the spinner outright.
+  if (!ready) return null;
+
+  return user ? <>{children}</> : <Navigate to="/sign-in" replace />;
 }

@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { AppShell } from "@/components/shell/AppShell";
+import { RequireAuth } from "@/firebase/auth";
 import { Splash } from "@/screens/onboarding/Splash";
 import { Home } from "@/screens/home/Home";
 import { Wordmark } from "@/components/brand/Wordmark";
@@ -41,9 +42,14 @@ export const router = createBrowserRouter([
   // Owns the whole screen while a session runs — no header, no tab bar.
   { path: "/tonight/session", lazy: lazyRoute(() => import("@/screens/home/Session"), "Session") },
 
-  // Three tabs — inside the shell
+  // Three tabs — inside the shell. Everything here needs a session; the
+  // emergency routes below deliberately do not. PRD §10.2a.
   {
-    element: <AppShell />,
+    element: (
+      <RequireAuth>
+        <AppShell />
+      </RequireAuth>
+    ),
     children: [
       { path: "/tonight", element: <Home /> },
 
