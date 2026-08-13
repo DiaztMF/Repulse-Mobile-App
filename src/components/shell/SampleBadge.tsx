@@ -7,8 +7,8 @@ import { COPY } from "@/lib/copy";
 export function SampleBadge() {
   if (!useStore().sample) return null;
   return (
-    <span className="label absolute inset-x-0 -bottom-1 text-center text-[var(--color-ash-dim)]">
+    <p className="label pb-1 text-center text-[var(--color-ash-dim)]">
       {COPY.mockBadge}
-    </span>
+    </p>
   );
 }

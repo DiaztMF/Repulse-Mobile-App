@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { Outlet } from "react-router-dom";
 import { TabBar } from "./TabBar";
 import { ActionSheet } from "./ActionSheet";
 import { useSession } from "@/state/session";
+import { BrandSpinner } from "@/components/brand/BrandSpinner";
 
 /**
  * Owns the tab bar and nothing else. Headers belong to screens, because
@@ -16,7 +17,9 @@ export function AppShell() {
   return (
     <div className="min-h-full">
       <main className={isNight ? "" : "pb-28"}>
-        <Outlet />
+        <Suspense fallback={<BrandSpinner size="fullscreen" label="LOADING..." />}>
+          <Outlet />
+        </Suspense>
       </main>
       {!isNight && <TabBar onAction={() => setSheet(true)} />}
       <ActionSheet open={sheet} onClose={() => setSheet(false)} />

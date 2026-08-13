@@ -1,58 +1,45 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { AppShell } from "@/components/shell/AppShell";
-import { KitchenSink } from "@/screens/KitchenSink";
 import { Splash } from "@/screens/onboarding/Splash";
-import { SignIn } from "@/screens/onboarding/SignIn";
-import { Permissions } from "@/screens/onboarding/Permissions";
-import { Autostart } from "@/screens/onboarding/Autostart";
-import { SetupGuide } from "@/screens/onboarding/SetupGuide";
-import { PairTrouble } from "@/screens/onboarding/PairTrouble";
-import { PairBand } from "@/screens/onboarding/PairBand";
-import { PairBedside } from "@/screens/onboarding/PairBedside";
-import { Calibration } from "@/screens/onboarding/Calibration";
-import { Contacts } from "@/screens/onboarding/Contacts";
-import { Ready } from "@/screens/onboarding/Ready";
 import { Home } from "@/screens/home/Home";
-import { Session } from "@/screens/home/Session";
-import { Vital } from "@/screens/vitals/Vital";
-import { Health } from "@/screens/health/Health";
-import { NightDetail } from "@/screens/health/NightDetail";
-import { BreathingTrend } from "@/screens/health/BreathingTrend";
-import { Insights } from "@/screens/health/Insights";
-import { SettingsScreen } from "@/screens/settings/Settings";
-import { Devices } from "@/screens/settings/Devices";
-import { TestPanel } from "@/screens/settings/TestPanel";
-import { Family } from "@/screens/settings/Family";
-import { Export } from "@/screens/settings/Export";
-import { Ecg } from "@/screens/settings/Ecg";
-import { Alert } from "@/screens/emergency/Alert";
-import { Sos } from "@/screens/emergency/Sos";
-import { Watched } from "@/screens/emergency/Watched";
-import { FamilyView } from "@/screens/emergency/FamilyView";
 import { Wordmark } from "@/components/brand/Wordmark";
 
 /**
- * Every screen gets its route up front, even unbuilt ones — adding
- * routes later means rearranging navigation later.
- * Screen codes (O1, M1, V2, ...) match the spec.
+ * Helper to dynamically load route components (code-splitting)
+ * while handling named exports from screen modules.
+ */
+function lazyRoute<T extends Record<string, any>>(
+  factory: () => Promise<T>,
+  exportName: keyof T
+) {
+  return async () => {
+    const module = await factory();
+    return { Component: module[exportName] };
+  };
+}
+
+/**
+ * Routes with code-splitting. Critical entry points (Splash, Home, Wordmark)
+ * remain eagerly imported for zero latency on cold start. All secondary screens
+ * are loaded lazily on demand.
  */
 export const router = createBrowserRouter([
   // Onboarding — outside the shell, no tab bar
   { path: "/", element: <Splash /> },
   { path: "/brand", element: <Wordmark /> },
-  { path: "/sign-in", element: <SignIn /> },
-  { path: "/permissions", element: <Permissions /> },
-  { path: "/permissions/autostart", element: <Autostart /> },
-  { path: "/setup-guide", element: <SetupGuide /> },
-  { path: "/pair/band", element: <PairBand /> },
-  { path: "/pair/bedside", element: <PairBedside /> },
-  { path: "/pair/:device/trouble", element: <PairTrouble /> },
-  { path: "/calibration", element: <Calibration /> },
-  { path: "/contacts", element: <Contacts /> },
-  { path: "/ready", element: <Ready /> },
+  { path: "/sign-in", lazy: lazyRoute(() => import("@/screens/onboarding/SignIn"), "SignIn") },
+  { path: "/permissions", lazy: lazyRoute(() => import("@/screens/onboarding/Permissions"), "Permissions") },
+  { path: "/permissions/autostart", lazy: lazyRoute(() => import("@/screens/onboarding/Autostart"), "Autostart") },
+  { path: "/setup-guide", lazy: lazyRoute(() => import("@/screens/onboarding/SetupGuide"), "SetupGuide") },
+  { path: "/pair/band", lazy: lazyRoute(() => import("@/screens/onboarding/PairBand"), "PairBand") },
+  { path: "/pair/bedside", lazy: lazyRoute(() => import("@/screens/onboarding/PairBedside"), "PairBedside") },
+  { path: "/pair/:device/trouble", lazy: lazyRoute(() => import("@/screens/onboarding/PairTrouble"), "PairTrouble") },
+  { path: "/calibration", lazy: lazyRoute(() => import("@/screens/onboarding/Calibration"), "Calibration") },
+  { path: "/contacts", lazy: lazyRoute(() => import("@/screens/onboarding/Contacts"), "Contacts") },
+  { path: "/ready", lazy: lazyRoute(() => import("@/screens/onboarding/Ready"), "Ready") },
 
   // Owns the whole screen while a session runs — no header, no tab bar.
-  { path: "/tonight/session", element: <Session /> },
+  { path: "/tonight/session", lazy: lazyRoute(() => import("@/screens/home/Session"), "Session") },
 
   // Three tabs — inside the shell
   {
@@ -61,30 +48,31 @@ export const router = createBrowserRouter([
       { path: "/tonight", element: <Home /> },
 
       { path: "/vitals", element: <Navigate to="/vitals/pulse" replace /> },
-      { path: "/vitals/:metric", element: <Vital /> },
+      { path: "/vitals/:metric", lazy: lazyRoute(() => import("@/screens/vitals/Vital"), "Vital") },
 
-      { path: "/health", element: <Health /> },
-      { path: "/health/night/:date", element: <NightDetail /> },
-      { path: "/health/breathing", element: <BreathingTrend /> },
-      { path: "/health/insights", element: <Insights /> },
+      { path: "/health", lazy: lazyRoute(() => import("@/screens/health/Health"), "Health") },
+      { path: "/health/night/:date", lazy: lazyRoute(() => import("@/screens/health/NightDetail"), "NightDetail") },
+      { path: "/health/breathing", lazy: lazyRoute(() => import("@/screens/health/BreathingTrend"), "BreathingTrend") },
+      { path: "/health/insights", lazy: lazyRoute(() => import("@/screens/health/Insights"), "Insights") },
 
-      { path: "/settings", element: <SettingsScreen /> },
-      { path: "/devices", element: <Devices /> },
-      { path: "/test-panel", element: <TestPanel /> },
-      { path: "/family", element: <Family /> },
-      { path: "/export", element: <Export /> },
-      { path: "/ecg", element: <Ecg /> },
+      { path: "/settings", lazy: lazyRoute(() => import("@/screens/settings/Settings"), "SettingsScreen") },
+      { path: "/devices", lazy: lazyRoute(() => import("@/screens/settings/Devices"), "Devices") },
+      { path: "/test-panel", lazy: lazyRoute(() => import("@/screens/settings/TestPanel"), "TestPanel") },
+      { path: "/family", lazy: lazyRoute(() => import("@/screens/settings/Family"), "Family") },
+      { path: "/export", lazy: lazyRoute(() => import("@/screens/settings/Export"), "Export") },
+      { path: "/ecg", lazy: lazyRoute(() => import("@/screens/settings/Ecg"), "Ecg") },
 
       // Token check page. Drop before shipping.
-      { path: "/kitchen-sink", element: <KitchenSink /> },
+      { path: "/kitchen-sink", lazy: lazyRoute(() => import("@/screens/KitchenSink"), "KitchenSink") },
     ],
   },
 
   // Outside navigation — takes over the screen
-  { path: "/alert", element: <Alert /> },
-  { path: "/sos", element: <Sos /> },
-  { path: "/family/view", element: <FamilyView /> },
-  { path: "/emergency/watched", element: <Watched /> },
+  { path: "/alert", lazy: lazyRoute(() => import("@/screens/emergency/Alert"), "Alert") },
+  { path: "/sos", lazy: lazyRoute(() => import("@/screens/emergency/Sos"), "Sos") },
+  { path: "/family/view", lazy: lazyRoute(() => import("@/screens/emergency/FamilyView"), "FamilyView") },
+  { path: "/emergency/watched", lazy: lazyRoute(() => import("@/screens/emergency/Watched"), "Watched") },
 
   { path: "*", element: <Navigate to="/tonight" replace /> },
 ]);
+

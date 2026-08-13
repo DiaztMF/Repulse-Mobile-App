@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronRight, Wind, Sparkles, AlertTriangle, Moon, Menu } from "lucide-react";
+import { ChevronRight, Wind, Sparkles, AlertTriangle, Moon } from "lucide-react";
+import { Header } from "@/components/shell/Header";
 import { Drawer } from "@/components/shell/Drawer";
 import { formatDuration, bandOfScore } from "@/data/mock";
 import { useStore } from "@/data/store";
@@ -27,12 +28,7 @@ export function Health() {
 
   return (
     <div className="pb-4">
-      <header className="safe-t flex h-14 items-center gap-4 px-5">
-        <button onClick={() => setMenu(true)} aria-label="Menu">
-          <Menu className="size-6" strokeWidth={1.5} />
-        </button>
-        <h1 className="label text-[var(--color-ivory)]">Health</h1>
-      </header>
+      <Header title="Health" devices="both" onMenu={() => setMenu(true)} onDevices={() => navigate("/devices")} />
       <Drawer open={menu} onClose={() => setMenu(false)} />
 
       <div className="space-y-3 px-5 pt-2">

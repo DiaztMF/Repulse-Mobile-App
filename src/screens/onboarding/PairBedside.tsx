@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Check } from "lucide-react";
-import { TopBar } from "@/components/shell/TopBar";
+import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { DeviceArt } from "@/components/ui/DeviceArt";
 
@@ -48,7 +48,7 @@ export function PairBedside() {
   return (
     <div className="bg-setup flex min-h-screen flex-col px-6 pb-8">
       <div className="flex items-center justify-between">
-        <TopBar />
+        <PageHeader title="Pair the bedside unit" />
         {searching && (
           <button
             onClick={() => navigate("/pair/bedside/trouble")}

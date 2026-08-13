@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
 import { ChevronLeft, ChevronRight, Info } from "lucide-react";
+import { PageHeader } from "@/components/shell/PageHeader";
 import { useStore } from "@/data/store";
 import { cn } from "@/lib/cn";
 
@@ -153,17 +153,12 @@ export function VitalLayout({
   children?: ReactNode;
   footnote?: ReactNode;
 }) {
-  const navigate = useNavigate();
-
   return (
     <div className="pb-4">
-      <header className="safe-t grid h-14 grid-cols-[auto_1fr_auto] items-center px-5">
-        <button onClick={() => navigate(-1)} aria-label="Back">
-          <ChevronLeft className="size-6" strokeWidth={1.5} />
-        </button>
-        <span className="label text-center text-[var(--color-ivory)]">{title}</span>
-        <Info className="size-5 text-[var(--color-ash)]" strokeWidth={1.5} />
-      </header>
+      <PageHeader
+        title={title}
+        right={<Info className="size-5 text-[var(--color-ash)]" strokeWidth={1.5} />}
+      />
 
       <DateStrip date={date} onChange={onDate} />
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { TopBar } from "@/components/shell/TopBar";
+import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { GOOD, holdGate } from "@/lib/fitGate";
 
@@ -103,7 +103,7 @@ export function Calibration() {
 
   return (
     <div className="bg-setup flex min-h-screen flex-col px-6 pb-8">
-      {stage !== "running" && <TopBar />}
+      {stage !== "running" && <PageHeader title="Calibration" />}
 
       {stage === "explain" && (
         <>

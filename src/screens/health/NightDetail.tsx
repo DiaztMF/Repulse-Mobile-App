@@ -1,5 +1,5 @@
-import { useNavigate, useParams, Navigate } from "react-router-dom";
-import { ChevronLeft } from "lucide-react";
+import { useParams, Navigate } from "react-router-dom";
+import { PageHeader } from "@/components/shell/PageHeader";
 import { Sparkline } from "@/components/ui/Sparkline";
 import { Hypnogram } from "@/components/vitals/Hypnogram";
 import { Timeline } from "@/components/home/Timeline";
@@ -16,7 +16,6 @@ import { COPY } from "@/lib/copy";
  * they were handed.
  */
 export function NightDetail() {
-  const navigate = useNavigate();
   const { date } = useParams<{ date: string }>();
   const n = useNight(date);
   if (!n) return <Navigate to="/health" replace />;
@@ -27,19 +26,13 @@ export function NightDetail() {
 
   return (
     <div className="pb-4">
-      <header className="safe-t grid h-14 grid-cols-[auto_1fr_auto] items-center px-5">
-        <button onClick={() => navigate(-1)} aria-label="Back">
-          <ChevronLeft className="size-6" strokeWidth={1.5} />
-        </button>
-        <span className="label text-center text-[var(--color-ivory)]">
-          {new Date(n.date + "T12:00:00").toLocaleDateString("en-GB", {
-            weekday: "long",
-            day: "numeric",
-            month: "long",
-          })}
-        </span>
-        <span className="w-6" />
-      </header>
+      <PageHeader
+        title={new Date(n.date + "T12:00:00").toLocaleDateString("en-GB", {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+        })}
+      />
 
       <div className="px-5">
         {band ? (

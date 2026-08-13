@@ -28,12 +28,16 @@ function DeviceRing({ state }: { state: DeviceState }) {
 }
 
 export function Header({
+  title,
   status,
   devices = "none",
   unread = false,
   onMenu,
   onDevices,
 }: {
+  /** Tab roots that are not Home name themselves instead of repeating
+   *  the wordmark on every tab. */
+  title?: string;
   status?: string;
   devices?: DeviceState;
   unread?: boolean;
@@ -44,7 +48,8 @@ export function Header({
     // Grid, not flex-between: the wordmark centers on the screen rather
     // than between two unequal zones, and an SVG flex item drags its
     // viewBox width into the layout.
-    <header className="safe-t sticky top-0 z-30 relative grid h-14 grid-cols-[1fr_auto_1fr] items-center bg-[var(--color-base)]/90 px-5 backdrop-blur-xl">
+    <div className="safe-t sticky top-0 z-30 bg-[var(--color-base)]/90 backdrop-blur-xl">
+      <header className="grid h-14 grid-cols-[1fr_auto_1fr] items-center px-5">
       <button
         onClick={onMenu}
         aria-label="Menu"
@@ -59,6 +64,8 @@ export function Header({
       <div className="justify-self-center">
         {status ? (
           <span className="label text-[var(--color-ash)]">{status}</span>
+        ) : title ? (
+          <span className="label text-[var(--color-ivory)]">{title}</span>
         ) : (
           <Wordmark className="block h-auto w-[118px]" strokeWidth={6} />
         )}
@@ -80,9 +87,10 @@ export function Header({
         <button onClick={onDevices} aria-label="Devices">
           <DeviceRing state={devices} />
         </button>
-      </div>
+        </div>
+      </header>
 
       <SampleBadge />
-    </header>
+    </div>
   );
 }

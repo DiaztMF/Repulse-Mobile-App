@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
-import { TopBar } from "@/components/shell/TopBar";
+import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/Button";
 
 /**
@@ -52,7 +52,7 @@ export function Autostart() {
 
   return (
     <div className="bg-setup flex min-h-screen flex-col px-6 pb-8">
-      <TopBar />
+      <PageHeader title="Autostart" />
 
       <h1 className="mt-8 text-[length:var(--text-title)] font-medium leading-snug">
         One more step, and it decides the rest

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, X } from "lucide-react";
-import { TopBar } from "@/components/shell/TopBar";
+import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 
@@ -31,7 +31,7 @@ export function Contacts() {
 
   return (
     <div className="bg-setup flex min-h-screen flex-col px-6 pb-8">
-      <TopBar title="Emergency contacts" />
+      <PageHeader title="Emergency contacts" />
 
       <h1 className="mt-8 text-[length:var(--text-title)] font-medium leading-snug">
         Who do we reach if something happens?

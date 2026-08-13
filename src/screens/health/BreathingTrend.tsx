@@ -1,5 +1,4 @@
-import { useNavigate } from "react-router-dom";
-import { ChevronLeft } from "lucide-react";
+import { PageHeader } from "@/components/shell/PageHeader";
 import { formatDuration } from "@/data/mock";
 import { useStore } from "@/data/store";
 import { METRIC_COLOR, BAND_COLOR } from "@/lib/metrics";
@@ -12,7 +11,6 @@ import { RowList } from "@/components/vitals/VitalLayout";
  * exists rather than a verdict on the nightly view.
  */
 export function BreathingTrend() {
-  const navigate = useNavigate();
   const WEEK = useStore().nights.slice(0, 7);
 
   const flagged = WEEK.filter((n) => n.breathing.desatPerHour >= 1);
@@ -32,15 +30,7 @@ export function BreathingTrend() {
 
   return (
     <div className="pb-4">
-      <header className="safe-t grid h-14 grid-cols-[auto_1fr_auto] items-center px-5">
-        <button onClick={() => navigate(-1)} aria-label="Back">
-          <ChevronLeft className="size-6" strokeWidth={1.5} />
-        </button>
-        <span className="label text-center text-[var(--color-ivory)]">
-          Breathing trend
-        </span>
-        <span className="w-6" />
-      </header>
+      <PageHeader title="Breathing trend" />
 
       <div className="px-5">
         <p className="label mt-6 text-[var(--color-ash)]">Last 7 nights</p>

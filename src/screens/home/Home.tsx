@@ -212,21 +212,6 @@ export function Home() {
         </Card>
       </div>
 
-      {/* The primary action of the whole app. Without it the night
-          session screen could not be reached at all. */}
-      <div className="px-5 pt-8">
-        <Button
-          size="lg"
-          register="system"
-          onClick={() => navigate("/tonight/session")}
-        >
-          Start sleep
-        </Button>
-        <p className="label mt-3 text-center text-[var(--color-ash)]">
-          Wake 06:00–06:30 · sunset {sunsetAt}
-        </p>
-      </div>
-
       {night.events.length > 0 && (
         <section className="px-5 pt-8">
           <h2 className="text-[length:var(--text-card)] font-medium">Timeline</h2>
@@ -239,6 +224,21 @@ export function Home() {
           </Button>
         </section>
       )}
+      {/* Last on the page, like every other scrolling screen. At night
+          the banner above and the round button beside the tab bar both
+          reach this without scrolling. */}
+      <div className="px-5 pt-8">
+        <Button
+          size="lg"
+          register="system"
+          onClick={() => navigate("/tonight/session")}
+        >
+          Start sleep
+        </Button>
+        <p className="label mt-3 text-center text-[var(--color-ash)]">
+          Wake 06:00–06:30 · sunset {sunsetAt}
+        </p>
+      </div>
     </div>
   );
 }

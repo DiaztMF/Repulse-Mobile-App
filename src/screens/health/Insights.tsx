@@ -1,5 +1,4 @@
-import { useNavigate } from "react-router-dom";
-import { ChevronLeft } from "lucide-react";
+import { PageHeader } from "@/components/shell/PageHeader";
 import { useStore } from "@/data/store";
 import { BAND_COLOR } from "@/lib/metrics";
 
@@ -13,7 +12,6 @@ const MIN_TRIES = 3;
  * ever be cut.
  */
 export function Insights() {
-  const navigate = useNavigate();
   const { interventions: INTERVENTIONS } = useStore();
 
   const ranked = [...INTERVENTIONS].sort((a, b) => {
@@ -25,15 +23,7 @@ export function Insights() {
 
   return (
     <div className="pb-4">
-      <header className="safe-t grid h-14 grid-cols-[auto_1fr_auto] items-center px-5">
-        <button onClick={() => navigate(-1)} aria-label="Back">
-          <ChevronLeft className="size-6" strokeWidth={1.5} />
-        </button>
-        <span className="label text-center text-[var(--color-ivory)]">
-          What helps you settle
-        </span>
-        <span className="w-6" />
-      </header>
+      <PageHeader title="What helps you settle" />
 
       <div className="px-5">
         <p className="mt-6 text-[var(--color-ash)]">

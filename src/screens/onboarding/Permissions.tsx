@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Check } from "lucide-react";
-import { TopBar } from "@/components/shell/TopBar";
+import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 
@@ -52,7 +52,10 @@ export function Permissions() {
 
   return (
     <div className="bg-setup flex min-h-screen flex-col px-6 pb-8">
-      <TopBar title="Permissions needed" right={`${done}/${PERMISSIONS.length}`} />
+      <PageHeader
+        title="Permissions needed"
+        right={`${done}/${PERMISSIONS.length}`}
+      />
 
       <p className="mt-8 text-[length:var(--text-title)] font-medium leading-snug">
         RePulse watches all night
