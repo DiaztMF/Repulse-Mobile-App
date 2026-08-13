@@ -111,7 +111,7 @@ export function BreathingTrend() {
           </div>
         )}
 
-        <p className="label mt-8 text-center text-[var(--color-ash-dim)]">
+        <p className="label mt-8 text-center text-[var(--color-ash)]">
           {COPY.disclaimer}
         </p>
       </div>

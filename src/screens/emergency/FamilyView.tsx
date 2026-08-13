@@ -70,7 +70,7 @@ export function FamilyView() {
           You see summaries and alerts only. Detailed readings stay with {WHO}.
         </p>
 
-        <p className="label mt-8 text-center text-[var(--color-ash-dim)]">
+        <p className="label mt-8 text-center text-[var(--color-ash)]">
           {COPY.disclaimer}
         </p>
       </div>

@@ -124,12 +124,12 @@ export function Vital() {
           n.breathing.desatPerHour >= 1 ? (
             <div className="rounded-[var(--radius-card)] bg-[var(--color-surface)] p-5">
               <p>{COPY.breathingScreening}</p>
-              <p className="label mt-4 text-[var(--color-ash-dim)]">
+              <p className="label mt-4 text-[var(--color-ash)]">
                 {COPY.disclaimer}
               </p>
             </div>
           ) : (
-            <p className="label text-[var(--color-ash-dim)]">{COPY.disclaimer}</p>
+            <p className="label text-[var(--color-ash)]">{COPY.disclaimer}</p>
           )
         }
       />
