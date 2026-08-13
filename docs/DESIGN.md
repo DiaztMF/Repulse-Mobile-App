@@ -1,10 +1,11 @@
 # RePulse — Brand & Design Guidelines
 
-**Versi:** 2.3 · 13 Agustus 2026
+**Versi:** 2.4 · 13 Agustus 2026
 **Menggantikan:** v1.0 (10 Agustus)
 **v2.1:** hasil diskusi alur — pemilih orang, hero saat tidak ada skor, asal data di linimasa, SpO₂ sebagai simpangan
 **v2.2:** Bagian 6.11 ditambahkan — target sentuh, indikator fokus, dan kontras palet yang dihitung. Ditulis setelah §7.1 dan §4.5 ketahuan melarang sesuatu tanpa menyebut penggantinya
 **v2.3:** Bagian 7.1a ditambahkan — tombol utama tidak lagi dimatikan oleh isian yang belum sah. Aturan lama dibatalkan, alasannya di tempatnya
+**v2.4:** Bagian 10.1 ditambahkan (mode terang, dan siapa yang menang saat sesi berjalan). Larangan spinner melingkar dicabut — Bagian 8 sekarang menetapkan `BrandSpinner` sebagai pemuat wajib
 **Berlaku untuk:** prototipe mandiri, dan implementasi React + Tailwind + shadcn/ui setelahnya
 
 **Pembagian wewenang antar dokumen**
@@ -554,7 +555,7 @@ Yang dilarang: tombol primer terjepit di tengah gulungan. Aksi utama tidak boleh
 | **Target sentuh** | Minimal **44 × 44** untuk apa pun yang bisa diketuk. Yang terlihat boleh lebih kecil — tambahkan padding, jangan besarkan hurufnya |
 | **Jarak antar target** | Minimal 8 antara dua target yang berdekatan |
 | **Fokus papan tik** | Kontrol yang mendapat fokus mengubah garisnya sendiri ke `Lamp Amber`. Tidak ada `outline` bawaan peramban, dan tidak ada cincin tambahan di luar kontrol |
-| **Kontras teks** | Minimal **4.5:1** terhadap latarnya untuk teks yang harus dibaca |
+| **Kontras teks** | Minimal **4.5:1** terhadap latarnya untuk teks yang harus dibaca. Angka di bawah dihitung terhadap latar **gelap**; mode terang punya tabelnya sendiri di 10.1, dan belum memenuhi ambang ini |
 | **Status yang berubah** | Pesan galat dan keberhasilan berada di `aria-live="polite"`. Tanpa itu, pembaca layar diam saat sesuatu gagal |
 | **Ikon tanpa teks** | Wajib punya `aria-label`. Ikon 20px sendirian tidak berarti apa-apa bagi pembaca layar |
 | **Gerak** | `prefers-reduced-motion` dihormati — Bagian 9 |
@@ -757,9 +758,31 @@ Ini yang jadi "tombol terbalik" di 7.1. Batasnya satu per layar, dan **tidak per
 | **Bilah langkah** | Segmen setara selebar layar, terisi `Warm Ivory`, sisanya `Ash Dim` 30%. Pola WHOOP. **Bukan titik-titik** |
 | **Bilah progres** | Garis 3px, terisi `Lamp Amber`. Untuk sunset, kalibrasi, kekencangan, rekonstruksi buffer |
 | **Cincin progres** | Hanya di kalibrasi. Tidak pernah untuk nilai hidup |
-| **Pemuatan** | Skeleton seukuran tata letak aslinya. **Tidak ada spinner melingkar** |
+| **Pemuatan** | `BrandSpinner` — cincin `Lamp Amber` berputar dengan glif `R` di tengahnya. Lihat 8.1 |
 | **Status kosong** | Kotak garis putus-putus, satu kalimat, menyebut angka yang kurang. Tanpa ilustrasi |
 | **Anotasi gambar** | Bagian 7.4 |
+
+### 8.1 `BrandSpinner` — pemuat wajib
+
+**Ditambahkan 13 Agustus. Membatalkan larangan spinner melingkar** yang sebelumnya berdiri di tabel di atas dan di daftar DONT Bagian 11.
+
+Larangan itu dibuat untuk alasan yang benar — skeleton memberi tahu bentuk apa yang sedang datang, sementara spinner hanya memberi tahu bahwa sesuatu belum selesai. Tapi larangan itu ditulis tanpa pengganti untuk kasus di mana **tidak ada bentuk yang bisa dijanjikan**: rute yang belum dimuat kodenya, dan panggilan auth pertama. Di dua tempat itu aplikasi tidak tahu apa yang akan digambar, jadi skeleton akan berbohong tentang tata letaknya.
+
+Yang terjadi kemudian persis seperti kasus `outline: none` di Bagian 6.11 — larangan tanpa pengganti dipenuhi dengan **`null`**. Layar kosong. Untuk satu frame itu benar; untuk apa pun yang lebih lama itu terbaca sebagai aplikasi mati, dan pengguna menekan tombol lagi.
+
+**Ketentuan**
+
+| Hal | Ketentuan |
+|---|---|
+| Cincin | `Lamp Amber`, satu busur, `strokeLinecap` bulat, satu putaran per **2 detik** |
+| Inti | Glif `R` monoline dari wordmark, `Warm Ivory`. Bukan logo lengkap, bukan maskot |
+| Ukuran | `sm` 40 · `md` 72 · `lg` 110 · `fullscreen` 88 di atas `Ember Base` penuh |
+| Peran ARIA | `role="progressbar"` dengan `aria-label`. Wajib — ini satu-satunya isi layar |
+| Dipakai di | Fallback `Suspense`, gerbang `RequireAuth`, dan hanya itu |
+| **Tidak dipakai di** | Kartu, daftar, grafik, atau apa pun yang bentuk akhirnya sudah diketahui — di sana skeleton tetap benar |
+| Sesi tidur | **Tidak pernah.** Bagian 10 melarang gerak berulang di layar sesi, dan ini gerak berulang |
+
+Baris terakhir bukan pengecualian, melainkan Bagian 9 yang tetap berlaku: aplikasi ini punya tepat dua gerakan berulang, dan pemuat bukan salah satunya. `BrandSpinner` hidup di layar siang, sebelum sesi dimulai.
 
 ---
 
@@ -805,6 +828,57 @@ Aplikasi ini punya dua tingkat kegelapan. Ini pembeda yang paling mudah hilang s
 
 Harus terlihat seperti aplikasi yang sama, diturunkan volumenya — bukan dua desain berbeda.
 
+### 10.1 Mode terang — Warm Linen
+
+**Ditambahkan 13 Agustus.** Sampai versi ini dokumennya hanya mengenal satu latar. Mode terang sekarang ada, bisa dipilih pengguna di Pengaturan atau di laci, dan **gelap tetap bawaan**.
+
+Palet ini adalah kertas hangat, bukan putih. Alasannya sama dengan alasan latar gelapnya `#100D0A` dan bukan hitam murni: tepi yang keras melelahkan mata, dan produk ini soal mata yang lelah.
+
+| Peran | Gelap | Terang |
+|---|---|---|
+| `Ember Base` | `#100D0A` | `#F4EFE6` |
+| Permukaan | `#1A1512` | `#E8E1D5` |
+| Terangkat | `#241D18` | `#DCD4C6` |
+| `Warm Ivory` (teks utama) | `#EDE3D6` | `#1C1611` |
+| `Ash Grey` | `#8C8175` | `#5C5348` |
+| `Ash Dim` | `#5C554D` | `#9E9386` |
+| `Lamp Amber` | `#E8A33D` | `#D48C26` |
+| `Lamp Sleep` | `#D0A17A` | `#B07D56` |
+| `Lamp Breath` | `#C9846B` | `#B56C54` |
+| Pita baik / cukup / rendah | `#F0B65C` `#B98243` `#B4522F` | `#D99A38` `#AA7334` `#B4522F` |
+
+`Signal Red` tidak punya varian terang. Bagian 4.4 berlaku utuh di kedua mode — merah itu satu warna, dan artinya tidak boleh bergeser karena jam berapa sekarang.
+
+#### Mode malam selalu menang
+
+Ini bukan preferensi, ini urutan yang mengikat. `data-theme` dan `data-night` sama-sama menempel di `<html>` dengan spesifisitas identik, jadi tanpa aturan tegas urutan berkas yang memutuskan — dan hasilnya pernah: **layar linen putih di kamar gelap jam 2 pagi**, persis satu hal yang Bagian 10 ada untuk mencegahnya.
+
+> **Seluruh aturan mode terang dimatikan selama sesi tidur berjalan.** Di kode: `[data-theme="light"]:not([data-night="true"])`, dan hal yang sama berlaku untuk `.hero-*`, `.bg-alert`, `color-scheme`, dan warna bilah status.
+
+Yang dipilih pengguna di Pengaturan berlaku untuk layar siang. Sesi tidur bukan layar siang.
+
+#### Kontras di mode terang — penyimpangan yang dicatat
+
+Tabel di Bagian 6.11 dihitung terhadap `Ember Base` **gelap**, dan angkanya masih berlaku di sana. Terhadap linen, keluarga ambernya tidak lolos:
+
+| Warna | Terhadap gelap | Terhadap linen |
+|---|---|---|
+| `Warm Ivory` | 15.3:1 | **15.6:1** |
+| `Ash Grey` | 5.1:1 | **6.6:1** |
+| `Lamp Amber` | 9.0:1 | **2.4:1** |
+| Pita baik | 10.7:1 | **2.1:1** |
+| Pita cukup | 5.9:1 | **3.5:1** |
+| `Lamp Breath` | 6.5:1 | **3.5:1** |
+| `Ash Dim` | 2.6:1 | 2.6:1 |
+
+Amber di atas kertas hangat adalah dua warna dengan kecerahan yang berdekatan; itu sifat paletnya, bukan kesalahan penerapan. Angka-angka itu di bawah ambang 4.5:1 yang ditetapkan Bagian 6.11, dan ambang itu tidak dilonggarkan — yang dicatat adalah bahwa **mode terang belum memenuhinya**, dan palet ini dipertahankan apa adanya atas keputusan pemilik produk.
+
+Konsekuensinya nyata dan harus diketahui sebelum diputuskan lagi: label pita skor, `SIGN IN`, `START NOW`, dan status "Good contact" semuanya dibawa oleh amber. Di mode gelap semuanya lolos dengan lapang.
+
+Jalan keluarnya, kalau nanti ditempuh, bukan menggelapkan amber satu per satu — ketiga pita harus tetap saling terbedakan dalam greyscale (Bagian 4.3), jadi menggeser satu memaksa menggeser semuanya. Itu satu sesi palet, bukan tambalan.
+
+Sampai itu terjadi: **gelap adalah mode yang dipakai untuk demo dan untuk penilaian.**
+
 ---
 
 ## 11. DOs dan DONTs
@@ -833,7 +907,7 @@ Harus terlihat seperti aplikasi yang sama, diturunkan volumenya — bukan dua de
 - Cincin progres untuk nilai hidup — hanya sah di kalibrasi
 - Empat kartu sensor sejajar berlebar sama
 - Foto stok lanskap sebagai latar hero
-- Spinner melingkar, ilustrasi status kosong, maskot
+- Ilustrasi status kosong, maskot
 - Bulan sabit, bintang, awan, gradien mesh
 - Titik-titik untuk indikator langkah
 - Tombol utama dimatikan karena isian belum sah — hanya pekerjaan yang sedang berjalan boleh mematikannya (7.1a)
@@ -937,3 +1011,5 @@ Ditulis terbuka supaya bisa dibantah.
 | WHOOP: tombol masuk mati sampai isian sah | Tombol selalu hidup, dinilai saat diketuk | Tombol mati tidak bisa difokus, jadi tidak pernah menjelaskan dirinya ke pembaca layar — dan panjang sandi tidak terlihat, jadi tidak ada yang diajarkan. Bagian 7.1a |
 | Umum: mikro-interaksi di setiap komponen aktif | Tepat dua | Gerakan berulang di kamar gelap melawan tujuan produk |
 | Umum: hero rata tengah dilarang | Layar darurat tetap rata tengah | Kesimetrisan di `ALERT` dan `SOS` menandakan "berhenti dan baca" |
+| Bagian 8 versi lama: tidak ada spinner melingkar | `BrandSpinner` wajib di `Suspense` dan gerbang auth | Larangan itu tidak menyebut pengganti untuk keadaan yang bentuknya belum diketahui, dan dipenuhi dengan layar kosong. Bagian 8.1 |
+| Bagian 6.11: kontras teks minimal 4.5:1 | Mode terang mengirim amber di 2.1–3.5:1 | Palet linen dipertahankan tanpa perubahan atas keputusan pemilik produk. Ambangnya tidak dilonggarkan, kegagalannya dicatat. Bagian 10.1 |
