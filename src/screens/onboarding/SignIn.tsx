@@ -95,7 +95,18 @@ export function SignIn() {
         </p>
       )}
 
-      <button className="label mt-7 self-center text-[var(--color-ivory)]">
+      <button
+        onClick={() =>
+          looksLikeEmail(email)
+            ? run(async () => {
+                await auth.reset(email);
+                setError("Reset link sent. Check your inbox.");
+                throw new Error("handled");
+              })
+            : setError("Enter your email first, then tap this.")
+        }
+        className="label mt-7 self-center text-[var(--color-ivory)]"
+      >
         Forgot your password?
       </button>
 

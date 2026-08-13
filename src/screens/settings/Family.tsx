@@ -1,16 +1,19 @@
 import { useState } from "react";
-import { X } from "lucide-react";
+import { X, ChevronRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/Button";
 
-const VIEWERS = [{ name: "Sari", since: "added 4 Aug" }];
+const INITIAL = [{ name: "Sari", since: "added 4 Aug" }];
 
 /**
  * D5 — Family. One account can both wear a band and watch someone else,
  * so this grants a view rather than creating a different kind of user.
  */
 export function Family() {
+  const navigate = useNavigate();
   const [code, setCode] = useState<string | null>(null);
+  const [viewers, setViewers] = useState(INITIAL);
 
   return (
     <div className="pb-8">
@@ -23,8 +26,11 @@ export function Family() {
         </p>
 
         <h2 className="label mt-8 text-[var(--color-ash)]">Who can see you</h2>
+        {viewers.length === 0 && (
+          <p className="mt-3 text-[var(--color-ash)]">Nobody yet.</p>
+        )}
         <ul className="mt-3 space-y-2">
-          {VIEWERS.map((v) => (
+          {viewers.map((v) => (
             <li
               key={v.name}
               className="flex items-center justify-between gap-4 rounded-[var(--radius-control)] bg-[var(--color-surface)] px-4 py-4"
@@ -35,14 +41,34 @@ export function Family() {
                   {v.since}
                 </span>
               </span>
-              <button aria-label={`Remove ${v.name}`} className="text-[var(--color-ash)]">
+              <button
+                onClick={() => setViewers((l) => l.filter((x) => x.name !== v.name))}
+                aria-label={`Remove ${v.name}`}
+                className="text-[var(--color-ash)]"
+              >
                 <X className="size-5" strokeWidth={1.5} />
               </button>
             </li>
           ))}
         </ul>
 
-        <h2 className="label mt-8 text-[var(--color-ash)]">Invite</h2>
+        {/* The other half of the feature: this account can also watch
+            someone else, so there has to be a way into that view. */}
+        <h2 className="label mt-10 text-[var(--color-ash)]">People you watch</h2>
+        <button
+          onClick={() => navigate("/family/view")}
+          className="mt-3 flex w-full items-center justify-between gap-4 rounded-[var(--radius-control)] bg-[var(--color-surface)] px-4 py-4 text-left"
+        >
+          <span>
+            <span className="block">Sari</span>
+            <span className="mt-0.5 block text-[length:var(--text-meta)] text-[var(--color-ash)]">
+              Summaries and alerts only
+            </span>
+          </span>
+          <ChevronRight className="size-5 text-[var(--color-ash)]" strokeWidth={1.5} />
+        </button>
+
+        <h2 className="label mt-10 text-[var(--color-ash)]">Invite</h2>
         {code ? (
           <div className="mt-3 rounded-[var(--radius-card)] bg-[var(--color-surface)] p-5 text-center">
             <p className="num text-[length:var(--text-metric)] tracking-[0.2em]">

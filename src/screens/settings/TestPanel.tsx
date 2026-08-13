@@ -133,6 +133,13 @@ export function TestPanel() {
         <Button variant="secondary" className="mt-4" onClick={() => navigate("/ready")}>
           Skip calibration
         </Button>
+        <Button
+          variant="secondary"
+          className="mt-3"
+          onClick={() => navigate("/emergency/watched")}
+        >
+          Show a watched person's alert
+        </Button>
 
         <h2 className="label mt-8 text-[var(--color-ash)]">Demo data</h2>
         <p className="mt-2 text-[length:var(--text-meta)] text-[var(--color-ash)]">

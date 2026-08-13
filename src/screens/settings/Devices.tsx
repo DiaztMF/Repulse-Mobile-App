@@ -38,10 +38,19 @@ function DeviceCard({
         ))}
       </dl>
 
-      <div className="mt-6 flex gap-3">
-        <Button variant="secondary" className="h-9 w-auto px-4 text-[length:var(--text-label)]">
+      <div className="mt-6 flex items-center gap-4">
+        {/* Disconnecting is a BLE operation. Until that layer exists the
+            control says so instead of failing quietly. */}
+        <Button
+          variant="secondary"
+          disabled
+          className="h-9 w-auto px-4 text-[length:var(--text-label)]"
+        >
           Disconnect
         </Button>
+        <span className="text-[length:var(--text-meta)] text-[var(--color-ash)]">
+          Needs the Bluetooth link
+        </span>
       </div>
     </section>
   );

@@ -38,10 +38,17 @@ export function Home() {
   const scored = night.score !== null;
   const band = scored ? bandOfScore(night.score!) : "fair";
 
-  // TODO: read the real schedule. Kept here so the banner state is
-  // reachable while the session store is still a stub.
-  const sunsetAt = "21:40";
-  const showSunsetBanner = false;
+  // Driven by the clock rather than a constant. The previous version
+  // pinned this false, which made the banner unreachable in every state
+  // the app could actually be in.
+  const [delayMin, setDelayMin] = useState(0);
+  const [dismissed, setDismissed] = useState(false);
+  const now = new Date();
+  const minutesNow = now.getHours() * 60 + now.getMinutes();
+  const sunsetMin = 21 * 60 + 40 + delayMin;
+  const sunsetAt = `${String(Math.floor(sunsetMin / 60) % 24).padStart(2, "0")}:${String(sunsetMin % 60).padStart(2, "0")}`;
+  const showSunsetBanner =
+    !dismissed && minutesNow >= sunsetMin - 15 && minutesNow < sunsetMin + 25;
 
   return (
     <div className="pb-4">
@@ -107,16 +114,27 @@ export function Home() {
               <p className="text-[length:var(--text-card)]">
                 Sunset begins at {sunsetAt}
               </p>
-              <X className="size-5 shrink-0 text-[var(--color-ash)]" strokeWidth={1.5} />
+              <button onClick={() => setDismissed(true)} aria-label="Dismiss">
+                <X className="size-5 shrink-0 text-[var(--color-ash)]" strokeWidth={1.5} />
+              </button>
             </div>
             <p className="mt-1 text-[length:var(--text-meta)] text-[var(--color-ash)]">
               The lights dim over 25 minutes.
             </p>
             <div className="mt-4 flex items-center gap-6">
-              <Button variant="secondary" className="h-9 w-auto px-4 text-[length:var(--text-label)]">
+              <Button
+                variant="secondary"
+                className="h-9 w-auto px-4 text-[length:var(--text-label)]"
+                onClick={() => setDelayMin((d) => d + 30)}
+              >
                 Delay 30m
               </Button>
-              <button className="label text-[var(--color-pulse)]">Start now</button>
+              <button
+                onClick={() => navigate("/tonight/session")}
+                className="label text-[var(--color-pulse)]"
+              >
+                Start now
+              </button>
             </div>
           </div>
         )}
@@ -192,6 +210,21 @@ export function Home() {
             ))}
           </div>
         </Card>
+      </div>
+
+      {/* The primary action of the whole app. Without it the night
+          session screen could not be reached at all. */}
+      <div className="px-5 pt-8">
+        <Button
+          size="lg"
+          register="system"
+          onClick={() => navigate("/tonight/session")}
+        >
+          Start sleep
+        </Button>
+        <p className="label mt-3 text-center text-[var(--color-ash)]">
+          Wake 06:00–06:30 · sunset {sunsetAt}
+        </p>
       </div>
 
       {night.events.length > 0 && (

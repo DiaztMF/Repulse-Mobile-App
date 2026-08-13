@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import { TabBar } from "./TabBar";
+import { ActionSheet } from "./ActionSheet";
 import { useSession } from "@/state/session";
 
 /**
@@ -9,13 +11,15 @@ import { useSession } from "@/state/session";
  */
 export function AppShell() {
   const { isNight } = useSession();
+  const [sheet, setSheet] = useState(false);
 
   return (
     <div className="min-h-full">
       <main className={isNight ? "" : "pb-28"}>
         <Outlet />
       </main>
-      {!isNight && <TabBar />}
+      {!isNight && <TabBar onAction={() => setSheet(true)} />}
+      <ActionSheet open={sheet} onClose={() => setSheet(false)} />
     </div>
   );
 }

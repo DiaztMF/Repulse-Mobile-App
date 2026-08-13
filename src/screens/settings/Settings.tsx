@@ -3,6 +3,10 @@ import { PageHeader } from "@/components/shell/PageHeader";
 import { COPY } from "@/lib/copy";
 import { cn } from "@/lib/cn";
 
+/** Rendered as a plain row, not a button. Editing thresholds needs the
+ *  firmware config write, so a tappable row here would promise something
+ *  that cannot happen yet — and a button that does nothing is worse than
+ *  no button. */
 function Row({
   label,
   value,
@@ -13,7 +17,7 @@ function Row({
   note?: string;
 }) {
   return (
-    <button className="flex w-full items-baseline justify-between gap-4 py-4 text-left">
+    <div className="flex w-full items-baseline justify-between gap-4 py-4 text-left">
       <span className="min-w-0">
         <span className="block">{label}</span>
         {note && (
@@ -23,7 +27,7 @@ function Row({
         )}
       </span>
       <span className="num shrink-0 text-[var(--color-ash)]">{value}</span>
-    </button>
+    </div>
   );
 }
 
@@ -120,7 +124,12 @@ export function SettingsScreen() {
           />
         </Section>
 
-        <p className="label mt-10 text-center text-[var(--color-ash-dim)]">
+        <p className="mt-10 text-[length:var(--text-meta)] text-[var(--color-ash)]">
+          These values are written to the band during pairing. Editing them
+          arrives with the firmware link.
+        </p>
+
+        <p className="label mt-8 text-center text-[var(--color-ash-dim)]">
           {COPY.disclaimer}
         </p>
       </div>

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Navigate, useParams } from "react-router-dom";
 import { Sparkline } from "@/components/ui/Sparkline";
 import {
@@ -8,7 +9,7 @@ import {
 } from "@/components/vitals/VitalLayout";
 import { Hypnogram } from "@/components/vitals/Hypnogram";
 import { seriesFor, formatDuration, bandOfScore } from "@/data/mock";
-import { useLastNight } from "@/data/store";
+import { useStore } from "@/data/store";
 import { METRIC_COLOR, BAND_LABEL } from "@/lib/metrics";
 import { COPY } from "@/lib/copy";
 
@@ -18,9 +19,14 @@ type Key = (typeof KEYS)[number];
 
 export function Vital() {
   const { metric } = useParams<{ metric: Key }>();
+  // Hooks run before the guard: an early return above them changes the
+  // hook count between renders and tears the component down.
+  const { nights } = useStore();
+  const [date, setDate] = useState(nights[0]!.date);
+
   if (!metric || !KEYS.includes(metric)) return <Navigate to="/vitals/pulse" replace />;
 
-  const n = useLastNight();
+  const n = nights.find((x) => x.date === date) ?? nights[0]!;
   const s = seriesFor(n.date);
   const total = n.sleep.durationMin || 1;
 
@@ -36,6 +42,7 @@ export function Vital() {
       <VitalLayout
         title="Sleep Score"
         date={n.date}
+        onDate={setDate}
         value={n.score !== null ? String(n.score) : "—"}
         unit={n.score !== null ? BAND_LABEL[band] : "no band data"}
         caption={n.insight}
@@ -59,6 +66,7 @@ export function Vital() {
       <VitalLayout
         title="Pulse"
         date={n.date}
+        onDate={setDate}
         value={String(n.heart.avg)}
         unit="average bpm"
         caption={`Lowest ${n.heart.min}, highest ${n.heart.max}.`}
@@ -97,6 +105,7 @@ export function Vital() {
       <VitalLayout
         title="Breathing"
         date={n.date}
+        onDate={setDate}
         // Never an absolute SpO₂ figure: wrist error is ±3-4% and the
         // threshold is 3%, so the absolute number would claim a
         // precision the sensor does not have.
@@ -133,6 +142,7 @@ export function Vital() {
       <VitalLayout
         title="Movement & position"
         date={n.date}
+        onDate={setDate}
         value={String(n.counts.restless)}
         unit="restless spells"
         caption="Movement is what cancels an alert — the band watches for it before anything is sent."
@@ -162,6 +172,7 @@ export function Vital() {
     <VitalLayout
       title="Room"
       date={n.date}
+      onDate={setDate}
       value={`${n.room.tempC}°`}
       unit="average temperature"
       caption={

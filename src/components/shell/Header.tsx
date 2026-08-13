@@ -65,7 +65,18 @@ export function Header({
       </div>
 
       <div className="flex items-center gap-4 justify-self-end">
-        <Share className="size-5" strokeWidth={1.5} />
+        <button
+          aria-label="Share"
+          onClick={() =>
+            navigator.share?.({
+              title: "RePulse",
+              text: "My sleep summary from last night.",
+              url: location.href,
+            })
+          }
+        >
+          <Share className="size-5" strokeWidth={1.5} />
+        </button>
         <button onClick={onDevices} aria-label="Devices">
           <DeviceRing state={devices} />
         </button>

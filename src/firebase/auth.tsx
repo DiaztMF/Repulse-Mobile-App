@@ -4,6 +4,7 @@ import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
   signInWithEmailAndPassword,
+  sendPasswordResetEmail,
   signInWithPopup,
   signOut,
   type User,
@@ -18,6 +19,7 @@ type Ctx = {
   signIn: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   google: () => Promise<void>;
+  reset: (email: string) => Promise<void>;
   leave: () => Promise<void>;
 };
 
@@ -48,6 +50,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     google: async () => {
       if (auth) await signInWithPopup(auth, new GoogleAuthProvider());
+    },
+    reset: async (email) => {
+      if (auth) await sendPasswordResetEmail(auth, email);
     },
     leave: async () => {
       if (auth) await signOut(auth);

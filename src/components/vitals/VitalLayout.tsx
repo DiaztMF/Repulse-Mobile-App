@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft, ChevronRight, Info } from "lucide-react";
+import { useStore } from "@/data/store";
 import { cn } from "@/lib/cn";
 
 export type KeyMetric = { label: string; value: string; note?: string };
@@ -16,28 +17,50 @@ export type Row = {
 };
 
 /** Previous and next days peek at the edges. A full calendar would be
- *  wrong for a screen people open to see last night. */
-function DateStrip({ date }: { date: string }) {
-  const d = new Date(date + "T12:00:00");
-  const fmt = (x: Date) =>
-    x.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
-  const shift = (n: number) => {
-    const c = new Date(d);
-    c.setDate(c.getDate() + n);
-    return c;
-  };
+ *  wrong for a screen people open to see last night.
+ *
+ *  An arrow is only offered when a night exists on that side — a control
+ *  that moves nowhere is worse than no control. */
+function DateStrip({
+  date,
+  onChange,
+}: {
+  date: string;
+  onChange: (d: string) => void;
+}) {
+  const { nights } = useStore();
+  const i = nights.findIndex((n) => n.date === date);
+  const older = i >= 0 ? nights[i + 1] : undefined;
+  const newer = i > 0 ? nights[i - 1] : undefined;
+
+  const fmt = (iso: string) =>
+    new Date(iso + "T12:00:00").toLocaleDateString("en-GB", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+    });
 
   return (
     <div className="flex items-center justify-between gap-4 px-5">
-      <button className="flex items-center gap-1 truncate text-[length:var(--text-meta)] text-[var(--color-ash-dim)]">
+      <button
+        disabled={!older}
+        onClick={() => older && onChange(older.date)}
+        className="flex items-center gap-1 truncate text-[length:var(--text-meta)] text-[var(--color-ash-dim)] disabled:opacity-0"
+      >
         <ChevronLeft className="size-4 shrink-0" strokeWidth={1.5} />
-        {fmt(shift(-1))}
+        {older ? fmt(older.date) : ""}
       </button>
+
       <span className="border-b border-[var(--color-ivory)] pb-1 text-[length:var(--text-body)]">
-        {fmt(d)}
+        {fmt(date)}
       </span>
-      <button className="flex items-center gap-1 truncate text-[length:var(--text-meta)] text-[var(--color-ash-dim)]">
-        {fmt(shift(1))}
+
+      <button
+        disabled={!newer}
+        onClick={() => newer && onChange(newer.date)}
+        className="flex items-center gap-1 truncate text-[length:var(--text-meta)] text-[var(--color-ash-dim)] disabled:opacity-0"
+      >
+        {newer ? fmt(newer.date) : ""}
         <ChevronRight className="size-4 shrink-0" strokeWidth={1.5} />
       </button>
     </div>
@@ -110,6 +133,7 @@ export function RowList({ title, rows }: { title: string; rows: Row[] }) {
 export function VitalLayout({
   title,
   date,
+  onDate,
   value,
   unit,
   caption,
@@ -120,6 +144,7 @@ export function VitalLayout({
 }: {
   title: string;
   date: string;
+  onDate: (d: string) => void;
   value: string;
   unit: string;
   caption?: string;
@@ -140,7 +165,7 @@ export function VitalLayout({
         <Info className="size-5 text-[var(--color-ash)]" strokeWidth={1.5} />
       </header>
 
-      <DateStrip date={date} />
+      <DateStrip date={date} onChange={onDate} />
 
       <div className="px-5">
         <p className="num mt-8 text-[length:var(--text-hero)] leading-none">

@@ -38,15 +38,23 @@ export function Watched() {
 
       <div className="flex-1" />
 
-      <button className="label flex h-16 w-full items-center justify-center gap-3 rounded-[var(--radius-pill)] bg-[var(--color-danger)] text-[length:var(--text-card)] text-white">
+      <a
+        href="tel:+6281234567890"
+        className="label flex h-16 w-full items-center justify-center gap-3 rounded-[var(--radius-pill)] bg-[var(--color-danger)] text-[length:var(--text-card)] text-white"
+      >
         <Phone className="size-5" strokeWidth={2} />
         Call {WHO}
-      </button>
+      </a>
 
-      <button className="label mt-3 flex h-14 w-full items-center justify-center gap-3 rounded-[var(--radius-pill)] border border-[var(--color-ivory)] text-[var(--color-ivory)]">
+      <a
+        href="https://maps.google.com/?q=-7.5595,110.8289"
+        target="_blank"
+        rel="noreferrer"
+        className="label mt-3 flex h-14 w-full items-center justify-center gap-3 rounded-[var(--radius-pill)] border border-[var(--color-ivory)] text-[var(--color-ivory)]"
+      >
         <MapPin className="size-5" strokeWidth={1.5} />
         Open in maps
-      </button>
+      </a>
 
       {/* Stated plainly, because people will look for the button and its
           absence has to read as a decision rather than an omission. */}
