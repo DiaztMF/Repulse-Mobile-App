@@ -49,7 +49,10 @@ export async function fetchInterventions(uid: string): Promise<Intervention[]> {
 export async function seed(uid: string, nights: Night[], interventions: Intervention[]) {
   if (!db) throw new Error("Firebase is not configured");
   const batch = writeBatch(db);
-  for (const n of nights) batch.set(doc(nightsRef(uid), n.date), n);
+  // Stamped, so it keeps admitting what it is after a round trip through
+  // Firestore. Seeded data that reads as measured data is the one thing
+  // the badge exists to stop.
+  for (const n of nights) batch.set(doc(nightsRef(uid), n.date), { ...n, seeded: true });
   for (const i of interventions) batch.set(doc(interventionsRef(uid), i.key), i);
   await batch.commit();
 }

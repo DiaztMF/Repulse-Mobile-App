@@ -46,6 +46,13 @@ export type Night = {
   contributors: Contributor[];
   events: NightEvent[];
   insight: string;
+  /**
+   * Stamped by the seeder. Once a synthetic fortnight is written to
+   * Firestore it arrives back through the same path as measured data, and
+   * without this the app would present invented numbers as real ones —
+   * which is exactly what the SAMPLE DATA badge exists to prevent.
+   */
+  seeded?: boolean;
 };
 
 export type InterventionKey = "white_noise" | "aroma" | "dim_light" | "cooling";

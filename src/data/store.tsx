@@ -57,7 +57,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setState({
           nights: empty ? MOCK_NIGHTS : nights,
           interventions: empty ? MOCK_INTERVENTIONS : interventions,
-          sample: empty,
+          // Synthetic either way it got here: the local set, or the
+          // seeded fortnight coming back out of Firestore. The seeder is
+          // the demo safety net, and a safety net that quietly drops the
+          // label is worse than no net at all.
+          sample: empty || nights.some((n) => n.seeded),
           loading: false,
         });
       })
