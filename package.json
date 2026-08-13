@@ -9,7 +9,8 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "check:data": "node --experimental-strip-types --disable-warning=ExperimentalWarning src/data/mock.check.ts",
-    "check:gate": "node --experimental-strip-types --disable-warning=ExperimentalWarning src/lib/fitGate.check.ts"
+    "check:gate": "node --experimental-strip-types --disable-warning=ExperimentalWarning src/lib/fitGate.check.ts",
+    "dev:tunnel": "vite --mode tunnel"
   },
   "dependencies": {
     "@capacitor/android": "^7.6.8",
