@@ -1,5 +1,5 @@
 import { useRef, useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
@@ -82,6 +82,19 @@ export function SignIn() {
   const [busy, setBusy] = useState(false);
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
+
+  /**
+   * The splash gives up after two seconds and sends everyone here, so on a
+   * slow start an already-signed-in user lands on the login screen and
+   * nothing sends them on — the guard only covers the shell, and it never
+   * pushes anyone *away* from here.
+   *
+   * Answered once, on arrival. Reacting to `user` instead would fire the
+   * moment a sign-in succeeded and skip the whole of onboarding.
+   */
+  const arrivedSignedIn = useRef<boolean | null>(null);
+  if (arrivedSignedIn.current === null && auth.ready)
+    arrivedSignedIn.current = !!auth.user;
 
   const codeOf = (e: unknown) => (e as { code?: string }).code ?? "";
   const explain = (code: string): Message =>
@@ -172,6 +185,8 @@ export function SignIn() {
         : undefined;
 
   const screenMessage = message && !message.field ? message : null;
+
+  if (arrivedSignedIn.current) return <Navigate to="/tonight" replace />;
 
   return (
     <div className="bg-setup flex min-h-screen flex-col px-6 pb-8 pt-[calc(env(safe-area-inset-top)+2.5rem)]">

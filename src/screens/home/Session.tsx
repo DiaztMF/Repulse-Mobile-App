@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Check } from "lucide-react";
 import { EcgTrace } from "@/components/home/EcgTrace";
+import { SampleBadge } from "@/components/shell/SampleBadge";
 import { useLastNight } from "@/data/store";
 
 type State = "monitoring" | "wind_down" | "comfort" | "wake_window" | "offline";
@@ -57,6 +58,12 @@ export function Session() {
 
   return (
     <div className="relative min-h-screen bg-[var(--color-base)] px-5 pb-8">
+      {/* This screen owns the display, so it carries the badge itself —
+          the two headers that normally do it are gone here, and DESIGN §12
+          requires it on every screen while the mock layer is on. It is the
+          screen showing the most invented numbers in the app. */}
+      <SampleBadge />
+
       {/* Long-press the clock for the test panel. Invisible to a normal
           user, always reachable during a demo — the tab bar is gone and
           the escalation ladder has to be triggerable from here. */}

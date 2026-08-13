@@ -7,7 +7,9 @@ import { COPY } from "@/lib/copy";
 export function SampleBadge() {
   if (!useStore().sample) return null;
   return (
-    <p className="label pb-1 text-center text-[var(--color-ash-dim)]">
+    // Ash Grey, not Ash Dim: DESIGN §6.11 keeps Ash Dim off anything that
+    // has to be read, and a judge has to read this one across a table.
+    <p className="label pb-1 text-center text-[var(--color-ash)]">
       {COPY.mockBadge}
     </p>
   );
