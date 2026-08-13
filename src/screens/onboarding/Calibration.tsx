@@ -7,7 +7,7 @@ import { GOOD, holdGate } from "@/lib/fitGate";
 type Stage = "explain" | "fit" | "running" | "done";
 
 /** Matches `record_baseline` in the firmware contract. */
-const DURATION_S = 180;
+const DURATION_S = 30;
 
 
 /** The only progress ring in the app. Legitimate here because what it

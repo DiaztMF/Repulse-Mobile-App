@@ -20,6 +20,12 @@ import { Health } from "@/screens/health/Health";
 import { NightDetail } from "@/screens/health/NightDetail";
 import { BreathingTrend } from "@/screens/health/BreathingTrend";
 import { Insights } from "@/screens/health/Insights";
+import { SettingsScreen } from "@/screens/settings/Settings";
+import { Devices } from "@/screens/settings/Devices";
+import { TestPanel } from "@/screens/settings/TestPanel";
+import { Family } from "@/screens/settings/Family";
+import { Export } from "@/screens/settings/Export";
+import { Ecg } from "@/screens/settings/Ecg";
 import { Wordmark } from "@/components/brand/Wordmark";
 
 /**
@@ -59,12 +65,12 @@ export const router = createBrowserRouter([
       { path: "/health/breathing", element: <BreathingTrend /> },
       { path: "/health/insights", element: <Insights /> },
 
-      { path: "/settings", element: <Placeholder code="D1" name="Settings" /> },
-      { path: "/devices", element: <Placeholder code="D2" name="Devices & battery" /> },
-      { path: "/test-panel", element: <Placeholder code="D4" name="Test panel" /> },
-      { path: "/family", element: <Placeholder code="D5" name="Family — manage" /> },
-      { path: "/export", element: <Placeholder code="D6" name="Export" /> },
-      { path: "/ecg", element: <Placeholder code="D7" name="Record ECG" /> },
+      { path: "/settings", element: <SettingsScreen /> },
+      { path: "/devices", element: <Devices /> },
+      { path: "/test-panel", element: <TestPanel /> },
+      { path: "/family", element: <Family /> },
+      { path: "/export", element: <Export /> },
+      { path: "/ecg", element: <Ecg /> },
 
       // Token check page. Drop before shipping.
       { path: "/kitchen-sink", element: <KitchenSink /> },

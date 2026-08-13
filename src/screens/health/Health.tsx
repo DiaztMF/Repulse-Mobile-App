@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronRight, Wind, Sparkles, AlertTriangle, Moon } from "lucide-react";
+import { ChevronRight, Wind, Sparkles, AlertTriangle, Moon, Menu } from "lucide-react";
+import { Drawer } from "@/components/shell/Drawer";
 import { NIGHTS, formatDuration, bandOfScore } from "@/data/mock";
 import { BAND_COLOR, BAND_LABEL, METRIC_COLOR } from "@/lib/metrics";
 
@@ -18,13 +20,18 @@ function shortDate(iso: string) {
  */
 export function Health() {
   const navigate = useNavigate();
+  const [menu, setMenu] = useState(false);
   const nightsWithBreathing = NIGHTS.filter((n) => n.breathing.desatPerHour >= 1);
 
   return (
     <div className="pb-4">
-      <header className="safe-t flex h-14 items-center px-5">
+      <header className="safe-t flex h-14 items-center gap-4 px-5">
+        <button onClick={() => setMenu(true)} aria-label="Menu">
+          <Menu className="size-6" strokeWidth={1.5} />
+        </button>
         <h1 className="label text-[var(--color-ivory)]">Health</h1>
       </header>
+      <Drawer open={menu} onClose={() => setMenu(false)} />
 
       <div className="space-y-3 px-5 pt-2">
         <button

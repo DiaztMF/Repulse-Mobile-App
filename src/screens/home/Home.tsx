@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { HeartPulse, Wind, Home as HomeIcon, Moon, X } from "lucide-react";
 import { Card, Empty } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Sparkline } from "@/components/ui/Sparkline";
 import { Header } from "@/components/shell/Header";
+import { Drawer } from "@/components/shell/Drawer";
 import { ScoreChips } from "@/components/home/ScoreChips";
 import { Timeline } from "@/components/home/Timeline";
 import { lastNight, seriesFor, formatDuration, bandOfScore } from "@/data/mock";
@@ -29,6 +31,7 @@ const HEADLINE: Record<string, string> = {
 
 export function Home() {
   const navigate = useNavigate();
+  const [menu, setMenu] = useState(false);
   const night = lastNight;
   const series = seriesFor(night.date);
   const scored = night.score !== null;
@@ -41,7 +44,8 @@ export function Home() {
 
   return (
     <div className="pb-4">
-      <Header devices="both" />
+      <Header devices="both" onMenu={() => setMenu(true)} onDevices={() => navigate("/devices")} />
+      <Drawer open={menu} onClose={() => setMenu(false)} />
 
       <div className="px-5 pt-2">
         <ScoreChips night={night} />
