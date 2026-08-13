@@ -28,38 +28,76 @@ export function SignIn() {
 
   const valid = looksLikeEmail(email) && password.length >= 6;
 
-  // Sign in, or create the account if there is none. Onboarding is the
-  // first run, so a separate register screen would only ask people to
-  // choose a door before they know which one they are behind.
-  const run = async (fn: () => Promise<void>) => {
+  const codeOf = (e: unknown) => (e as { code?: string }).code ?? "";
+
+  /** Anything unmapped shows its Firebase code. A generic message here
+   *  turns a broken sign-in into a dead end with no evidence — which is
+   *  exactly how the previous version hid its own bug. */
+  const explain = (code: string) =>
+    ({
+      "auth/invalid-email": "That does not look like an email address.",
+      "auth/weak-password": "Use at least six characters.",
+      "auth/network-request-failed": "No connection to Firebase.",
+      "auth/too-many-requests": "Too many attempts. Wait a minute and retry.",
+      "auth/operation-not-allowed":
+        "Email sign-in is switched off for this Firebase project.",
+      "auth/unauthorized-domain":
+        "This address is not in the Firebase authorised domains list.",
+      "auth/popup-blocked": "The browser blocked the Google popup.",
+      "auth/popup-closed-by-user": "The Google window was closed.",
+    })[code] ?? `Sign-in failed (${code || "unknown error"}).`;
+
+  const enter = async (fn: () => Promise<void>) => {
     setBusy(true);
     setError(null);
     try {
       await fn();
       navigate("/permissions");
     } catch (e) {
-      const code = (e as { code?: string }).code ?? "";
-      if (code === "auth/user-not-found") {
-        try {
-          await auth.register(email, password);
-          navigate("/permissions");
-          return;
-        } catch {
-          setError("Could not create that account.");
-        }
-      } else if (code === "auth/wrong-password" || code === "auth/invalid-credential") {
-        setError("That email and password do not match.");
-      } else if (code === "auth/email-already-in-use") {
-        setError("That email already has an account.");
-      } else {
-        setError("Could not sign in. Check your connection.");
-      }
+      console.error("[auth]", e);
+      setError(explain(codeOf(e)));
     } finally {
       setBusy(false);
     }
   };
 
-  const signIn = () => run(() => auth.signIn(email, password));
+  /**
+   * One door: sign in, and create the account if there is none.
+   *
+   * Email enumeration protection — on by default — collapses "no such
+   * user" and "wrong password" into a single `invalid-credential`, so
+   * the only way to tell them apart is to attempt the registration and
+   * read what comes back.
+   */
+  const signIn = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await auth.signIn(email, password);
+      navigate("/permissions");
+    } catch (e) {
+      const code = codeOf(e);
+      if (code !== "auth/invalid-credential" && code !== "auth/user-not-found") {
+        console.error("[auth] sign in", e);
+        setError(explain(code));
+        return;
+      }
+      try {
+        await auth.register(email, password);
+        navigate("/permissions");
+      } catch (e2) {
+        console.error("[auth] register", e2);
+        const c2 = codeOf(e2);
+        setError(
+          c2 === "auth/email-already-in-use"
+            ? "That password does not match this account."
+            : explain(c2),
+        );
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <div className="bg-setup flex min-h-screen flex-col px-6 pb-8">
@@ -96,15 +134,19 @@ export function SignIn() {
       )}
 
       <button
-        onClick={() =>
-          looksLikeEmail(email)
-            ? run(async () => {
-                await auth.reset(email);
-                setError("Reset link sent. Check your inbox.");
-                throw new Error("handled");
-              })
-            : setError("Enter your email first, then tap this.")
-        }
+        onClick={async () => {
+          if (!looksLikeEmail(email)) {
+            setError("Enter your email first, then tap this.");
+            return;
+          }
+          try {
+            await auth.reset(email);
+            setError("Reset link sent. Check your inbox.");
+          } catch (e) {
+            console.error("[auth] reset", e);
+            setError(explain(codeOf(e)));
+          }
+        }}
         className="label mt-7 self-center text-[var(--color-ivory)]"
       >
         Forgot your password?
@@ -125,7 +167,7 @@ export function SignIn() {
           variant="secondary"
           size="lg"
           register="system"
-          onClick={() => run(auth.google)}
+          onClick={() => enter(auth.google)}
         >
           Continue with Google
         </Button>
@@ -135,7 +177,7 @@ export function SignIn() {
         Don't have an account yet?
       </p>
       <button
-        onClick={() => valid && run(() => auth.register(email, password))}
+        onClick={() => valid && enter(() => auth.register(email, password))}
         className="label mt-3 self-center text-[var(--color-pulse)]"
       >
         Create account
