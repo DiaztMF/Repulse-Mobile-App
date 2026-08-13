@@ -83,6 +83,8 @@ export function useAuth() {
  * over the lock screen while someone is in danger must not fail on an
  * expired token, and neither of them reads Firestore.
  */
+import { LoadingScreen } from "@/components/ui/LoadingScreen";
+
 export function RequireAuth({ children }: { children: ReactNode }) {
   const { user, ready } = useAuth();
 
@@ -91,9 +93,8 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   // without a backend would kill the demo safety net.
   if (!configured) return <>{children}</>;
 
-  // Blank rather than a spinner, and short: this only spans the first
-  // auth callback. DESIGN.md §8 bans the spinner outright.
-  if (!ready) return null;
+  // Show smooth brand loading screen while waiting for initial auth callback
+  if (!ready) return <LoadingScreen />;
 
   return user ? <>{children}</> : <Navigate to="/sign-in" replace />;
 }

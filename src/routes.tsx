@@ -5,18 +5,36 @@ import { RequireAuth } from "@/firebase/auth";
 import { Splash } from "@/screens/onboarding/Splash";
 import { Home } from "@/screens/home/Home";
 import { Wordmark } from "@/components/brand/Wordmark";
+import { RouteErrorBoundary } from "@/components/ui/ErrorBoundary";
 
 /**
  * Helper to dynamically load route components (code-splitting)
- * while handling named exports from screen modules.
+ * while handling named exports from screen modules and auto-reloading
+ * if a deployment rendered old chunk hashes stale.
  */
 function lazyRoute<T extends Record<string, any>>(
   factory: () => Promise<T>,
   exportName: keyof T
 ) {
   return async () => {
-    const module = await factory();
-    return { Component: module[exportName] };
+    try {
+      const module = await factory();
+      // Cleared on success, or the one retry is spent for the whole
+      // session and the next real deploy shows the error screen instead.
+      sessionStorage.removeItem("chunk_retry");
+      return { Component: module[exportName] };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const isChunkError =
+        msg.includes("Failed to fetch dynamically imported module") ||
+        msg.includes("Importing a module script failed");
+
+      if (isChunkError && !sessionStorage.getItem("chunk_retry")) {
+        sessionStorage.setItem("chunk_retry", "true");
+        window.location.reload();
+      }
+      throw err;
+    }
   };
 }
 
@@ -26,10 +44,14 @@ function lazyRoute<T extends Record<string, any>>(
  * are loaded lazily on demand.
  */
 export const router = createBrowserRouter([
-  // Onboarding — outside the shell, no tab bar
-  { path: "/", element: <Splash /> },
-  { path: "/brand", element: <Wordmark /> },
-  { path: "/sign-in", lazy: lazyRoute(() => import("@/screens/onboarding/SignIn"), "SignIn") },
+  {
+    errorElement: <RouteErrorBoundary />,
+    children: [
+      // Onboarding & Dev Tools — outside the shell, no tab bar
+      { path: "/", element: <Splash /> },
+      { path: "/brand", element: <Wordmark /> },
+      { path: "/kitchen-sink", lazy: lazyRoute(() => import("@/screens/KitchenSink"), "KitchenSink") },
+      { path: "/sign-in", lazy: lazyRoute(() => import("@/screens/onboarding/SignIn"), "SignIn") },
 
   // Wrapped so the step reached is recorded once, in one place, instead
   // of beside every forward button on every screen below.
@@ -43,7 +65,7 @@ export const router = createBrowserRouter([
       { path: "/pair/bedside", lazy: lazyRoute(() => import("@/screens/onboarding/PairBedside"), "PairBedside") },
       { path: "/pair/:device/trouble", lazy: lazyRoute(() => import("@/screens/onboarding/PairTrouble"), "PairTrouble") },
       { path: "/calibration", lazy: lazyRoute(() => import("@/screens/onboarding/Calibration"), "Calibration") },
-      { path: "/contacts", lazy: lazyRoute(() => import("@/screens/onboarding/Contacts"), "Contacts") },
+      { path: "/onboarding/contacts", lazy: lazyRoute(() => import("@/screens/onboarding/Contacts"), "Contacts") },
       { path: "/ready", lazy: lazyRoute(() => import("@/screens/onboarding/Ready"), "Ready") },
     ],
   },
@@ -72,13 +94,11 @@ export const router = createBrowserRouter([
 
       { path: "/settings", lazy: lazyRoute(() => import("@/screens/settings/Settings"), "SettingsScreen") },
       { path: "/devices", lazy: lazyRoute(() => import("@/screens/settings/Devices"), "Devices") },
+      { path: "/contacts", lazy: lazyRoute(() => import("@/screens/onboarding/Contacts"), "Contacts") },
       { path: "/test-panel", lazy: lazyRoute(() => import("@/screens/settings/TestPanel"), "TestPanel") },
       { path: "/family", lazy: lazyRoute(() => import("@/screens/settings/Family"), "Family") },
       { path: "/export", lazy: lazyRoute(() => import("@/screens/settings/Export"), "Export") },
       { path: "/ecg", lazy: lazyRoute(() => import("@/screens/settings/Ecg"), "Ecg") },
-
-      // Token check page. Drop before shipping.
-      { path: "/kitchen-sink", lazy: lazyRoute(() => import("@/screens/KitchenSink"), "KitchenSink") },
     ],
   },
 
@@ -89,5 +109,7 @@ export const router = createBrowserRouter([
   { path: "/emergency/watched", lazy: lazyRoute(() => import("@/screens/emergency/Watched"), "Watched") },
 
   { path: "*", element: <Navigate to="/tonight" replace /> },
+    ],
+  },
 ]);
 
