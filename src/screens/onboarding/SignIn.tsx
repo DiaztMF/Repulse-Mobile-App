@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { Button } from "@/components/ui/Button";
@@ -10,183 +10,225 @@ import { useAuth } from "@/firebase/auth";
  *  real verification. */
 const looksLikeEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s);
 
+type Message = {
+  text: string;
+  /** Which line turns Kiln Clay. Absent means it belongs to the screen,
+   *  not to one input — network, quota, project configuration. */
+  field?: "email" | "password";
+  /** Good news. Same slot, but never in the error colour. */
+  ok?: boolean;
+};
+
 /**
- * O2 — Sign in. The submit button stays disabled until the input is
- * valid; that turn to accent is the only validation feedback, which is
- * why no error copy appears while the user is still typing.
+ * Anything unmapped shows its Firebase code. A generic message here turns
+ * a broken sign-in into a dead end with no evidence — which is exactly how
+ * an earlier version hid its own bug.
  *
- * No back button — this screen comes from the splash, so there is
- * nowhere to go back to.
+ * `email-already-in-use` can only reach the user from the registration
+ * attempt below, where it means the account exists and the password was
+ * wrong. PRD §10.2a state 6.
+ */
+const EXPLAIN: Record<string, Message> = {
+  "auth/invalid-email": {
+    text: "That does not look like an email address.",
+    field: "email",
+  },
+  "auth/weak-password": { text: "Use at least six characters.", field: "password" },
+  "auth/email-already-in-use": {
+    text: "That password does not match this account.",
+    field: "password",
+  },
+  "auth/network-request-failed": { text: "No connection to Firebase." },
+  "auth/too-many-requests": {
+    text: "Too many attempts. Wait a minute and retry.",
+  },
+  "auth/operation-not-allowed": {
+    text: "Email sign-in is switched off for this Firebase project.",
+  },
+  "auth/unauthorized-domain": {
+    text: "This address is not in the Firebase authorised domains list.",
+  },
+  "auth/popup-blocked": { text: "The browser blocked the Google popup." },
+  "auth/popup-closed-by-user": { text: "The Google window was closed." },
+};
+
+/**
+ * O2 — Sign in. Ten states, listed in PRD §10.2a.
+ *
+ * One door: the button signs in, and creates the account if there is none.
+ * There is no separate register control, because Firebase's email
+ * enumeration protection collapses "no such user" and "wrong password"
+ * into one code — the only way to tell them apart is to attempt the
+ * registration and read what comes back, which the button already does.
+ *
+ * No back button: this screen comes from the splash, so there is nowhere
+ * to go back to.
  */
 export function SignIn() {
   const navigate = useNavigate();
   const auth = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<Message | null>(null);
   const [busy, setBusy] = useState(false);
 
   const valid = looksLikeEmail(email) && password.length >= 6;
 
   const codeOf = (e: unknown) => (e as { code?: string }).code ?? "";
+  const explain = (code: string): Message =>
+    EXPLAIN[code] ?? { text: `Sign-in failed (${code || "unknown error"}).` };
 
-  /** Anything unmapped shows its Firebase code. A generic message here
-   *  turns a broken sign-in into a dead end with no evidence — which is
-   *  exactly how the previous version hid its own bug. */
-  const explain = (code: string) =>
-    ({
-      "auth/invalid-email": "That does not look like an email address.",
-      "auth/weak-password": "Use at least six characters.",
-      "auth/network-request-failed": "No connection to Firebase.",
-      "auth/too-many-requests": "Too many attempts. Wait a minute and retry.",
-      "auth/operation-not-allowed":
-        "Email sign-in is switched off for this Firebase project.",
-      "auth/unauthorized-domain":
-        "This address is not in the Firebase authorised domains list.",
-      "auth/popup-blocked": "The browser blocked the Google popup.",
-      "auth/popup-closed-by-user": "The Google window was closed.",
-    })[code] ?? `Sign-in failed (${code || "unknown error"}).`;
-
-  const enter = async (fn: () => Promise<void>) => {
+  const run = async (fn: () => Promise<void>) => {
     setBusy(true);
-    setError(null);
+    setMessage(null);
     try {
       await fn();
-      navigate("/permissions");
+      // `replace` so Android back does not return a signed-in user here.
+      navigate("/permissions", { replace: true });
     } catch (e) {
       console.error("[auth]", e);
-      setError(explain(codeOf(e)));
+      setMessage(explain(codeOf(e)));
     } finally {
       setBusy(false);
     }
   };
 
-  /**
-   * One door: sign in, and create the account if there is none.
-   *
-   * Email enumeration protection — on by default — collapses "no such
-   * user" and "wrong password" into a single `invalid-credential`, so
-   * the only way to tell them apart is to attempt the registration and
-   * read what comes back.
-   */
-  const signIn = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      await auth.signIn(email, password);
-      navigate("/permissions");
-    } catch (e) {
-      const code = codeOf(e);
-      if (code !== "auth/invalid-credential" && code !== "auth/user-not-found") {
-        console.error("[auth] sign in", e);
-        setError(explain(code));
-        return;
-      }
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!valid || busy) return;
+
+    return run(async () => {
       try {
+        await auth.signIn(email, password);
+      } catch (err) {
+        const code = codeOf(err);
+        if (code !== "auth/invalid-credential" && code !== "auth/user-not-found")
+          throw err;
+        // Either there is no account or the password is wrong, and Firebase
+        // will not say which. Try to create it: success means it was the
+        // former, `email-already-in-use` means it was the latter.
         await auth.register(email, password);
-        navigate("/permissions");
-      } catch (e2) {
-        console.error("[auth] register", e2);
-        const c2 = codeOf(e2);
-        setError(
-          c2 === "auth/email-already-in-use"
-            ? "That password does not match this account."
-            : explain(c2),
-        );
       }
+    });
+  };
+
+  const reset = async () => {
+    if (busy) return;
+    if (!looksLikeEmail(email)) {
+      setMessage({ text: "Enter your email first.", field: "email" });
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    try {
+      await auth.reset(email);
+      setMessage({ text: "Reset link sent. Check your inbox.", ok: true });
+    } catch (e) {
+      console.error("[auth] reset", e);
+      setMessage(explain(codeOf(e)));
     } finally {
       setBusy(false);
     }
   };
+
+  // The six-character rule is named before it is broken, not after — but
+  // only once there is something to measure. A server error outranks it.
+  const tooShort = password.length > 0 && password.length < 6;
+  const passwordError =
+    message?.field === "password"
+      ? message.text
+      : tooShort
+        ? "At least six characters."
+        : undefined;
+
+  const screenMessage = message && !message.field ? message : null;
 
   return (
-    <div className="bg-setup flex min-h-screen flex-col px-6 pb-8">
-      <div className="flex justify-center pt-8">
-        <Wordmark className="block h-auto w-[132px]" strokeWidth={6} />
+    <div className="bg-setup flex min-h-screen flex-col px-6 pb-8 pt-[calc(env(safe-area-inset-top)+2.5rem)]">
+      <div className="flex justify-center">
+        <Wordmark className="block h-auto w-[118px]" strokeWidth={6} />
       </div>
 
-      {/* Deliberate breathing room above the fields. */}
-      <div className="h-24 shrink-0" />
+      <form onSubmit={submit} className="mt-16 flex flex-1 flex-col">
+        <div className="space-y-6">
+          <Field
+            label="Email"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            autoCapitalize="none"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            error={message?.field === "email" ? message.text : undefined}
+          />
+          <Field
+            label="Password"
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            error={passwordError}
+          />
+        </div>
 
-      <div className="space-y-6">
-        <Field
-          label="Email"
-          type="email"
-          inputMode="email"
-          autoComplete="email"
-          autoCapitalize="none"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-        <Field
-          label="Password"
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-      </div>
-
-      {error && (
-        <p className="mt-5 text-center text-[length:var(--text-meta)] text-[var(--color-breath)]">
-          {error}
+        {/* Always in the DOM so a screen reader announces the change, and
+            so an arriving error does not shove the layout down. */}
+        <p
+          aria-live="polite"
+          className={
+            "mt-4 min-h-5 text-[length:var(--text-meta)] " +
+            (screenMessage?.ok
+              ? "text-[var(--color-ash)]"
+              : "text-[var(--color-breath)]")
+          }
+        >
+          {screenMessage?.text ?? ""}
         </p>
-      )}
 
-      <button
-        onClick={async () => {
-          if (!looksLikeEmail(email)) {
-            setError("Enter your email first, then tap this.");
-            return;
-          }
-          try {
-            await auth.reset(email);
-            setError("Reset link sent. Check your inbox.");
-          } catch (e) {
-            console.error("[auth] reset", e);
-            setError(explain(codeOf(e)));
-          }
-        }}
-        className="label mt-7 self-center text-[var(--color-ivory)]"
-      >
-        Forgot your password?
-      </button>
-
-      <div className="mt-6 space-y-3">
-        <Button
-          size="lg"
-          register="system"
-          disabled={!valid || busy}
-          onClick={signIn}
+        <button
+          type="button"
+          onClick={reset}
+          disabled={busy}
+          // Sentence case: this offers the user a choice, so it is the
+          // content register, not the system one. DESIGN.md §7.2.
+          className="-mx-2 flex min-h-11 w-fit items-center px-2 text-[var(--color-ash)] disabled:text-[var(--color-ash-dim)]"
         >
-          {busy ? "Signing in…" : "Sign in"}
-        </Button>
-        {/* Same register as the button above — two adjacent sign-in
-            actions with different casing read as two systems. */}
-        <Button
-          variant="secondary"
-          size="lg"
-          register="system"
-          onClick={() => enter(auth.google)}
-        >
-          Continue with Google
-        </Button>
-      </div>
+          Forgot your password?
+        </button>
 
-      <p className="mt-14 text-center text-[var(--color-ash)]">
-        Don't have an account yet?
-      </p>
-      <button
-        onClick={() => valid && enter(() => auth.register(email, password))}
-        className="label mt-3 self-center text-[var(--color-pulse)]"
-      >
-        Create account
-      </button>
+        {/* Primary action sits at the bottom of a step screen, with nothing
+            below it but the compliance footer. DESIGN.md §6.9. */}
+        <div className="flex-1" />
 
-      {/* Pushes the disclaimer to the bottom edge. */}
-      <div className="flex-1" />
+        <p className="text-[length:var(--text-meta)] text-[var(--color-ash)]">
+          New here? Signing in creates your account.
+        </p>
 
-      <p className="label mt-8 text-center text-[var(--color-ash-dim)]">
+        <div className="mt-4 space-y-3">
+          <Button
+            type="submit"
+            size="lg"
+            register="system"
+            disabled={!valid || busy}
+          >
+            {busy ? "Signing in…" : "Sign in"}
+          </Button>
+          {/* Same register as the button above — two adjacent sign-in
+              actions with different casing read as two systems. */}
+          <Button
+            type="button"
+            variant="secondary"
+            size="lg"
+            register="system"
+            disabled={busy}
+            onClick={() => run(auth.google)}
+          >
+            Continue with Google
+          </Button>
+        </div>
+      </form>
+
+      <p className="label mt-6 text-center text-[var(--color-ash)]">
         {COPY.disclaimer}
       </p>
     </div>
