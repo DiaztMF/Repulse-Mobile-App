@@ -14,6 +14,7 @@ import { Calibration } from "@/screens/onboarding/Calibration";
 import { Contacts } from "@/screens/onboarding/Contacts";
 import { Ready } from "@/screens/onboarding/Ready";
 import { Home } from "@/screens/home/Home";
+import { Session } from "@/screens/home/Session";
 import { Wordmark } from "@/components/brand/Wordmark";
 
 /**
@@ -36,12 +37,14 @@ export const router = createBrowserRouter([
   { path: "/contacts", element: <Contacts /> },
   { path: "/ready", element: <Ready /> },
 
+  // Owns the whole screen while a session runs — no header, no tab bar.
+  { path: "/tonight/session", element: <Session /> },
+
   // Three tabs — inside the shell
   {
     element: <AppShell />,
     children: [
       { path: "/tonight", element: <Home /> },
-      { path: "/tonight/session", element: <Placeholder code="M2" name="Active session" /> },
 
       { path: "/vitals", element: <Navigate to="/vitals/pulse" replace /> },
       { path: "/vitals/sleep", element: <Placeholder code="V1" name="Sleep Score" /> },
