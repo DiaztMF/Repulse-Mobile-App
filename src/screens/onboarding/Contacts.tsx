@@ -109,7 +109,7 @@ export function Contacts() {
         </p>
       </div>
       <p className="mt-4 text-[length:var(--text-meta)] text-[var(--color-ash)]">
-        Nothing is sent automatically. This message waits for one tap from you.
+        Nothing goes out on its own. This message waits for one tap from you.
       </p>
 
       <div className="flex-1" />
