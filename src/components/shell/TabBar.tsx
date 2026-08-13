@@ -3,9 +3,9 @@ import { Moon, Activity, HeartPulse, Plus } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 const TABS = [
-  { to: "/malam", label: "Malam Ini", Icon: Moon },
-  { to: "/vital", label: "Vital", Icon: Activity },
-  { to: "/sehat", label: "Sehat", Icon: HeartPulse },
+  { to: "/tonight", label: "Tonight", Icon: Moon },
+  { to: "/vitals", label: "Vitals", Icon: Activity },
+  { to: "/health", label: "Health", Icon: HeartPulse },
 ];
 
 /** Rendering is decided by AppShell — this bar disappears entirely
@@ -35,7 +35,7 @@ export function TabBar({ onAction }: { onAction?: () => void }) {
 
       <button
         onClick={onAction}
-        aria-label="Aksi cepat"
+        aria-label="Quick actions"
         className="pointer-events-auto flex size-14 shrink-0 items-center justify-center rounded-full bg-[var(--color-raised)]/85 text-[var(--color-ivory)] backdrop-blur-xl active:translate-y-px"
       >
         <Plus className="size-6" strokeWidth={1.5} />

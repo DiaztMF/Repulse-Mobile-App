@@ -10,14 +10,14 @@ import { COPY } from "@/lib/copy";
 const looksLikeEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s);
 
 /**
- * O2 — Login. The submit button stays disabled until the input is
+ * O2 — Sign in. The submit button stays disabled until the input is
  * valid; that turn to accent is the only validation feedback, which is
  * why no error copy appears while the user is still typing.
  *
  * No back button — this screen comes from the splash, so there is
  * nowhere to go back to.
  */
-export function Login() {
+export function SignIn() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -25,7 +25,7 @@ export function Login() {
   const valid = looksLikeEmail(email) && password.length >= 6;
 
   // TODO: wire to Firebase auth.
-  const masuk = () => navigate("/izin");
+  const signIn = () => navigate("/permissions");
 
   return (
     <div className="bg-setup flex min-h-screen flex-col px-6 pb-8">
@@ -47,7 +47,7 @@ export function Login() {
           onChange={(e) => setEmail(e.target.value)}
         />
         <Field
-          label="Kata sandi"
+          label="Password"
           type="password"
           autoComplete="current-password"
           value={password}
@@ -56,17 +56,12 @@ export function Login() {
       </div>
 
       <button className="label mt-7 self-center text-[var(--color-ivory)]">
-        Lupa kata sandi?
+        Forgot your password?
       </button>
 
       <div className="mt-6 space-y-3">
-        <Button
-          size="lg"
-          register="system"
-          disabled={!valid}
-          onClick={masuk}
-        >
-          Masuk
+        <Button size="lg" register="system" disabled={!valid} onClick={signIn}>
+          Sign in
         </Button>
         {/* Same register as the button above — two adjacent sign-in
             actions with different casing read as two systems. */}
@@ -74,17 +69,17 @@ export function Login() {
           variant="secondary"
           size="lg"
           register="system"
-          onClick={masuk}
+          onClick={signIn}
         >
-          Lanjutkan dengan Google
+          Continue with Google
         </Button>
       </div>
 
       <p className="mt-14 text-center text-[var(--color-ash)]">
-        Belum punya akun?
+        Don't have an account yet?
       </p>
       <button className="label mt-3 self-center text-[var(--color-pulse)]">
-        Daftar
+        Create account
       </button>
 
       {/* Pushes the disclaimer to the bottom edge. */}

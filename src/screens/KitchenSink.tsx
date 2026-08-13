@@ -17,7 +17,7 @@ function Viewport() {
   useEffect(() => {
     const read = () =>
       setV(
-        `${window.innerWidth} viewport · ${document.documentElement.scrollWidth} dokumen`,
+        `${window.innerWidth} viewport · ${document.documentElement.scrollWidth} document`,
       );
     read();
     window.addEventListener("resize", read);
@@ -33,7 +33,7 @@ function Viewport() {
       style={{ color: overflow ? "var(--color-band-poor)" : "var(--color-ash)" }}
     >
       {v}
-      {overflow && " · MELEBAR"}
+      {overflow && " · OVERFLOWING"}
     </p>
   );
 }
@@ -63,24 +63,24 @@ export function KitchenSink() {
       <section className="space-y-3">
         <p className="label text-[var(--color-ash)]">Buttons</p>
         <Button variant="primary" register="system">
-          Mulai kalibrasi
+          Start calibration
         </Button>
-        <Button variant="secondary">Saya punya perangkat</Button>
-        <Button variant="inverse">Lihat linimasa lengkap</Button>
-        <Button variant="ghost">Lewati — saya paham risikonya</Button>
-        <Button disabled>Nonaktif sampai isian sah</Button>
+        <Button variant="secondary">I have a device</Button>
+        <Button variant="inverse">View full timeline</Button>
+        <Button variant="ghost">Skip — I understand the risk</Button>
+        <Button disabled>Disabled until input is valid</Button>
         <Button variant="sos" register="system">
-          Kirim SOS
+          Send SOS
         </Button>
       </section>
 
       <section className="space-y-4">
         <p className="label text-[var(--color-ash)]">Register</p>
         <p className="label text-center text-[var(--color-ash)]">
-          Mencari gelang…
+          Searching for band…
         </p>
         <h2 className="text-[length:var(--text-title)] font-medium">
-          Kamar Anda siap untuk tidur
+          Your room is ready for sleep
         </h2>
       </section>
 
@@ -99,8 +99,8 @@ export function KitchenSink() {
 
       <section className="space-y-4">
         <p className="label text-[var(--color-ash)]">Fields</p>
-        <Field label="Nomor WhatsApp" defaultValue="0812 3456 7890" />
-        <Field label="Nama" error="Wajib diisi" placeholder="Ibu Sari" />
+        <Field label="WhatsApp number" defaultValue="0812 3456 7890" />
+        <Field label="Name" error="Required" placeholder="Sari" />
       </section>
 
       <section>
@@ -114,41 +114,41 @@ export function KitchenSink() {
         <Card
           metric="pulse"
           icon={<HeartPulse className="size-5" strokeWidth={1.5} />}
-          title="Nadi"
-          status="Semalam"
+          title="Pulse"
+          status="Last night"
           onOpen={() => {}}
         >
           <p className="num text-[length:var(--text-metric)] leading-none">
             58
           </p>
-          <p className="label mt-1 text-[var(--color-ash)]">bpm rata-rata</p>
+          <p className="label mt-1 text-[var(--color-ash)]">average bpm</p>
           <p className="mt-3 text-[var(--color-ash)]">
-            Nadi Istirahat Anda 61 — turun 1 dari pekan lalu.
+            Your Resting Pulse is 61 — down 1 from last week.
           </p>
         </Card>
 
         <Card
           metric="breath"
           icon={<Wind className="size-5" strokeWidth={1.5} />}
-          title="Napas"
-          status="Sudah siap"
+          title="Breathing"
+          status="Ready"
           onOpen={() => {}}
         >
           <p className="num text-[length:var(--text-metric)] leading-none">
             −2%
           </p>
           <p className="label mt-1 text-[var(--color-ash)]">
-            dari baseline Anda
+            from your baseline
           </p>
         </Card>
 
         <Card
           metric="room"
           icon={<Home className="size-5" strokeWidth={1.5} />}
-          title="Kamar"
+          title="Room"
         >
           <Empty>
-            Butuh 3 malam untuk mulai melihat pola. Baru ada 1.
+            Three nights are needed before patterns appear. There is 1.
           </Empty>
         </Card>
       </section>

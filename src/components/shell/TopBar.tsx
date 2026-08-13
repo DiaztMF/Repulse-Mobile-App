@@ -19,7 +19,7 @@ export function TopBar({
     <header className="safe-t grid h-14 grid-cols-[auto_1fr_auto] items-center gap-3">
       <button
         onClick={onBack ?? (() => navigate(-1))}
-        aria-label="Kembali"
+        aria-label="Back"
         className="flex size-9 items-center justify-center rounded-full border border-[var(--color-ivory)]/40"
       >
         <ChevronLeft className="size-5" strokeWidth={1.5} />

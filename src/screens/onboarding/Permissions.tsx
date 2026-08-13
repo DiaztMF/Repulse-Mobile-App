@@ -16,22 +16,22 @@ type Permission = {
  *  no context, so this screen is the only place the user learns why. */
 const PERMISSIONS: Permission[] = [
   {
-    id: "notifikasi",
-    title: "Notifikasi",
-    why: "Agar layar SOS bisa muncul, dan agar pemantauan boleh berjalan saat layar mati.",
-    action: "Izinkan",
+    id: "notifications",
+    title: "Notifications",
+    why: "So the SOS screen can appear, and so monitoring is allowed to keep running once the screen is off.",
+    action: "Allow",
   },
   {
     id: "bluetooth",
-    title: "Bluetooth & lokasi",
-    why: "Menemukan gelang dan bedside. Android menuntut izin lokasi untuk memindai Bluetooth.",
-    action: "Izinkan",
+    title: "Bluetooth & location",
+    why: "Finds the band and the bedside unit. Android requires location permission to scan for Bluetooth.",
+    action: "Allow",
   },
   {
-    id: "baterai",
-    title: "Abaikan optimasi baterai",
-    why: "Tanpa ini Android mematikan RePulse saat Doze, dan pemantauan berhenti di tengah malam.",
-    action: "Buka setelan",
+    id: "battery",
+    title: "Ignore battery optimisation",
+    why: "Without this, Android kills RePulse during Doze and monitoring stops in the middle of the night.",
+    action: "Open settings",
   },
 ];
 
@@ -52,13 +52,13 @@ export function Permissions() {
 
   return (
     <div className="bg-setup flex min-h-screen flex-col px-6 pb-8">
-      <TopBar title="Izin yang dibutuhkan" right={`${done}/${PERMISSIONS.length}`} />
+      <TopBar title="Permissions needed" right={`${done}/${PERMISSIONS.length}`} />
 
       <p className="mt-8 text-[length:var(--text-title)] font-medium leading-snug">
-        RePulse memantau sepanjang malam
+        RePulse watches all night
       </p>
       <p className="mt-3 text-[var(--color-ash)]">
-        Tanpa izin di bawah, pemantauan berhenti sendiri saat layar mati.
+        Without the permissions below, monitoring stops on its own once the screen goes dark.
       </p>
 
       <div className="mt-8 space-y-3">
@@ -101,7 +101,7 @@ export function Permissions() {
               <div className="mt-3 flex justify-end">
                 {ok ? (
                   <span className="label text-[var(--color-pulse)]">
-                    Diizinkan
+                    Allowed
                   </span>
                 ) : (
                   <Button
@@ -126,9 +126,9 @@ export function Permissions() {
         register="system"
         disabled={!all}
         className="mt-10"
-        onClick={() => navigate("/izin/autostart")}
+        onClick={() => navigate("/permissions/autostart")}
       >
-        Lanjutkan
+        Continue
       </Button>
 
       {/* Escape hatch, deliberately plain, and gone once there is
@@ -136,10 +136,10 @@ export function Permissions() {
           instead of softening it. */}
       {!all && (
         <button
-          onClick={() => navigate("/izin/autostart")}
+          onClick={() => navigate("/permissions/autostart")}
           className="label mt-5 self-center text-[var(--color-ash)]"
         >
-          Lewati — nanti saja, berisiko
+          Skip for now — this is risky
         </button>
       )}
     </div>

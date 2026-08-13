@@ -1,6 +1,6 @@
 # RePulse — Mobile App
 
-Android app for the RePulse sleep and heart monitoring system. Built as a web app wrapped by Capacitor into a single APK, designed to be read in a dark bedroom, and fully in Indonesian.
+Android app for the RePulse sleep and heart monitoring system. Built as a web app wrapped by Capacitor into a single APK, designed to be read in a dark bedroom.
 
 ## Tech Stack
 
@@ -19,6 +19,7 @@ Android app for the RePulse sleep and heart monitoring system. Built as a web ap
 - Custom drawn `REPULSE` wordmark with a self-drawing splash animation
 - Two levels of darkness: day screens and night-session screens
 - Regulated copy kept as constants so wording cannot drift
+- English throughout — UI, routes, and code
 - Self-hosted variable font, so the app renders correctly offline
 
 ## Prerequisites
@@ -87,7 +88,7 @@ Four rules are deliberately hard to break. If one feels like it is in the way, t
 
 **No hex values in components.** Every visual value comes from `tokens.css` or `metrics.ts`. If a value is not there yet, the decision has not been made yet.
 
-**Regulated copy is a constant.** The strings in `copy.ts` are never retyped in a component — retyping is how regulated wording drifts unnoticed. The words *apnea*, *diagnosis*, and *gangguan napas* must not appear on any screen.
+**Regulated copy is a constant.** The strings in `copy.ts` are never retyped in a component — retyping is how regulated wording drifts unnoticed. The words *apnea*, *diagnosis*, and *disorder* must not appear on any screen.
 
 **Buttons are outlined, not filled.** `Button` has no filled-accent variant; only `sos` and `inverse` are filled.
 
@@ -95,7 +96,7 @@ Four rules are deliberately hard to break. If one feels like it is in the way, t
 
 ## Status
 
-Shell and design system are complete. Two screens built so far: `O1` splash and `O2` login. Every other route renders `Placeholder`. Screens are built one at a time in priority order.
+Shell and design system are complete. Three screens built so far: `O1` splash, `O2` sign-in, and `O3` permissions. Every other route renders `Placeholder`. Screens are built one at a time in priority order.
 
 ## License
 

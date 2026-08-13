@@ -65,7 +65,7 @@ export function Header({
 
       <div className="flex items-center gap-4 justify-self-end">
         <Share className="size-5" strokeWidth={1.5} />
-        <button onClick={onDevices} aria-label="Perangkat">
+        <button onClick={onDevices} aria-label="Devices">
           <DeviceRing state={devices} />
         </button>
       </div>

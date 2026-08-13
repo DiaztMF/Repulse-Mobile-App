@@ -14,7 +14,7 @@ export function Splash() {
   useEffect(() => {
     // Fixed duration until Firebase auth exists.
     const fade = setTimeout(() => setFading(true), 1750);
-    const go = setTimeout(() => navigate("/masuk", { replace: true }), 2250);
+    const go = setTimeout(() => navigate("/sign-in", { replace: true }), 2250);
     return () => {
       clearTimeout(fade);
       clearTimeout(go);

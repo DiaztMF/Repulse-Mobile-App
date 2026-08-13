@@ -27,7 +27,7 @@ export const BAND_COLOR: Record<Band, string> = {
 };
 
 export const BAND_LABEL: Record<Band, string> = {
-  good: "BAIK",
-  fair: "CUKUP",
-  poor: "KURANG",
+  good: "GOOD",
+  fair: "FAIR",
+  poor: "POOR",
 };
