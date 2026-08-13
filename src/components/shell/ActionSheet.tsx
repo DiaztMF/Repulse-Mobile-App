@@ -46,7 +46,7 @@ export function ActionSheet({
         onClick={onClose}
         className="absolute inset-0 bg-black/70"
       />
-      <div className="safe-b relative rounded-t-[28px] bg-[var(--color-surface)] px-5 pb-8 pt-4">
+      <div className="relative rounded-t-[28px] bg-[var(--color-surface)] px-5 pb-[calc(env(safe-area-inset-bottom)+2rem)] pt-4">
         <span className="mx-auto mb-6 block h-1 w-10 rounded-full bg-[var(--color-ash-dim)]" />
 
         <ul className="space-y-1">

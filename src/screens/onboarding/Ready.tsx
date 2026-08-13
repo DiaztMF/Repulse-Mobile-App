@@ -19,7 +19,7 @@ export function Ready() {
   const navigate = useNavigate();
 
   return (
-    <div className="bg-setup safe-t flex min-h-screen flex-col px-6 pb-8 pt-10">
+    <div className="bg-setup flex min-h-screen flex-col px-6 pb-8 pt-[calc(env(safe-area-inset-top)+2.5rem)]">
       <h1 className="text-[length:var(--text-title)] font-medium">
         Everything is ready
       </h1>
@@ -70,7 +70,7 @@ export function Ready() {
         Done
       </Button>
 
-      <p className="label mt-6 text-center text-[var(--color-ash-dim)]">
+      <p className="label mt-6 text-center text-[var(--color-ash)]">
         {COPY.disclaimer}
       </p>
     </div>

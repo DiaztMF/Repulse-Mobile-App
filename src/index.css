@@ -89,6 +89,14 @@ body {
   display: none;
 }
 
+/* Only for elements whose padding on that axis is the inset and nothing
+   else — a header, a drawer, a sheet edge.
+
+   These are plain classes declared after Tailwind's utilities, so they
+   WIN against `pt-*` / `pb-*` on the same element and the utility is
+   silently dropped. That is how seven screens lost their top or bottom
+   padding on every device without a notch. Needing both means writing
+   one class: `pt-[calc(env(safe-area-inset-top)+2.5rem)]`. */
 .safe-t {
   padding-top: env(safe-area-inset-top);
 }

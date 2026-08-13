@@ -66,7 +66,7 @@ export function Session() {
         }}
         onPointerUp={() => window.clearTimeout(press.current)}
         onPointerLeave={() => window.clearTimeout(press.current)}
-        className="num safe-t block py-4 text-[length:var(--text-card)] text-[var(--color-ash)]"
+        className="num block py-4 pt-[calc(env(safe-area-inset-top)+1rem)] text-[length:var(--text-card)] text-[var(--color-ash)]"
       >
         02:14
       </button>

@@ -37,7 +37,7 @@ export function PairTrouble() {
     <div className="min-h-screen bg-black pt-6">
       {/* Sheet over the pairing screen rather than a new page: the search
           it interrupts is still the thing being worked on. */}
-      <div className="bg-setup safe-b flex min-h-[calc(100vh-1.5rem)] flex-col rounded-t-[28px] px-6 pb-8 pt-10">
+      <div className="bg-setup flex min-h-[calc(100vh-1.5rem)] flex-col rounded-t-[28px] px-6 pb-[calc(env(safe-area-inset-bottom)+2rem)] pt-10">
         <h1 className="text-[length:var(--text-title)] font-medium leading-snug">
           Trouble connecting to your {d.name}
         </h1>

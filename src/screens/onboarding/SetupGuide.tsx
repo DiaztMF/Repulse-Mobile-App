@@ -96,7 +96,7 @@ export function SetupGuide() {
         ))}
       </div>
 
-      <div className="safe-b px-6 pb-8 pt-8">
+      <div className="px-6 pb-[calc(env(safe-area-inset-bottom)+2rem)] pt-8">
         <StepBar total={STEPS.length} current={step + 1} />
         <Button size="lg" register="system" className="mt-6" onClick={next}>
           {step === STEPS.length - 1 ? "Continue" : "Next"}

@@ -12,7 +12,7 @@ const TABS = [
  *  while a sleep session runs. */
 export function TabBar({ onAction }: { onAction?: () => void }) {
   return (
-    <nav className="safe-b pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center gap-3 px-4 pb-4">
+    <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center gap-3 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
       <div className="pointer-events-auto flex items-center rounded-[var(--radius-pill)] bg-[var(--color-raised)]/85 px-2 py-2 backdrop-blur-xl">
         {TABS.map(({ to, label, Icon }) => (
           <NavLink

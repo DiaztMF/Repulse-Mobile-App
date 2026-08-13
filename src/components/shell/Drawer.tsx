@@ -42,7 +42,7 @@ export function Drawer({ open, onClose }: { open: boolean; onClose: () => void }
         onClick={onClose}
         className="absolute inset-0 bg-black/70"
       />
-      <nav className="safe-t absolute inset-y-0 left-0 w-[78%] max-w-[300px] bg-[var(--color-surface)] px-5 pt-4">
+      <nav className="absolute inset-y-0 left-0 w-[78%] max-w-[300px] bg-[var(--color-surface)] px-5 pt-[calc(env(safe-area-inset-top)+1rem)]">
         <button onClick={onClose} aria-label="Close menu" className="mb-6 block">
           <X className="size-6" strokeWidth={1.5} />
         </button>
