@@ -34,8 +34,17 @@ const EXPLAIN: Record<string, Message> = {
     field: "email",
   },
   "auth/weak-password": { text: "Use at least six characters.", field: "password" },
+  /**
+   * The account exists but the password did not open it. Google is named
+   * because it is the other way this address could already be taken: an
+   * account created through Google has no password at all, so without
+   * this sentence that user retypes forever and never gets in.
+   *
+   * Both possibilities are offered rather than one asserted —
+   * enumeration protection is exactly what stops us from knowing which.
+   */
   "auth/email-already-in-use": {
-    text: "That password does not match this account.",
+    text: "That password does not match this account. If you signed up with Google, use the button below.",
     field: "password",
   },
   "auth/network-request-failed": { text: "No connection to Firebase." },
@@ -135,7 +144,8 @@ export function SignIn() {
   const reset = async () => {
     if (busy) return;
     if (!looksLikeEmail(email)) {
-      setMessage({ text: "Enter your email first.", field: "email" });
+      setMessage({ text: "Enter your email address.", field: "email" });
+      emailRef.current?.focus();
       return;
     }
     setBusy(true);
@@ -184,7 +194,12 @@ export function SignIn() {
             autoCorrect="off"
             spellCheck={false}
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            // Editing the line clears the complaint about it. Leaving it
+            // red while it is being fixed is nagging, not feedback.
+            onChange={(e) => {
+              setEmail(e.target.value);
+              if (message?.field === "email") setMessage(null);
+            }}
             error={message?.field === "email" ? message.text : undefined}
           />
           <Field
@@ -193,7 +208,10 @@ export function SignIn() {
             type="password"
             autoComplete="current-password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              if (message?.field === "password") setMessage(null);
+            }}
             error={passwordError}
           />
         </div>
