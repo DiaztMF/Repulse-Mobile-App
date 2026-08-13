@@ -63,6 +63,21 @@
   --color-surface: #14100d;
 }
 
+/* Hero field. Brightness follows measured lux and hue follows the lamp,
+   so a glance shows the room was too bright before a number is read.
+   At 2am the correct hero is one you can barely see. */
+.hero-day {
+  background: radial-gradient(110% 80% at 50% 0%, #3a2e22, #1c1611 60%);
+}
+.hero-dark {
+  background: linear-gradient(180deg, #0f0c09, #0c0a08);
+}
+.hero-polluted {
+  background:
+    radial-gradient(120% 90% at 100% 0%, #c9846b26, transparent 55%),
+    linear-gradient(180deg, #1c1611, #100d0a);
+}
+
 /* Onboarding, pairing, and calibration only. Not used in daily screens. */
 .bg-setup {
   background: linear-gradient(180deg, #1c1611 0%, #0c0a08 100%);

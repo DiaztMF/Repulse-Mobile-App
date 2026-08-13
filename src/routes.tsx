@@ -13,6 +13,7 @@ import { PairBedside } from "@/screens/onboarding/PairBedside";
 import { Calibration } from "@/screens/onboarding/Calibration";
 import { Contacts } from "@/screens/onboarding/Contacts";
 import { Ready } from "@/screens/onboarding/Ready";
+import { Home } from "@/screens/home/Home";
 import { Wordmark } from "@/components/brand/Wordmark";
 
 /**
@@ -39,7 +40,7 @@ export const router = createBrowserRouter([
   {
     element: <AppShell />,
     children: [
-      { path: "/tonight", element: <Placeholder code="M1" name="Home" /> },
+      { path: "/tonight", element: <Home /> },
       { path: "/tonight/session", element: <Placeholder code="M2" name="Active session" /> },
 
       { path: "/vitals", element: <Navigate to="/vitals/pulse" replace /> },
