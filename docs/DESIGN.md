@@ -634,7 +634,20 @@ Yang berlaku sekarang:
 4. **Fokus pindah ke field pertama yang bermasalah**, supaya pembaca layar membacakan galatnya
 5. **Keadaan nonaktif tetap ada, tapi hanya untuk pekerjaan yang sedang berjalan** — permintaan sedang terbang, dan label tombol sudah menjelaskan dirinya (`SIGNING IN…`)
 
-Berlaku di **O2, O8, O9** — tiga layar yang tadinya disebut ketentuan lama.
+#### Gerbang bukan validasi, dan boleh tetap mati
+
+Ketentuan lama menyebut O2, O8, dan O9. Setelah dipakai, ketiganya ternyata bukan satu jenis, dan pembedanya sederhana:
+
+| Jenis | Contoh | Boleh mati? |
+|---|---|---|
+| **Isian belum sah** | O2 sandi kurang enam huruf · O9 belum ada kontak | **Tidak.** Penyebabnya tidak terlihat — inilah yang diatur 7.1a |
+| **Gerbang dengan penunjuk sendiri** | O8 bilah kekencangan · O3 daftar izin dengan centang · O4 tombol setelan vendor | **Ya.** Layar sudah menunjukkan apa yang kurang, dan tombol mati tidak menambah teka-teki |
+
+Gerbang O8 menolak mulai sampai kontak kulit memadai, dan **bilah yang mengisi saat gelang dikencangkan sudah menjelaskan alasannya**. Itu bukan tombol bisu, itu tombol dengan penjelasan di sebelahnya.
+
+Jadi 7.1a berlaku di **O2 dan O9**, bukan O8.
+
+**Status:** O2 sudah. **O9 belum dikonversi** — masih `disabled` sampai satu kontak terisi. Ditulis di sini supaya tidak lolos jadi ketidaksesuaian diam-diam.
 
 > Ini penyimpangan dari WHOOP yang disengaja, dan masuk ke Bagian 14. WHOOP memakai tombol mati di layar masuknya; GOV.UK Design System membuangnya justru karena tiga alasan di atas. Untuk aplikasi yang dipakai orang setengah sadar, argumen aksesibilitasnya menang atas argumen kerapiannya.
 
