@@ -4,6 +4,7 @@ import { Placeholder } from "@/screens/Placeholder";
 import { KitchenSink } from "@/screens/KitchenSink";
 import { Splash } from "@/screens/onboarding/Splash";
 import { Login } from "@/screens/onboarding/Login";
+import { Permissions } from "@/screens/onboarding/Permissions";
 import { Wordmark } from "./components/brand/Wordmark";
 
 /**
@@ -16,7 +17,7 @@ export const router = createBrowserRouter([
   { path: "/", element: <Splash /> },
   { path: "/brand", element: <Wordmark /> },
   { path: "/masuk", element: <Login /> },
-  { path: "/izin", element: <Placeholder code="O3" name="Izin sistem" /> },
+  { path: "/izin", element: <Permissions /> },
   { path: "/izin/autostart", element: <Placeholder code="O4" name="Izin autostart" /> },
   { path: "/panduan", element: <Placeholder code="O5" name="Panduan pasang" /> },
   { path: "/pasang/gelang", element: <Placeholder code="O6" name="Pairing gelang" /> },
