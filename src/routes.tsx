@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { AppShell } from "@/components/shell/AppShell";
+import { OnboardingProgress } from "@/components/shell/OnboardingProgress";
 import { RequireAuth } from "@/firebase/auth";
 import { Splash } from "@/screens/onboarding/Splash";
 import { Home } from "@/screens/home/Home";
@@ -29,15 +30,23 @@ export const router = createBrowserRouter([
   { path: "/", element: <Splash /> },
   { path: "/brand", element: <Wordmark /> },
   { path: "/sign-in", lazy: lazyRoute(() => import("@/screens/onboarding/SignIn"), "SignIn") },
-  { path: "/permissions", lazy: lazyRoute(() => import("@/screens/onboarding/Permissions"), "Permissions") },
-  { path: "/permissions/autostart", lazy: lazyRoute(() => import("@/screens/onboarding/Autostart"), "Autostart") },
-  { path: "/setup-guide", lazy: lazyRoute(() => import("@/screens/onboarding/SetupGuide"), "SetupGuide") },
-  { path: "/pair/band", lazy: lazyRoute(() => import("@/screens/onboarding/PairBand"), "PairBand") },
-  { path: "/pair/bedside", lazy: lazyRoute(() => import("@/screens/onboarding/PairBedside"), "PairBedside") },
-  { path: "/pair/:device/trouble", lazy: lazyRoute(() => import("@/screens/onboarding/PairTrouble"), "PairTrouble") },
-  { path: "/calibration", lazy: lazyRoute(() => import("@/screens/onboarding/Calibration"), "Calibration") },
-  { path: "/contacts", lazy: lazyRoute(() => import("@/screens/onboarding/Contacts"), "Contacts") },
-  { path: "/ready", lazy: lazyRoute(() => import("@/screens/onboarding/Ready"), "Ready") },
+
+  // Wrapped so the step reached is recorded once, in one place, instead
+  // of beside every forward button on every screen below.
+  {
+    element: <OnboardingProgress />,
+    children: [
+      { path: "/permissions", lazy: lazyRoute(() => import("@/screens/onboarding/Permissions"), "Permissions") },
+      { path: "/permissions/autostart", lazy: lazyRoute(() => import("@/screens/onboarding/Autostart"), "Autostart") },
+      { path: "/setup-guide", lazy: lazyRoute(() => import("@/screens/onboarding/SetupGuide"), "SetupGuide") },
+      { path: "/pair/band", lazy: lazyRoute(() => import("@/screens/onboarding/PairBand"), "PairBand") },
+      { path: "/pair/bedside", lazy: lazyRoute(() => import("@/screens/onboarding/PairBedside"), "PairBedside") },
+      { path: "/pair/:device/trouble", lazy: lazyRoute(() => import("@/screens/onboarding/PairTrouble"), "PairTrouble") },
+      { path: "/calibration", lazy: lazyRoute(() => import("@/screens/onboarding/Calibration"), "Calibration") },
+      { path: "/contacts", lazy: lazyRoute(() => import("@/screens/onboarding/Contacts"), "Contacts") },
+      { path: "/ready", lazy: lazyRoute(() => import("@/screens/onboarding/Ready"), "Ready") },
+    ],
+  },
 
   // Owns the whole screen while a session runs — no header, no tab bar.
   { path: "/tonight/session", lazy: lazyRoute(() => import("@/screens/home/Session"), "Session") },

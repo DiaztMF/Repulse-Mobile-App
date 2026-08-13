@@ -2,6 +2,8 @@ import { useNavigate } from "react-router-dom";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { COPY } from "@/lib/copy";
+import { useAuth } from "@/firebase/auth";
+import { finish } from "@/firebase/onboarding";
 
 const DONE = [
   { title: "Band", detail: "RePulse Band 4C0521039 · 87%" },
@@ -17,6 +19,7 @@ const DONE = [
  */
 export function Ready() {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   return (
     <div className="bg-setup flex min-h-screen flex-col px-6 pb-8 pt-[calc(env(safe-area-inset-top)+2.5rem)]">
@@ -65,7 +68,13 @@ export function Ready() {
         size="lg"
         register="system"
         className="mt-10"
-        onClick={() => navigate("/tonight", { replace: true })}
+        // The only place onboarding is marked finished, so the splash
+        // stops resuming into it. Not awaited: the write is a
+        // convenience and must not hold up the last tap of setup.
+        onClick={() => {
+          if (user) void finish(user.uid);
+          navigate("/tonight", { replace: true });
+        }}
       >
         Done
       </Button>
