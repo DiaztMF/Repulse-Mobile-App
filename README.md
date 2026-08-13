@@ -45,6 +45,8 @@ npm run dev       # dev server on :5173
 npm run build     # type-check, then production build into dist/
 npm run preview   # preview the production build
 npm run lint      # oxlint
+npm run check:data  # dataset invariants
+npm run check:gate  # calibration fit-gate rule
 ```
 
 Building the APK:
@@ -72,9 +74,16 @@ src/
 │   ├── brand/            # Wordmark — drawn SVG logotype
 │   ├── ui/               # Button, Card, Field, StepBar, ValueArc
 │   └── shell/            # Header, TabBar, AppShell
+├── data/
+│   ├── mock.ts           # 14 deterministic synthetic nights
+│   └── mock.check.ts     # invariants — npm run check:data
 ├── screens/
-│   ├── onboarding/       # Splash, Login
-│   ├── Placeholder.tsx   # marker for screens not yet built
+│   ├── onboarding/       # O1-O10 plus pairing trouble
+│   ├── home/             # home and the active night session
+│   ├── vitals/           # one template, five metrics
+│   ├── health/           # history, night detail, trends, insights
+│   ├── settings/         # settings, devices, test panel, export, ECG
+│   ├── emergency/        # alert, SOS, family viewer
 │   └── KitchenSink.tsx   # token check page, drop before shipping
 ├── state/
 │   └── session.ts        # session state; owns night mode
@@ -96,9 +105,13 @@ Four rules are deliberately hard to break. If one feels like it is in the way, t
 
 ## Status
 
-Shell, design system, and the full onboarding flow are complete: `O1` splash, `O2` sign-in, `O3` permissions, `O4` autostart, `O5` setup guide, `O6` pair band, `O6b` pairing trouble, `O7` pair bedside, `O8` calibration, `O9` emergency contacts, `O10` ready.
+All 34 screens are built and reachable. Every screen reads from the
+synthetic dataset in `src/data/mock.ts`, so the whole app is walkable
+end to end without hardware.
 
-The main app — home, vitals, health, settings and the emergency screens — still renders `Placeholder`. Screens are built one at a time in priority order.
+Still to come: the BLE transport, Firebase auth and persistence, and the
+Capacitor plugins behind the foreground service. Integration points are
+marked `TODO` where they belong.
 
 ## License
 

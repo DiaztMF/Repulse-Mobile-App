@@ -1,6 +1,5 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { AppShell } from "@/components/shell/AppShell";
-import { Placeholder } from "@/screens/Placeholder";
 import { KitchenSink } from "@/screens/KitchenSink";
 import { Splash } from "@/screens/onboarding/Splash";
 import { SignIn } from "@/screens/onboarding/SignIn";
@@ -26,6 +25,10 @@ import { TestPanel } from "@/screens/settings/TestPanel";
 import { Family } from "@/screens/settings/Family";
 import { Export } from "@/screens/settings/Export";
 import { Ecg } from "@/screens/settings/Ecg";
+import { Alert } from "@/screens/emergency/Alert";
+import { Sos } from "@/screens/emergency/Sos";
+import { Watched } from "@/screens/emergency/Watched";
+import { FamilyView } from "@/screens/emergency/FamilyView";
 import { Wordmark } from "@/components/brand/Wordmark";
 
 /**
@@ -78,10 +81,10 @@ export const router = createBrowserRouter([
   },
 
   // Outside navigation — takes over the screen
-  { path: "/alert", element: <Placeholder code="X1" name="ALERT" /> },
-  { path: "/sos", element: <Placeholder code="X2" name="SOS" /> },
-  { path: "/family/view", element: <Placeholder code="X4" name="Family — viewer" /> },
-  { path: "/emergency/watched", element: <Placeholder code="X5" name="Watched person emergency" /> },
+  { path: "/alert", element: <Alert /> },
+  { path: "/sos", element: <Sos /> },
+  { path: "/family/view", element: <FamilyView /> },
+  { path: "/emergency/watched", element: <Watched /> },
 
   { path: "*", element: <Navigate to="/tonight" replace /> },
 ]);
