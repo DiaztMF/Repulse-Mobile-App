@@ -1,0 +1,166 @@
+import type { ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
+import { ChevronLeft, ChevronRight, Info } from "lucide-react";
+import { cn } from "@/lib/cn";
+
+export type KeyMetric = { label: string; value: string; note?: string };
+
+export type Row = {
+  label: string;
+  value: string;
+  /** 0-1. Drives the bar under the row. */
+  level: number;
+  /** Coloured only when it needs attention — that is what makes the
+   *  colour mean something when it does appear. */
+  attention?: boolean;
+};
+
+/** Previous and next days peek at the edges. A full calendar would be
+ *  wrong for a screen people open to see last night. */
+function DateStrip({ date }: { date: string }) {
+  const d = new Date(date + "T12:00:00");
+  const fmt = (x: Date) =>
+    x.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+  const shift = (n: number) => {
+    const c = new Date(d);
+    c.setDate(c.getDate() + n);
+    return c;
+  };
+
+  return (
+    <div className="flex items-center justify-between gap-4 px-5">
+      <button className="flex items-center gap-1 truncate text-[length:var(--text-meta)] text-[var(--color-ash-dim)]">
+        <ChevronLeft className="size-4 shrink-0" strokeWidth={1.5} />
+        {fmt(shift(-1))}
+      </button>
+      <span className="border-b border-[var(--color-ivory)] pb-1 text-[length:var(--text-body)]">
+        {fmt(d)}
+      </span>
+      <button className="flex items-center gap-1 truncate text-[length:var(--text-meta)] text-[var(--color-ash-dim)]">
+        {fmt(shift(1))}
+        <ChevronRight className="size-4 shrink-0" strokeWidth={1.5} />
+      </button>
+    </div>
+  );
+}
+
+export function MetricGrid({ items }: { items: KeyMetric[] }) {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      {items.map((m) => (
+        <div
+          key={m.label}
+          className="rounded-[var(--radius-control)] bg-[var(--color-surface)] p-4"
+        >
+          <p className="label text-[var(--color-ash)]">{m.label}</p>
+          <p className="num mt-2 text-[length:var(--text-body)]">{m.value}</p>
+          {m.note && (
+            <p className="mt-1 text-[length:var(--text-meta)] text-[var(--color-ash)]">
+              {m.note}
+            </p>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function RowList({ title, rows }: { title: string; rows: Row[] }) {
+  if (!rows.length) return null;
+  return (
+    <section className="mt-10">
+      <h2 className="text-[length:var(--text-card)] font-medium">{title}</h2>
+      <ul className="mt-5 space-y-6">
+        {rows.map((r) => (
+          <li key={r.label}>
+            <div className="flex items-baseline justify-between gap-4">
+              <span>{r.label}</span>
+              <span
+                className={cn(
+                  "num text-[length:var(--text-body)]",
+                  r.attention
+                    ? "text-[var(--color-band-poor)]"
+                    : "text-[var(--color-ash)]",
+                )}
+              >
+                {r.value}
+              </span>
+            </div>
+            <div className="mt-2 h-0.5 w-full overflow-hidden rounded-full bg-[var(--color-faint)]">
+              <div
+                className="h-full rounded-full"
+                style={{
+                  width: `${Math.round(Math.min(1, Math.max(0, r.level)) * 100)}%`,
+                  background: r.attention
+                    ? "var(--color-band-poor)"
+                    : "var(--color-ivory)",
+                }}
+              />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** Shared frame for all five vital screens. What changes per metric is
+ *  the headline number, the chart and the rows — never the structure,
+ *  so moving between them costs no re-reading. */
+export function VitalLayout({
+  title,
+  date,
+  value,
+  unit,
+  caption,
+  chart,
+  metrics,
+  children,
+  footnote,
+}: {
+  title: string;
+  date: string;
+  value: string;
+  unit: string;
+  caption?: string;
+  chart?: ReactNode;
+  metrics?: KeyMetric[];
+  children?: ReactNode;
+  footnote?: ReactNode;
+}) {
+  const navigate = useNavigate();
+
+  return (
+    <div className="pb-4">
+      <header className="safe-t grid h-14 grid-cols-[auto_1fr_auto] items-center px-5">
+        <button onClick={() => navigate(-1)} aria-label="Back">
+          <ChevronLeft className="size-6" strokeWidth={1.5} />
+        </button>
+        <span className="label text-center text-[var(--color-ivory)]">{title}</span>
+        <Info className="size-5 text-[var(--color-ash)]" strokeWidth={1.5} />
+      </header>
+
+      <DateStrip date={date} />
+
+      <div className="px-5">
+        <p className="num mt-8 text-[length:var(--text-hero)] leading-none">
+          {value}
+        </p>
+        <p className="label mt-2 text-[var(--color-ash)]">{unit}</p>
+        {caption && <p className="mt-4 text-[var(--color-ash)]">{caption}</p>}
+
+        {chart && <div className="mt-8">{chart}</div>}
+
+        {metrics && metrics.length > 0 && (
+          <div className="mt-10">
+            <MetricGrid items={metrics} />
+          </div>
+        )}
+
+        {children}
+
+        {footnote && <div className="mt-10">{footnote}</div>}
+      </div>
+    </div>
+  );
+}

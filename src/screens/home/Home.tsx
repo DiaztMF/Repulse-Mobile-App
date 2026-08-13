@@ -3,6 +3,7 @@ import { HeartPulse, Wind, Home as HomeIcon, Moon, X } from "lucide-react";
 import { Card, Empty } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Sparkline } from "@/components/ui/Sparkline";
+import { Header } from "@/components/shell/Header";
 import { ScoreChips } from "@/components/home/ScoreChips";
 import { Timeline } from "@/components/home/Timeline";
 import { lastNight, seriesFor, formatDuration, bandOfScore } from "@/data/mock";
@@ -40,6 +41,8 @@ export function Home() {
 
   return (
     <div className="pb-4">
+      <Header devices="both" />
+
       <div className="px-5 pt-2">
         <ScoreChips night={night} />
       </div>

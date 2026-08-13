@@ -15,6 +15,7 @@ import { Contacts } from "@/screens/onboarding/Contacts";
 import { Ready } from "@/screens/onboarding/Ready";
 import { Home } from "@/screens/home/Home";
 import { Session } from "@/screens/home/Session";
+import { Vital } from "@/screens/vitals/Vital";
 import { Wordmark } from "@/components/brand/Wordmark";
 
 /**
@@ -47,11 +48,7 @@ export const router = createBrowserRouter([
       { path: "/tonight", element: <Home /> },
 
       { path: "/vitals", element: <Navigate to="/vitals/pulse" replace /> },
-      { path: "/vitals/sleep", element: <Placeholder code="V1" name="Sleep Score" /> },
-      { path: "/vitals/pulse", element: <Placeholder code="V2" name="Pulse" /> },
-      { path: "/vitals/breathing", element: <Placeholder code="V3" name="Breathing" /> },
-      { path: "/vitals/movement", element: <Placeholder code="V4" name="Movement & position" /> },
-      { path: "/vitals/room", element: <Placeholder code="V5" name="Room" /> },
+      { path: "/vitals/:metric", element: <Vital /> },
 
       { path: "/health", element: <Placeholder code="S1" name="History" /> },
       { path: "/health/night/:date", element: <Placeholder code="S2" name="Night detail" /> },
