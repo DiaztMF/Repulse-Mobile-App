@@ -1,0 +1,83 @@
+@import "tailwindcss";
+@import "./styles/tokens.css";
+
+/* Variable font: one 88KB file covers weights 100-900 and widths
+   62.5-125%, so expanded numerals cost nothing extra.
+   Self-hosted — this app runs at 2am with wifi possibly off. */
+@font-face {
+  font-family: "Archivo";
+  src: url("/fonts/archivo-variable.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-stretch: 62.5% 125%;
+  font-display: block;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--color-base);
+  color: var(--color-ivory);
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: 1.55;
+  color-scheme: dark;
+
+  /* Half-asleep users in the dark — nothing should highlight or
+     select when the screen is brushed. */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  overscroll-behavior: none;
+}
+
+/* Numbers that tick every second must be tabular or they wobble. */
+.num {
+  font-family: var(--font-numeric);
+  font-stretch: 125%;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--tracking-numeric);
+  font-weight: 600;
+}
+
+/* System register: machine states speak in uppercase. */
+.label {
+  font-size: var(--text-label);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+}
+
+/* Pure CSS so it needs no JS tick and can't fail on a missed frame. */
+@keyframes wordmark-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.wordmark-draw path {
+  stroke-dashoffset: 1;
+  animation: wordmark-draw 1100ms var(--ease-light) forwards;
+}
+
+.safe-t {
+  padding-top: env(safe-area-inset-top);
+}
+.safe-b {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
