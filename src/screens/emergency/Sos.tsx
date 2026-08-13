@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Check } from "lucide-react";
+import { SampleBadge } from "@/components/shell/SampleBadge";
 import { COPY } from "@/lib/copy";
 
 const CONTACT = "Sari";
@@ -71,6 +72,13 @@ export function Sos() {
       >
         Cancel — I am okay
       </button>
+
+      {/* This screen shows a filled-in WhatsApp message with a name, a
+          time, and a location. Of everything in the app, that is the
+          invention most easily mistaken for a real record. */}
+      <div className="mt-6">
+        <SampleBadge />
+      </div>
     </div>
   );
 }

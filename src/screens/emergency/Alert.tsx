@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { SampleBadge } from "@/components/shell/SampleBadge";
 import { cn } from "@/lib/cn";
 
 /** The ladder runs in the band's firmware. This screen mirrors it. */
@@ -101,6 +102,15 @@ export function Alert() {
       >
         I am okay
       </button>
+
+      {/* At the bottom edge, well clear of the countdown. A judge watching
+          a heart rate on an emergency screen is entitled to know it did
+          not come from a sensor — DESIGN §12 requires this on every screen
+          while the mock layer is on, and this is the screen where an
+          invented number would be taken most seriously. */}
+      <div className="mt-10">
+        <SampleBadge />
+      </div>
     </div>
   );
 }
