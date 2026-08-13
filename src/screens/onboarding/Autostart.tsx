@@ -51,10 +51,11 @@ export function Autostart() {
   };
 
   return (
-    <div className="bg-setup flex min-h-screen flex-col px-6 pb-8">
+    <div className="bg-setup flex min-h-screen flex-col pb-8">
       <PageHeader title="Autostart" />
 
-      <h1 className="mt-8 text-[length:var(--text-title)] font-medium leading-snug">
+      <div className="flex flex-1 flex-col px-6">
+        <h1 className="mt-8 text-[length:var(--text-title)] font-medium leading-snug">
         One more step, and it decides the rest
       </h1>
 
@@ -118,6 +119,7 @@ export function Autostart() {
       >
         Skip — I understand the risk
       </button>
+      </div>
     </div>
   );
 }

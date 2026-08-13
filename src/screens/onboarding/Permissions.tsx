@@ -51,13 +51,14 @@ export function Permissions() {
   const all = done === PERMISSIONS.length;
 
   return (
-    <div className="bg-setup flex min-h-screen flex-col px-6 pb-8">
+    <div className="bg-setup flex min-h-screen flex-col pb-8">
       <PageHeader
         title="Permissions needed"
         right={`${done}/${PERMISSIONS.length}`}
       />
 
-      <p className="mt-8 text-[length:var(--text-title)] font-medium leading-snug">
+      <div className="flex flex-1 flex-col px-6">
+        <p className="mt-8 text-[length:var(--text-title)] font-medium leading-snug">
         RePulse watches all night
       </p>
       <p className="mt-3 text-[var(--color-ash)]">
@@ -145,6 +146,7 @@ export function Permissions() {
           Skip for now — this is risky
         </button>
       )}
+      </div>
     </div>
   );
 }

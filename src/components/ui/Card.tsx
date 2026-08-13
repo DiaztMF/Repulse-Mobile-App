@@ -39,9 +39,9 @@ export function Card({
       {/* 4% tint — enough to separate domains, not enough to read as color */}
       <span
         aria-hidden
-        className="pointer-events-none absolute inset-0"
+        className="pointer-events-none absolute inset-0 opacity-[0.04]"
         style={{
-          background: `radial-gradient(120% 100% at 0% 0%, ${color}0A, transparent 60%)`,
+          background: `radial-gradient(120% 100% at 0% 0%, ${color}, transparent 60%)`,
         }}
       />
 

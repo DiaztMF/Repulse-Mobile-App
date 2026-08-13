@@ -52,18 +52,22 @@ export function PairBand() {
   };
 
   return (
-    <div className="bg-setup flex min-h-screen flex-col px-6 pb-8">
-      <div className="flex items-center justify-between">
-        <PageHeader title="Pair your band" />
-        {stage !== "connected" && (
-          <button
-            onClick={() => navigate("/pair/band/trouble")}
-            className="label rounded-[var(--radius-pill)] border border-[var(--color-pulse)] px-4 py-1.5 text-[var(--color-pulse)]"
-          >
-            Help
-          </button>
-        )}
-      </div>
+    <div className="bg-setup flex min-h-screen flex-col pb-8">
+      <PageHeader
+        title="Pair your band"
+        right={
+          stage !== "connected" ? (
+            <button
+              onClick={() => navigate("/pair/band/trouble")}
+              className="label rounded-[var(--radius-pill)] border border-[var(--color-pulse)] px-4 py-1.5 text-[var(--color-pulse)]"
+            >
+              Help
+            </button>
+          ) : undefined
+        }
+      />
+
+      <div className="flex flex-1 flex-col px-6">
 
       {/* System register: uppercase and centred, because the machine is
           the one talking here. */}
@@ -122,6 +126,7 @@ export function PairBand() {
           Not showing up?
         </button>
       )}
+      </div>
     </div>
   );
 }

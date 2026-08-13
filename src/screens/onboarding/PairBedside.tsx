@@ -46,18 +46,22 @@ export function PairBedside() {
   const searching = stage === "searching";
 
   return (
-    <div className="bg-setup flex min-h-screen flex-col px-6 pb-8">
-      <div className="flex items-center justify-between">
-        <PageHeader title="Pair the bedside unit" />
-        {searching && (
-          <button
-            onClick={() => navigate("/pair/bedside/trouble")}
-            className="label rounded-[var(--radius-pill)] border border-[var(--color-pulse)] px-4 py-1.5 text-[var(--color-pulse)]"
-          >
-            Help
-          </button>
-        )}
-      </div>
+    <div className="bg-setup flex min-h-screen flex-col pb-8">
+      <PageHeader
+        title="Pair the bedside unit"
+        right={
+          searching ? (
+            <button
+              onClick={() => navigate("/pair/bedside/trouble")}
+              className="label rounded-[var(--radius-pill)] border border-[var(--color-pulse)] px-4 py-1.5 text-[var(--color-pulse)]"
+            >
+              Help
+            </button>
+          ) : undefined
+        }
+      />
+
+      <div className="flex flex-1 flex-col px-6">
 
       <p className="label mt-8 text-center text-[var(--color-ivory)]">
         {searching ? "Searching for bedside unit…" : "Bedside unit connected"}
@@ -116,6 +120,7 @@ export function PairBedside() {
           Continue
         </Button>
       )}
+      </div>
     </div>
   );
 }

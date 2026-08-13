@@ -22,8 +22,10 @@ export function ScoreChips({ night }: { night: Night }) {
       {chips.map(({ to, label, Icon, color, value }) => (
         <NavLink key={to} to={to} className="flex shrink-0 flex-col items-center gap-2">
           <span
-            className="flex size-16 flex-col items-center justify-center rounded-full bg-[var(--color-surface)]"
-            style={{ border: `1px solid ${color}4D` }}
+            className="flex size-16 flex-col items-center justify-center rounded-full border bg-[var(--color-surface)]"
+            // 30% of the metric colour. `color` is a var() now, so the old
+            // `${color}4D` hex-alpha trick no longer parses.
+            style={{ borderColor: `color-mix(in srgb, ${color} 30%, transparent)` }}
           >
             <Icon className="size-3.5" strokeWidth={1.5} style={{ color }} />
             <span className="num text-[length:var(--text-body)]" style={{ color }}>
