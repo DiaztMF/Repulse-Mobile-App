@@ -647,7 +647,7 @@ Gerbang O8 menolak mulai sampai kontak kulit memadai, dan **bilah yang mengisi s
 
 Jadi 7.1a berlaku di **O2 dan O9**, bukan O8.
 
-**Status:** O2 sudah. **O9 belum dikonversi** — masih `disabled` sampai satu kontak terisi. Ditulis di sini supaya tidak lolos jadi ketidaksesuaian diam-diam.
+**Status:** O2 dan O9 sudah dikonversi.
 
 > Ini penyimpangan dari WHOOP yang disengaja, dan masuk ke Bagian 14. WHOOP memakai tombol mati di layar masuknya; GOV.UK Design System membuangnya justru karena tiga alasan di atas. Untuk aplikasi yang dipakai orang setengah sadar, argumen aksesibilitasnya menang atas argumen kerapiannya.
 

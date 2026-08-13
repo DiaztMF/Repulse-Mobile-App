@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, X } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
@@ -24,10 +24,35 @@ export function Contacts() {
   const navigate = useNavigate();
   const [list, setList] = useState<Contact[]>([empty()]);
 
-  const set = (i: number, patch: Partial<Contact>) =>
-    setList((l) => l.map((c, j) => (j === i ? { ...c, ...patch } : c)));
+  const [bad, setBad] = useState<"name" | "phone" | null>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
+  const phoneRef = useRef<HTMLInputElement>(null);
 
-  const ready = list.some(usable);
+  const set = (i: number, patch: Partial<Contact>) => {
+    setBad(null);
+    setList((l) => l.map((c, j) => (j === i ? { ...c, ...patch } : c)));
+  };
+
+  /**
+   * DESIGN.md §7.1a — the button is live and the input is judged on the
+   * tap, so the screen can say which line is missing instead of going
+   * grey and leaving the user to work it out.
+   *
+   * The complaint always lands on the first card: if nothing here is
+   * usable, that is the one they started filling in.
+   */
+  const save = () => {
+    if (list.some(usable)) return navigate("/ready");
+
+    const first = list[0]!;
+    if (first.name.trim().length > 1) {
+      setBad("phone");
+      phoneRef.current?.focus();
+    } else {
+      setBad("name");
+      nameRef.current?.focus();
+    }
+  };
 
   return (
     <div className="bg-setup flex min-h-screen flex-col px-6 pb-8">
@@ -56,24 +81,35 @@ export function Contacts() {
               </button>
             )}
             <Field
+              ref={i === 0 ? nameRef : undefined}
               label="Name"
               placeholder="Sari"
               value={c.name}
               onChange={(e) => set(i, { name: e.target.value })}
+              error={i === 0 && bad === "name" ? "Add their name." : undefined}
             />
             <Field
+              ref={i === 0 ? phoneRef : undefined}
               label="WhatsApp number"
               inputMode="tel"
               placeholder="0812 3456 7890"
               value={c.phone}
               onChange={(e) => set(i, { phone: e.target.value })}
+              error={
+                i === 0 && bad === "phone"
+                  ? "A WhatsApp number, at least nine digits."
+                  : undefined
+              }
             />
             <label className="block">
               <span className="label text-[var(--color-ash)]">Relationship</span>
               <select
                 value={c.relation}
                 onChange={(e) => set(i, { relation: e.target.value })}
-                className="mt-2 h-12 w-full rounded-t-[var(--radius-control)] border-b-2 border-[var(--color-ivory)] bg-[var(--color-ivory)]/[0.04] px-3 text-[length:var(--text-body)] text-[var(--color-ivory)] outline-none"
+                // Matches Field: no box, one hairline, Ash Dim to Lamp
+                // Amber on focus. DESIGN.md §7.5 — it sat between two
+                // underlined inputs still wearing the old boxed style.
+                className="mt-2 h-12 w-full border-b border-[var(--color-ash-dim)] bg-transparent text-[length:var(--text-body)] text-[var(--color-ivory)] outline-none focus:border-[var(--color-pulse)]"
               >
                 {RELATIONS.map((r) => (
                   <option key={r} value={r} className="bg-[var(--color-surface)]">
@@ -114,13 +150,7 @@ export function Contacts() {
 
       <div className="flex-1" />
 
-      <Button
-        size="lg"
-        register="system"
-        disabled={!ready}
-        className="mt-10"
-        onClick={() => navigate("/ready")}
-      >
+      <Button size="lg" register="system" className="mt-10" onClick={save}>
         Save
       </Button>
     </div>
