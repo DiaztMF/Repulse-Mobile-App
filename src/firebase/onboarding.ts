@@ -15,7 +15,7 @@ export const STEPS = [
   "/pair/band",
   "/pair/bedside",
   "/calibration",
-  "/contacts",
+  "/onboarding/contacts",
   "/ready",
 ] as const;
 

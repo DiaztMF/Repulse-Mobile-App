@@ -102,8 +102,10 @@ export function Calibration() {
         : "Too loose. Tighten it until it stops sliding.";
 
   return (
-    <div className="bg-setup flex min-h-screen flex-col px-6 pb-8">
+    <div className="bg-setup flex min-h-screen flex-col pb-8">
       {stage !== "running" && <PageHeader title="Calibration" />}
+
+      <div className="flex flex-1 flex-col px-6">
 
       {stage === "explain" && (
         <>
@@ -195,12 +197,13 @@ export function Calibration() {
           <Button
             size="lg"
             register="system"
-            onClick={() => navigate("/contacts")}
+            onClick={() => navigate("/onboarding/contacts")}
           >
             Continue
           </Button>
         </>
       )}
+      </div>
     </div>
   );
 }
