@@ -7,6 +7,7 @@ import { SignIn } from "@/screens/onboarding/SignIn";
 import { Permissions } from "@/screens/onboarding/Permissions";
 import { Autostart } from "@/screens/onboarding/Autostart";
 import { SetupGuide } from "@/screens/onboarding/SetupGuide";
+import { PairTrouble } from "@/screens/onboarding/PairTrouble";
 import { Wordmark } from "@/components/brand/Wordmark";
 
 /**
@@ -24,6 +25,7 @@ export const router = createBrowserRouter([
   { path: "/setup-guide", element: <SetupGuide /> },
   { path: "/pair/band", element: <Placeholder code="O6" name="Pair band" /> },
   { path: "/pair/bedside", element: <Placeholder code="O7" name="Pair bedside" /> },
+  { path: "/pair/:device/trouble", element: <PairTrouble /> },
   { path: "/calibration", element: <Placeholder code="O8" name="Baseline calibration" /> },
   { path: "/contacts", element: <Placeholder code="O9 · D3" name="Emergency contacts" /> },
   { path: "/ready", element: <Placeholder code="O10" name="Ready" /> },
