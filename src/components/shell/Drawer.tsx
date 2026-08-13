@@ -120,7 +120,7 @@ export function Drawer({ open, onClose }: { open: boolean; onClose: () => void }
                       active ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-3",
                       isCurrent
                         ? "bg-[var(--color-raised)] text-[var(--color-pulse)] font-medium"
-                        : "text-[var(--color-ivory)] hover:bg-[var(--color-raised)] hover:text-white"
+                        : "text-[var(--color-ivory)] hover:bg-[var(--color-raised)]"
                     )}
                   >
                     <Icon

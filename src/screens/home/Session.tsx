@@ -32,10 +32,17 @@ export function Session() {
   const press = useRef<number | undefined>(undefined);
 
   // Night tokens: text, accent and surfaces all step down together.
+  // The status bar comes too — it is painted by the OS from the meta tag,
+  // so a light-mode user would otherwise sleep beside a linen strip all
+  // night. ThemeProvider repaints it on the way out.
   useEffect(() => {
+    const meta = document.querySelector('meta[name="theme-color"]');
+    const was = meta?.getAttribute("content");
     document.documentElement.dataset.night = "true";
+    meta?.setAttribute("content", "#100D0A");
     return () => {
       document.documentElement.dataset.night = "false";
+      if (was) meta?.setAttribute("content", was);
     };
   }, []);
 

@@ -33,8 +33,10 @@ export function PairTrouble() {
     "Turn Wi-Fi off — 2.4 GHz Wi-Fi and Bluetooth share the same band",
   ];
 
+  // The strip above the sheet is the screen it covers, not a colour of its
+  // own — hardcoded black left a bar of night across the top of a linen page.
   return (
-    <div className="min-h-screen bg-black pt-6">
+    <div className="min-h-screen bg-[var(--color-base)] pt-6">
       {/* Sheet over the pairing screen rather than a new page: the search
           it interrupts is still the thing being worked on. */}
       <div className="bg-setup flex min-h-[calc(100vh-1.5rem)] flex-col rounded-t-[28px] px-6 pb-[calc(env(safe-area-inset-bottom)+2rem)] pt-10">

@@ -28,7 +28,7 @@ export function PageHeader({
         <button
           onClick={isMenu ? openDrawer : (onBack ?? (() => navigate(-1)))}
           aria-label={isMenu ? "Open menu" : "Back"}
-          className="flex size-11 items-center justify-center -ml-2.5 rounded-full text-[var(--color-ivory)] hover:text-white transition-colors justify-self-start"
+          className="flex size-11 items-center justify-center -ml-2.5 rounded-full text-[var(--color-ivory)] hover:bg-[var(--color-surface)] transition-colors justify-self-start"
         >
           {isMenu ? (
             <Menu className="size-6" strokeWidth={1.5} />
