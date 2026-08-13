@@ -1,16 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { TopBar } from "@/components/shell/TopBar";
 import { Button } from "@/components/ui/Button";
+import { GOOD, holdGate } from "@/lib/fitGate";
 
 type Stage = "explain" | "fit" | "running" | "done";
 
-/** Signal quality is reported 0-15 in the status byte. */
-const GOOD = 10;
-/** The reading must hold, not just touch — one spike is not stable
- *  contact, and a baseline recorded off a spike is worse than none. */
-const HOLD_MS = 3000;
+/** Matches `record_baseline` in the firmware contract. */
 const DURATION_S = 180;
+
 
 /** The only progress ring in the app. Legitimate here because what it
  *  shows really is progress toward finishing, not a live value. */
@@ -53,37 +51,38 @@ export function Calibration() {
   const [quality, setQuality] = useState(0);
   const [stable, setStable] = useState(false);
   const [left, setLeft] = useState(DURATION_S);
-  const since = useRef<number | null>(null);
 
+  // One timer owns both the sample and the hold check.
+  //
+  // The first version kept the hold in its own effect keyed on `quality`.
+  // Because quality resamples every few hundred ms, every change ran the
+  // cleanup and cancelled the pending timer, so the three seconds could
+  // never elapse and the gate was impossible to pass. Tracking the start
+  // in a local rather than across effects removes the race entirely.
+  //
   // TODO: read quality from the band status byte.
   useEffect(() => {
     if (stage !== "fit") return;
     const t0 = Date.now();
+    let goodSince: number | null = null;
+
     const id = setInterval(() => {
-      const ramp = Math.min(13, (Date.now() - t0) / 500);
-      setQuality(Math.max(0, Math.round(ramp + (Math.random() * 2 - 1))));
-    }, 400);
+      const ramp = Math.min(GOOD + 3, (Date.now() - t0) / 450);
+      const q = Math.max(0, Math.round(ramp + (Math.random() * 2 - 1)));
+      setQuality(q);
+
+      const next = holdGate(q, goodSince, Date.now());
+      goodSince = next.goodSince;
+      setStable(next.stable);
+    }, 250);
+
     return () => clearInterval(id);
   }, [stage]);
 
   useEffect(() => {
-    if (stage !== "fit") return;
-    if (quality >= GOOD) {
-      since.current ??= Date.now();
-      const id = setTimeout(
-        () => setStable(Date.now() - (since.current ?? 0) >= HOLD_MS),
-        HOLD_MS,
-      );
-      return () => clearTimeout(id);
-    }
-    since.current = null;
-    setStable(false);
-  }, [quality, stage]);
-
-  useEffect(() => {
     if (stage !== "running") return;
     const id = setInterval(() => {
-      setLeft((s) => {
+      setLeft((s: number) => {
         if (s <= 1) {
           clearInterval(id);
           setStage("done");
@@ -135,7 +134,7 @@ export function Calibration() {
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--color-faint)]">
               <div
                 className="h-full rounded-full bg-[var(--color-pulse)] transition-[width] duration-300"
-                style={{ width: `${Math.min(100, (quality / 15) * 100)}%` }}
+                style={{ width: `${Math.min(100, (quality / GOOD) * 100)}%` }}
               />
             </div>
             <p className="label mt-3 text-[var(--color-ash)]">Signal quality</p>
