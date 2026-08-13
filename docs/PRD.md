@@ -3,11 +3,13 @@
 **Produk:** RePulse — sistem pemantau tidur & jantung untuk Indonesia Inventors Day 2026
 **Dokumen ini:** Product Requirements Document untuk **aplikasi Android** saja
 **Acuan:** RePulse — Panduan Teknis untuk Developer v2.1 (11 halaman)
-**Versi:** 1.4 · 13 Agustus 2026
+**Versi:** 1.5 · 13 Agustus 2026
 **Tenggat demo:** 24 Agustus 2026 — **11 hari kalender tersisa**
 **Status:** Aktif — pertanyaan terbuka tersisa di Bagian 16.2
 
 **Perubahan v1.2:** Bagian 10 ditulis ulang — navigasi tiga tab menggantikan lima tab, onboarding diperluas dari 4 ke 10 langkah, total 33 layar dengan tingkat prioritas P0/P1/P2. Bagian 14 disesuaikan ke kode layar baru. Seluruh perlakuan visual dipindahkan ke `DESIGN.md` v2.1, yang kini diturunkan dari WHOOP Brand Guidelines dan pola tata letak Oura.
+
+**Perubahan v1.5 · 13 Agustus:** tombol utama tidak lagi dimatikan oleh isian yang belum sah — aturannya pindah ke `DESIGN.md` §7.1a, dan §10.2 O2 serta keadaan 1–5 di §10.2a menyesuaikan.
 
 **Perubahan v1.4 · 13 Agustus:** §10.2a ditambahkan — ketahanan sesi, penjagaan rute, dan sepuluh keadaan O2, satu-satunya layar onboarding yang keadaannya tidak pernah diurai. §3.2 dikoreksi ke React 19 tanpa shadcn/ui, dengan alasannya. Disclaimer dan baris viewer disamakan ke bentuk Inggris yang mengikat. Daftar kata terlarang A4 dipindahkan ke bahasa Inggris dan diberi uji yang benar-benar jalan.
 
@@ -647,7 +649,7 @@ Diperluas dari 4 menjadi 10 langkah mengikuti pola WHOOP: **ajari perangkat kera
 | Kode | Layar | Isi | Prioritas |
 |---|---|---|---|
 | **O1** | Splash | Ikon di tengah, `Ember Base`. Menahan sampai status auth diketahui | P0 |
-| **O2** | Login | Email/password + Google Sign-In. Tombol utama nonaktif sampai isian sah. Disclaimer `"Not a medical device."` Keadaan lengkapnya di §10.2a | P0 |
+| **O2** | Login | Email/password + Google Sign-In. Tombol utama selalu hidup, isian dinilai saat diketuk (`DESIGN.md` §7.1a). Disclaimer `"Not a medical device."` Keadaan lengkapnya di §10.2a | P0 |
 | **O3** | Izin sistem | Notifikasi, lokasi, Bluetooth, abaikan optimasi baterai. Daftar dengan status per izin, tidak diminta sekaligus | P0 |
 | **O4** | Izin autostart | Khusus Xiaomi/Oppo/Vivo/Realme, dengan pintasan langsung ke setelan vendor. **Layar sendiri, bukan baris di O3** — ini penyebab kegagalan nomor satu di Android non-stok | P0 |
 | **O5** | Panduan pasang | Korsel 4 langkah dengan bilah segmen: pakai gelang · nyalakan gelang · tempatkan bedside · colok bedside. Gambar di atas, teks rata kiri di bawah | P1 |
@@ -689,11 +691,11 @@ Dua pengecualian, keduanya disengaja:
 
 | # | Keadaan | Yang terlihat |
 |---|---|---|
-| 1 | Kosong | Tombol utama nonaktif abu-abu. Tidak ada pesan galat — belum ada yang salah |
-| 2 | Isian sah | Tombol berubah ke `Lamp Amber`. **Ini satu-satunya umpan balik validasi** (§7.1 `DESIGN.md`) |
-| 3 | Mengirim | Seluruh kontrol terkunci — termasuk Google, lupa sandi, dan tombol utama. Label jadi `SIGNING IN…` |
-| 4 | Email tidak berbentuk email | Garis field email jadi `Kiln Clay`, satu baris di bawahnya. **Bukan** paragraf di tempat lain |
-| 5 | Sandi terlalu pendek | Garis field sandi, satu baris di bawahnya. Aturan enam karakter disebut **sebelum** dilanggar, bukan sesudah |
+| 1 | Kosong | Tombol utama **sudah hidup** dan berwarna `Lamp Amber`. Tidak ada pesan galat — belum ada yang salah, dan belum ada yang diketuk |
+| 2 | Diketuk dengan isian belum sah | Field pertama yang bermasalah diberi galat, **dan fokus pindah ke sana**. Tidak ada tombol mati yang harus ditebak maksudnya (§7.1a `DESIGN.md`) |
+| 3 | Mengirim | Seluruh kontrol terkunci — termasuk Google, lupa sandi, dan tombol utama. Label jadi `SIGNING IN…`. **Ini satu-satunya alasan tombol utama boleh mati** |
+| 4 | Email tidak berbentuk email | Garis field email jadi `Kiln Clay`, satu baris di bawahnya. **Bukan** paragraf di tempat lain, dan **bukan** gelembung bawaan peramban — form memakai `noValidate` supaya tidak ada dua sistem galat |
+| 5 | Sandi terlalu pendek | Garis field sandi, satu baris di bawahnya. Aturan enam karakter disebut **sebelum** diketuk, karena panjang sandi adalah satu-satunya syarat yang tidak bisa dilihat pengguna |
 | 6 | Sandi salah pada akun yang ada | Galat di field sandi: *"That password does not match this account."* |
 | 7 | Akun belum ada | **Langsung dibuatkan dan diteruskan ke O3.** Lihat "satu pintu" di bawah |
 | 8 | Galat jaringan, kuota, atau konfigurasi | Satu baris di bawah field, `Kiln Clay`, menyebut kodenya bila tidak dikenali |

@@ -1,9 +1,10 @@
 # RePulse — Brand & Design Guidelines
 
-**Versi:** 2.2 · 13 Agustus 2026
+**Versi:** 2.3 · 13 Agustus 2026
 **Menggantikan:** v1.0 (10 Agustus)
 **v2.1:** hasil diskusi alur — pemilih orang, hero saat tidak ada skor, asal data di linimasa, SpO₂ sebagai simpangan
 **v2.2:** Bagian 6.11 ditambahkan — target sentuh, indikator fokus, dan kontras palet yang dihitung. Ditulis setelah §7.1 dan §4.5 ketahuan melarang sesuatu tanpa menyebut penggantinya
+**v2.3:** Bagian 7.1a ditambahkan — tombol utama tidak lagi dimatikan oleh isian yang belum sah. Aturan lama dibatalkan, alasannya di tempatnya
 **Berlaku untuk:** prototipe mandiri, dan implementasi React + Tailwind + shadcn/ui setelahnya
 
 **Pembagian wewenang antar dokumen**
@@ -605,13 +606,37 @@ isian transparan                teks gelap
 
 | Keadaan | Perlakuan |
 |---|---|
-| **Nonaktif** | Pil, garis 1px `Ash Dim` 40%, teks `Ash Dim` |
+| **Nonaktif** | Pil, garis 1px `Ash Dim` 40%, teks `Ash Dim`. **Hanya untuk pekerjaan yang sedang berjalan** — lihat 7.1a |
 | **Utama, aktif** | Pil, garis 1px `Lamp Amber`, teks `Lamp Amber`, isian transparan |
 | **Sekunder** | Pil, garis 1px `Warm Ivory` 60%, teks `Warm Ivory` |
 | **Terbalik** | Pil, isian `Warm Ivory` penuh, teks `Ember Base` — pola Oura, dipakai untuk satu aksi penutup per layar |
 | **SOS** | Pil, isian `Signal Red`, tinggi 64. **Satu-satunya tombol berisi warna di aplikasi** |
 
-Transisi nonaktif → aktif adalah alat pengajaran WHOOP: tombol yang berubah dari abu-abu jadi amber begitu isian sah mengajari pengguna tanpa satu kalimat validasi pun. Pakai ini di O2, O8, O9.
+#### 7.1a Tombol utama tidak pernah dimatikan oleh isian yang belum sah
+
+**Direvisi 13 Agustus, membatalkan ketentuan sebelumnya.** Versi lama berbunyi: *"Transisi nonaktif → aktif adalah alat pengajaran WHOOP — tombol yang berubah dari abu-abu jadi amber begitu isian sah mengajari pengguna tanpa satu kalimat validasi pun. Pakai ini di O2, O8, O9."* Itu dibatalkan, dan alasannya ditemukan saat O2 dibangun.
+
+Pengajaran itu hanya bekerja bila **penyebabnya terlihat**. Format email terlihat — pengguna bisa melihat sendiri alamatnya belum lengkap. Panjang sandi tidak: enam titik dan lima titik terlihat sama, jadi tombol abu-abu itu tidak mengajari apa pun, ia hanya diam.
+
+Tiga hal yang membuatnya lebih buruk daripada sekadar tidak berguna:
+
+| Masalah | Akibatnya |
+|---|---|
+| Tombol mati tidak menyebutkan apa yang kurang | Pengguna menebak field mana yang salah |
+| `disabled` tidak bisa menerima fokus | Pengguna papan tik dan pembaca layar tidak pernah mencapainya, jadi tidak pernah mendengar alasannya |
+| Diketuk tanpa reaksi apa pun | Di kamar gelap pukul dua pagi ini terbaca sebagai aplikasi rusak, bukan sebagai isian belum lengkap |
+
+Yang berlaku sekarang:
+
+1. **Tombol utama hidup sejak bingkai pertama.** Warnanya `Lamp Amber` terlepas dari isi form
+2. **Penilaian terjadi saat diketuk**, bukan saat mengetik
+3. **Galat mendarat di baris yang salah** — garis field jadi `Kiln Clay`, satu kalimat di bawahnya (7.5)
+4. **Fokus pindah ke field pertama yang bermasalah**, supaya pembaca layar membacakan galatnya
+5. **Keadaan nonaktif tetap ada, tapi hanya untuk pekerjaan yang sedang berjalan** — permintaan sedang terbang, dan label tombol sudah menjelaskan dirinya (`SIGNING IN…`)
+
+Berlaku di **O2, O8, O9** — tiga layar yang tadinya disebut ketentuan lama.
+
+> Ini penyimpangan dari WHOOP yang disengaja, dan masuk ke Bagian 14. WHOOP memakai tombol mati di layar masuknya; GOV.UK Design System membuangnya justru karena tiga alasan di atas. Untuk aplikasi yang dipakai orang setengah sadar, argumen aksesibilitasnya menang atas argumen kerapiannya.
 
 Tombol terbalik dibatasi **satu per layar** — kalau ada dua, tidak ada yang menonjol. Contohnya `Lihat linimasa lengkap` di M1 dan `Ekspor` di D6.
 
@@ -780,7 +805,7 @@ Harus terlihat seperti aplikasi yang sama, diturunkan volumenya — bukan dua de
 - Status kosong yang menyebut berapa lagi yang dibutuhkan
 - Latar hero yang mengikuti kondisi kamar sebenarnya
 - Bilah segmen untuk langkah onboarding
-- Tombol utama nonaktif sampai isian sah
+- Tombol utama hidup sejak awal, dinilai saat diketuk, galat mendarat di field yang salah (7.1a)
 
 **Jangan**
 
@@ -798,6 +823,7 @@ Harus terlihat seperti aplikasi yang sama, diturunkan volumenya — bukan dua de
 - Spinner melingkar, ilustrasi status kosong, maskot
 - Bulan sabit, bintang, awan, gradien mesh
 - Titik-titik untuk indikator langkah
+- Tombol utama dimatikan karena isian belum sah — hanya pekerjaan yang sedang berjalan boleh mematikannya (7.1a)
 - Glow neon, bayangan berwarna, gradien pada teks
 - Angka bulat palsu: `99%`, `50%`, `100 bpm`
 - SpO₂ absolut sebagai angka besar — selalu simpangan dari baseline
@@ -895,5 +921,6 @@ Ditulis terbuka supaya bisa dibantah.
 | Oura: foto lanskap sebagai hero | Medan gradien dari bacaan lux kamar | Gunung tidak berhubungan dengan tidur. Kamar berhubungan, dan ia data |
 | Oura: headline serif rata tengah | Archivo rata kiri | Perangkat lunak instrumen. Rata kiri lebih cepat dipindai dalam gelap |
 | Oura: lima tab | Tiga tab | Lihat `PRD.md` §10 |
+| WHOOP: tombol masuk mati sampai isian sah | Tombol selalu hidup, dinilai saat diketuk | Tombol mati tidak bisa difokus, jadi tidak pernah menjelaskan dirinya ke pembaca layar — dan panjang sandi tidak terlihat, jadi tidak ada yang diajarkan. Bagian 7.1a |
 | Umum: mikro-interaksi di setiap komponen aktif | Tepat dua | Gerakan berulang di kamar gelap melawan tujuan produk |
 | Umum: hero rata tengah dilarang | Layar darurat tetap rata tengah | Kesimetrisan di `ALERT` dan `SOS` menandakan "berhenti dan baca" |

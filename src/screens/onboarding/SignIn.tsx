@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { Button } from "@/components/ui/Button";
@@ -71,8 +71,8 @@ export function SignIn() {
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState<Message | null>(null);
   const [busy, setBusy] = useState(false);
-
-  const valid = looksLikeEmail(email) && password.length >= 6;
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
 
   const codeOf = (e: unknown) => (e as { code?: string }).code ?? "";
   const explain = (code: string): Message =>
@@ -93,9 +93,29 @@ export function SignIn() {
     }
   };
 
+  /**
+   * The button is always live, so this is where the input is judged.
+   *
+   * A greyed-out button never says what is missing, cannot be focused,
+   * and so cannot be heard by a screen reader — and at 2am it reads as a
+   * broken app rather than an unfinished form. Naming the problem on the
+   * offending line and moving focus there costs one tap and explains
+   * itself.
+   */
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (!valid || busy) return;
+    if (busy) return;
+
+    if (!looksLikeEmail(email)) {
+      setMessage({ text: "Enter your email address.", field: "email" });
+      emailRef.current?.focus();
+      return;
+    }
+    if (password.length < 6) {
+      setMessage({ text: "At least six characters.", field: "password" });
+      passwordRef.current?.focus();
+      return;
+    }
 
     return run(async () => {
       try {
@@ -149,19 +169,26 @@ export function SignIn() {
         <Wordmark className="block h-auto w-[118px]" strokeWidth={6} />
       </div>
 
-      <form onSubmit={submit} className="mt-16 flex flex-1 flex-col">
+      {/* noValidate: the browser's own bubble for type="email" would be a
+          second error system, in a style we do not control, arriving
+          before ours. */}
+      <form noValidate onSubmit={submit} className="mt-16 flex flex-1 flex-col">
         <div className="space-y-6">
           <Field
+            ref={emailRef}
             label="Email"
             type="email"
             inputMode="email"
             autoComplete="email"
             autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             error={message?.field === "email" ? message.text : undefined}
           />
           <Field
+            ref={passwordRef}
             label="Password"
             type="password"
             autoComplete="current-password"
@@ -205,12 +232,9 @@ export function SignIn() {
         </p>
 
         <div className="mt-4 space-y-3">
-          <Button
-            type="submit"
-            size="lg"
-            register="system"
-            disabled={!valid || busy}
-          >
+          {/* Live from the first frame. Only the in-flight request greys
+              it, and that state explains itself. */}
+          <Button type="submit" size="lg" register="system" disabled={busy}>
             {busy ? "Signing in…" : "Sign in"}
           </Button>
           {/* Same register as the button above — two adjacent sign-in

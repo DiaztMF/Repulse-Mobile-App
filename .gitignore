@@ -34,3 +34,4 @@ ios/
 
 .env.local
 .firebase/
+.playwright-mcp

@@ -1,4 +1,4 @@
-import { useId, useState, type InputHTMLAttributes } from "react";
+import { useId, useState, type InputHTMLAttributes, type Ref } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/cn";
 
@@ -16,10 +16,13 @@ export function Field({
   error,
   className,
   type,
+  ref,
   ...props
 }: InputHTMLAttributes<HTMLInputElement> & {
   label: string;
   error?: string;
+  /** So a form can send focus to the line it just complained about. */
+  ref?: Ref<HTMLInputElement>;
 }) {
   const id = useId();
   const [shown, setShown] = useState(false);
@@ -36,6 +39,7 @@ export function Field({
 
       <div className="relative mt-2">
         <input
+          ref={ref}
           id={id}
           type={secret && shown ? "text" : type}
           aria-invalid={!!error}
