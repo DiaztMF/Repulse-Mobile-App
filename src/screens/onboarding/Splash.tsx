@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { useAuth } from "@/firebase/auth";
-import { resumeAt } from "@/firebase/onboarding";
+import { readProgress } from "@/firebase/onboarding";
 
 /** Long enough for the 1100ms draw to finish and be seen. */
 const DRAW_DWELL_MS = 1750;
@@ -45,9 +45,12 @@ export function Splash() {
       return;
     }
     let live = true;
-    void resumeAt(user.uid).then((at) => {
+    void readProgress(user.uid).then((p) => {
       if (!live) return;
-      setResume(at);
+      // `start` means nothing was ever recorded, which is an account from
+      // before progress was tracked. Dragging a working installation back
+      // through setup would be worse than letting it in.
+      setResume(p.at === "step" ? p.route : null);
       setAsked(true);
     });
     return () => {

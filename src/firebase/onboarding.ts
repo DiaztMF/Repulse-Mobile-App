@@ -25,21 +25,33 @@ export const FINISHED = "done";
 const ref = (uid: string) => doc(db!, "users", uid);
 
 /**
- * The route to send a returning user to, or null to leave them alone.
- *
- * Errors resolve to null rather than throwing: a reader that fails must
- * not strand anyone on the splash, and being sent to the app you already
- * finished is a smaller harm than not getting in at all.
+ * Three states, because the callers want different things from the empty
+ * one: the splash should not drag an existing user into setup, while a
+ * fresh sign-in has nowhere else to send them.
  */
-export async function resumeAt(uid: string): Promise<string | null> {
-  if (!db) return null;
+export type Progress =
+  | { at: "start" }
+  | { at: "step"; route: string }
+  | { at: "done" };
+
+/**
+ * Errors resolve to `done` rather than throwing. A reader that fails must
+ * not strand anyone: being let into the app is a smaller harm than being
+ * held at the door, and every step stays reachable either way.
+ */
+export async function readProgress(uid: string): Promise<Progress> {
+  if (!db) return { at: "done" };
   try {
     const snap = await getDoc(ref(uid));
     const at = snap.data()?.onboarding as string | undefined;
-    if (!at || at === FINISHED) return null;
-    return STEPS.includes(at as (typeof STEPS)[number]) ? at : STEPS[0];
+    if (!at) return { at: "start" };
+    if (at === FINISHED) return { at: "done" };
+    return {
+      at: "step",
+      route: STEPS.includes(at as (typeof STEPS)[number]) ? at : STEPS[0],
+    };
   } catch {
-    return null;
+    return { at: "done" };
   }
 }
 

@@ -17,9 +17,12 @@ type Ctx = {
   /** Null until the first auth callback, so guards can wait instead of
    *  bouncing a signed-in user to the sign-in screen on every reload. */
   ready: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string) => Promise<void>;
-  google: () => Promise<void>;
+  /** Resolve to the uid, so the caller can ask where to send them next
+   *  without waiting for the auth listener to catch up. Empty without a
+   *  Firebase project. */
+  signIn: (email: string, password: string) => Promise<string>;
+  register: (email: string, password: string) => Promise<string>;
+  google: () => Promise<string>;
   reset: (email: string) => Promise<void>;
   leave: () => Promise<void>;
 };
@@ -44,13 +47,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     ready,
     signIn: async (email, password) => {
-      if (auth) await signInWithEmailAndPassword(auth, email, password);
+      if (!auth) return "";
+      return (await signInWithEmailAndPassword(auth, email, password)).user.uid;
     },
     register: async (email, password) => {
-      if (auth) await createUserWithEmailAndPassword(auth, email, password);
+      if (!auth) return "";
+      return (await createUserWithEmailAndPassword(auth, email, password)).user
+        .uid;
     },
     google: async () => {
-      if (auth) await signInWithPopup(auth, new GoogleAuthProvider());
+      if (!auth) return "";
+      return (await signInWithPopup(auth, new GoogleAuthProvider())).user.uid;
     },
     reset: async (email) => {
       if (auth) await sendPasswordResetEmail(auth, email);

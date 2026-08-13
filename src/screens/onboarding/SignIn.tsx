@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { COPY } from "@/lib/copy";
 import { useAuth } from "@/firebase/auth";
+import { readProgress } from "@/firebase/onboarding";
 
 /** Only decides whether the button may light up. Firebase does the
  *  real verification. */
@@ -100,13 +101,30 @@ export function SignIn() {
   const explain = (code: string): Message =>
     EXPLAIN[code] ?? { text: `Sign-in failed (${code || "unknown error"}).` };
 
-  const run = async (fn: () => Promise<void>) => {
+  /**
+   * Where an authenticated user belongs. Signing out and back in used to
+   * drop everyone at the first onboarding step, so a finished account was
+   * marched through setup again every time.
+   *
+   * `start` means nothing was recorded, which here means the account has
+   * not been through setup — there is nowhere to send them but the
+   * beginning.
+   */
+  const destination = async (uid: string) => {
+    if (!uid) return "/permissions";
+    const p = await readProgress(uid);
+    if (p.at === "step") return p.route;
+    return p.at === "done" ? "/tonight" : "/permissions";
+  };
+
+  const run = async (fn: () => Promise<string | void>) => {
     setBusy(true);
     setMessage(null);
     try {
-      await fn();
       // `replace` so Android back does not return a signed-in user here.
-      navigate("/permissions", { replace: true });
+      const res = await fn();
+      const uid = typeof res === "string" ? res : "";
+      navigate(await destination(uid), { replace: true });
     } catch (e) {
       console.error("[auth]", e);
       setMessage(explain(codeOf(e)));
@@ -141,7 +159,7 @@ export function SignIn() {
 
     return run(async () => {
       try {
-        await auth.signIn(email, password);
+        return await auth.signIn(email, password);
       } catch (err) {
         const code = codeOf(err);
         if (code !== "auth/invalid-credential" && code !== "auth/user-not-found")
@@ -149,7 +167,7 @@ export function SignIn() {
         // Either there is no account or the password is wrong, and Firebase
         // will not say which. Try to create it: success means it was the
         // former, `email-already-in-use` means it was the latter.
-        await auth.register(email, password);
+        return await auth.register(email, password);
       }
     });
   };
