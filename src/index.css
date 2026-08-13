@@ -66,6 +66,14 @@ body {
   animation: wordmark-draw 1100ms var(--ease-light) forwards;
 }
 
+/* Native scroll-snap carousels shouldn't show a bar. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 .safe-t {
   padding-top: env(safe-area-inset-top);
 }
