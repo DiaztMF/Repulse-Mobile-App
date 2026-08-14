@@ -3,14 +3,16 @@ import { Outlet } from "react-router-dom";
 import { TabBar } from "./TabBar";
 import { ActionSheet } from "./ActionSheet";
 import { Drawer } from "./Drawer";
-import { useSession } from "@/state/session";
+import { useMonitor } from "@/state/monitor";
 import { LoadingScreen } from "@/components/ui/LoadingScreen";
 
 const DrawerContext = createContext<{ openDrawer: () => void }>({ openDrawer: () => {} });
 export const useDrawer = () => useContext(DrawerContext);
 
 export function AppShell() {
-  const { isNight } = useSession();
+  // Was a context with no provider, so this was permanently false and the
+  // chrome never hid. It now follows the phase the machine is actually in.
+  const { isNight } = useMonitor();
   const [sheet, setSheet] = useState(false);
   const [drawer, setDrawer] = useState(false);
 

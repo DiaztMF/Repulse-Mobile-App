@@ -8,6 +8,17 @@ import { configured } from "@/firebase/app";
 import { seed, reset } from "@/firebase/nights";
 import { NIGHTS, INTERVENTIONS } from "@/data/mock";
 import * as m0 from "@/lib/m0";
+import { useMonitor } from "@/state/monitor";
+import type { Scenario } from "@/ble/mock";
+
+/** The five §11.5 names, in the order a demo would want them. */
+const SCENARIOS: [Scenario, string][] = [
+  ["normal", "Play a normal night"],
+  ["restless", "Play a restless spell"],
+  ["anomaly-recovers", "Anomaly — the body answers"],
+  ["anomaly-sos", "Anomaly — no response, to SOS"],
+  ["dropout-flush", "Dropout, then buffer flush"],
+];
 
 type Actuator = { key: string; label: string; note: string };
 
@@ -31,6 +42,7 @@ const BAND: Actuator[] = [
 export function TestPanel() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const monitor = useMonitor();
   const [on, setOn] = useState<Record<string, boolean>>({});
   const [aromaAllowed, setAromaAllowed] = useState(false);
   const [dataMsg, setDataMsg] = useState<string | null>(null);
@@ -143,19 +155,30 @@ export function TestPanel() {
           ))}
         </div>
 
+        {/* These play a night through the transport rather than navigating
+            to a screen. The difference matters: an ALERT reached this way
+            went through the state machine, cancelled whatever was running,
+            and flipped every actuator — the same path a real anomaly takes.
+            A button that routed to /alert proved none of that. */}
         <h2 className="label mt-8 text-[var(--color-ash)]">Escalation</h2>
         <p className="mt-2 text-[length:var(--text-meta)] text-[var(--color-ash)]">
-          Starts the real ladder. Body movement cancels it, exactly as it
-          would at night.
+          Plays a synthetic night through the same path a band would use.
+          Body movement cancels it, exactly as it would at night.
         </p>
-        <Button
-          size="lg"
-          register="system"
-          className="mt-4"
-          onClick={() => navigate("/alert")}
-        >
-          Trigger anomaly
-        </Button>
+        <p className="label mt-4 text-[var(--color-ash)]">
+          {monitor.phase}
+          {monitor.stage > 0 ? ` · stage ${monitor.stage}` : ""}
+        </p>
+        <div className="mt-3 space-y-2">
+          {SCENARIOS.map(([key, label]) => (
+            <Button key={key} variant="secondary" onClick={() => void monitor.play(key)}>
+              {label}
+            </Button>
+          ))}
+          <Button variant="secondary" onClick={() => void monitor.stop()}>
+            Stop playback
+          </Button>
+        </div>
 
         <h2 className="label mt-8 text-[var(--color-ash)]">Shortcuts</h2>
         <p className="mt-2 text-[length:var(--text-meta)] text-[var(--color-ash)]">

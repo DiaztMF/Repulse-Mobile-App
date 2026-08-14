@@ -5,6 +5,7 @@ import { router } from "./routes";
 import { AuthProvider } from "./firebase/auth";
 import { StoreProvider } from "./data/store";
 import { ThemeProvider } from "./state/theme";
+import { MonitorProvider } from "./state/monitor";
 import "./index.css";
 
 createRoot(document.getElementById("root")!).render(
@@ -12,7 +13,9 @@ createRoot(document.getElementById("root")!).render(
     <AuthProvider>
       <StoreProvider>
         <ThemeProvider>
-          <RouterProvider router={router} />
+          <MonitorProvider>
+            <RouterProvider router={router} />
+          </MonitorProvider>
         </ThemeProvider>
       </StoreProvider>
     </AuthProvider>

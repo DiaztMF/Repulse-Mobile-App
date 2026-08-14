@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { SampleBadge } from "@/components/shell/SampleBadge";
+import { useMonitor } from "@/state/monitor";
 import { cn } from "@/lib/cn";
 
 /** The ladder runs in the band's firmware. This screen mirrors it. */
@@ -11,8 +12,11 @@ const STAGES = [
   { n: "04", label: "Alert your contacts" },
 ];
 
-const START_STAGE = 2; // zero-indexed: hard vibration
-const SECONDS = 30;
+/** GATT §3.5: stage 3 runs 35-65s, so stage 4 is thirty seconds after
+ *  stage 3 begins. Used for the countdown only — what actually moves this
+ *  screen on is the band reporting stage 4, never this number reaching
+ *  zero. */
+const TO_STAGE_4_S = 30;
 
 /**
  * X1 — ALERT. Centred because this is the system speaking and symmetry
@@ -26,23 +30,30 @@ const SECONDS = 30;
  */
 export function Alert() {
   const navigate = useNavigate();
-  const [left, setLeft] = useState(SECONDS);
-  // True when the phone has lost the band mid-ladder.
-  const [estimated] = useState(false);
+  const { stage, links, vitals, synthetic } = useMonitor();
+  const [left, setLeft] = useState(TO_STAGE_4_S);
+
+  // PRD §5.5: when the band drops mid-ladder the countdown carries on and
+  // is labelled an estimate. It does not pause. The band is still counting
+  // on the wrist whether we can hear it or not, and freezing the number
+  // here would be the screen telling a comfortable lie.
+  const estimated = links.band !== "connected";
+
+  const reached3 = useRef<number | null>(null);
+  if (stage >= 3 && reached3.current === null) reached3.current = Date.now();
+  if (stage < 3) reached3.current = null;
 
   useEffect(() => {
+    if (stage < 3) return;
     const id = setInterval(() => {
-      setLeft((s: number) => {
-        if (s <= 1) {
-          clearInterval(id);
-          navigate("/sos", { replace: true });
-          return 0;
-        }
-        return s - 1;
-      });
-    }, 1000);
+      const from = reached3.current ?? Date.now();
+      setLeft(Math.max(0, TO_STAGE_4_S - Math.round((Date.now() - from) / 1000)));
+    }, 250);
     return () => clearInterval(id);
-  }, [navigate]);
+  }, [stage]);
+
+  // Zero-indexed for the row of numbers above.
+  const current = Math.max(0, Math.min(3, stage - 1));
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-alert px-6 py-10 text-center">
@@ -54,7 +65,7 @@ export function Alert() {
             <span
               className={cn(
                 "num text-[length:var(--text-meta)]",
-                i <= START_STAGE
+                i <= current
                   ? "text-[var(--color-danger)]"
                   : "text-[var(--color-ash-dim)]",
               )}
@@ -64,7 +75,7 @@ export function Alert() {
             <span
               className={cn(
                 "h-0.5 w-12 rounded-full",
-                i <= START_STAGE
+                i <= current
                   ? "bg-[var(--color-danger)]"
                   : "bg-[var(--color-ash-dim)]/40",
               )}
@@ -73,14 +84,16 @@ export function Alert() {
         ))}
       </ol>
       <p className="label mt-4 text-[var(--color-ash)]">
-        {STAGES[START_STAGE]!.label}
+        {STAGES[current]!.label}
       </p>
 
       <p className="label mt-16 text-[var(--color-danger)]">
         Something looks wrong
       </p>
       <p className="mt-6 max-w-[28ch] text-[length:var(--text-title)] font-medium leading-snug">
-        Your pulse has been irregular for 40 seconds
+        {vitals
+          ? `Your pulse has been irregular at ${vitals.bpm} bpm`
+          : "Your pulse has been irregular"}
       </p>
 
       {/* Said before the countdown, because it is the thing that actually
@@ -108,9 +121,11 @@ export function Alert() {
           not come from a sensor — DESIGN §12 requires this on every screen
           while the mock layer is on, and this is the screen where an
           invented number would be taken most seriously. */}
-      <div className="mt-10">
-        <SampleBadge />
-      </div>
+      {synthetic && (
+        <div className="mt-10">
+          <SampleBadge />
+        </div>
+      )}
     </div>
   );
 }

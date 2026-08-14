@@ -6,6 +6,7 @@ import { Splash } from "@/screens/onboarding/Splash";
 import { Home } from "@/screens/home/Home";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { RouteErrorBoundary } from "@/components/ui/ErrorBoundary";
+import { EscalationRoute } from "@/state/monitor";
 
 /**
  * Helper to dynamically load route components (code-splitting)
@@ -46,6 +47,8 @@ function lazyRoute<T extends Record<string, any>>(
 export const router = createBrowserRouter([
   {
     errorElement: <RouteErrorBoundary />,
+    // Wraps everything so the ladder can take over from any screen.
+    element: <EscalationRoute />,
     children: [
       // Onboarding & Dev Tools — outside the shell, no tab bar
       { path: "/", element: <Splash /> },
