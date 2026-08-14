@@ -11,9 +11,10 @@
     "check:data": "node --experimental-strip-types --disable-warning=ExperimentalWarning src/data/mock.check.ts",
     "check:gate": "node --experimental-strip-types --disable-warning=ExperimentalWarning src/lib/fitGate.check.ts",
     "check:copy": "node --experimental-strip-types --disable-warning=ExperimentalWarning src/lib/copy.check.ts",
+    "check:codec": "node --experimental-strip-types --disable-warning=ExperimentalWarning src/ble/codec.check.ts",
     "check:ble": "node --experimental-strip-types --disable-warning=ExperimentalWarning src/ble/mock.check.ts",
     "check:machine": "node --experimental-strip-types --disable-warning=ExperimentalWarning src/state/machine.check.ts",
-    "check": "npm run check:data && npm run check:gate && npm run check:copy && npm run check:ble && npm run check:machine",
+    "check": "npm run check:data && npm run check:gate && npm run check:copy && npm run check:ble && npm run check:codec && npm run check:machine",
     "dev:tunnel": "vite --mode tunnel"
   },
   "dependencies": {
