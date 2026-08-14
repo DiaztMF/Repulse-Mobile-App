@@ -2,8 +2,13 @@ import { useState } from "react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
+import { Capacitor } from "@capacitor/core";
+import { Directory, Encoding, Filesystem } from "@capacitor/filesystem";
+import { Share } from "@capacitor/share";
 import { useStore } from "@/data/store";
 import { seriesFor } from "@/data/mock";
+import { useAuth } from "@/firebase/auth";
+import { fetchVerifications } from "@/firebase/nights";
 
 const RANGES = [
   { key: "last", label: "Last night", nights: 1 },
@@ -49,6 +54,7 @@ function toCsv(parts: Record<string, unknown>) {
  */
 export function Export() {
   const { nights } = useStore();
+  const { user } = useAuth();
   const [range, setRange] = useState("week");
   const [done, setDone] = useState<string | null>(null);
   const [picked, setPicked] = useState<Record<string, boolean>>({
@@ -61,31 +67,55 @@ export function Export() {
   const count = RANGES.find((r) => r.key === range)!.nights;
   const mb = PARTS.reduce((a, p) => a + (picked[p.key] ? p.mbPerNight * count : 0), 0);
 
-  /** Built in the browser and handed straight to the download. No server
-   *  touches this, which is the point: the file is health data. */
-  const run = () => {
+  /** Built on the device and never sent anywhere. No server touches this,
+   *  which is the point: the file is health data. */
+  const run = async () => {
+    setDone(null);
     const chosen = nights.slice(0, count);
     const parts: Record<string, unknown> = {};
     if (picked.summary) parts.nights = chosen.map(({ events: _events, ...rest }) => rest);
-    if (picked.events)
-      parts.events = chosen.flatMap((n) =>
-        n.events.map((e) => ({ date: n.date, ...e })),
-      );
+    if (picked.events) {
+      parts.events = chosen.flatMap((n) => n.events.map((e) => ({ date: n.date, ...e })));
+      // The verification rows are the point of the whole learning loop and
+      // were missing from every export. They are also the rows a doctor
+      // would actually want — trigger, room, what was tried, what happened.
+      parts.verifications = user ? await fetchVerifications(user.uid) : [];
+    }
     if (picked.series)
       parts.series = chosen.map((n) => ({ date: n.date, samples: seriesFor(n.date) }));
 
-    const name = `repulse-${chosen.at(-1)?.date ?? "export"}-to-${chosen[0]?.date ?? ""}`;
-    const blob = json
-      ? new Blob([JSON.stringify(parts, null, 2)], { type: "application/json" })
-      : new Blob([toCsv(parts)], { type: "text/csv" });
+    const name = `repulse-${chosen.at(-1)?.date ?? "export"}-to-${chosen[0]?.date ?? ""}.${json ? "json" : "csv"}`;
+    const body = json ? JSON.stringify(parts, null, 2) : toCsv(parts);
 
-    const url = URL.createObjectURL(blob);
+    // An <a download> is inert inside an Android WebView — the tap did
+    // nothing and the screen said "saved". On the device the file has to
+    // be written and then handed to the share sheet, which is also the
+    // only way it reaches a doctor.
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const { uri } = await Filesystem.writeFile({
+          path: name,
+          data: body,
+          directory: Directory.Cache,
+          encoding: Encoding.UTF8,
+        });
+        await Share.share({ title: name, url: uri, dialogTitle: "Export night data" });
+        setDone(`${name} ready to share`);
+      } catch (e) {
+        setDone(`Could not save: ${e instanceof Error ? e.message : String(e)}`);
+      }
+      return;
+    }
+
+    const url = URL.createObjectURL(
+      new Blob([body], { type: json ? "application/json" : "text/csv" }),
+    );
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${name}.${json ? "json" : "csv"}`;
+    a.download = name;
     a.click();
     URL.revokeObjectURL(url);
-    setDone(`${a.download} saved`);
+    setDone(`${name} saved`);
   };
 
   return (
@@ -168,7 +198,7 @@ export function Export() {
           register="system"
           className="mt-6"
           disabled={mb === 0}
-          onClick={run}
+          onClick={() => void run()}
         >
           Export
         </Button>
