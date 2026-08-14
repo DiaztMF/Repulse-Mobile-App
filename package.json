@@ -14,7 +14,8 @@
     "check:codec": "node --experimental-strip-types --disable-warning=ExperimentalWarning src/ble/codec.check.ts",
     "check:ble": "node --experimental-strip-types --disable-warning=ExperimentalWarning src/ble/mock.check.ts",
     "check:machine": "node --experimental-strip-types --disable-warning=ExperimentalWarning src/state/machine.check.ts",
-    "check": "npm run check:data && npm run check:gate && npm run check:copy && npm run check:ble && npm run check:codec && npm run check:machine",
+    "check:screening": "node --experimental-strip-types --disable-warning=ExperimentalWarning src/lib/screening.check.ts",
+    "check": "npm run check:data && npm run check:gate && npm run check:copy && npm run check:ble && npm run check:codec && npm run check:machine && npm run check:screening",
     "dev:tunnel": "vite --mode tunnel"
   },
   "dependencies": {
