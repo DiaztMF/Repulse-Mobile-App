@@ -11,6 +11,7 @@
     "check:data": "node --experimental-strip-types --disable-warning=ExperimentalWarning src/data/mock.check.ts",
     "check:gate": "node --experimental-strip-types --disable-warning=ExperimentalWarning src/lib/fitGate.check.ts",
     "check:copy": "node --experimental-strip-types --disable-warning=ExperimentalWarning src/lib/copy.check.ts",
+    "check:ble": "node --experimental-strip-types --disable-warning=ExperimentalWarning src/ble/mock.check.ts",
     "dev:tunnel": "vite --mode tunnel"
   },
   "dependencies": {
