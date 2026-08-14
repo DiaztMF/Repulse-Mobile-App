@@ -97,6 +97,10 @@ export type BleEvent =
   | { kind: "room"; data: Room }
   | { kind: "snore"; data: Snore }
   | { kind: "link"; device: Device; state: Link }
+  /** §4.4. `refused` is the safety limit saying no — and it has to say so
+   *  out loud, because firmware that quietly runs 30s instead of the 60
+   *  asked for looks identical from up here. */
+  | { kind: "ack"; commandId: number; status: "done" | "failed" | "refused" }
   /** §3.9 `0006`. Events the band recorded while nobody was listening.
    *  Flagged so the timeline can mark them — PRD §11 forbids an offline
    *  event from looking identical to a live one. */

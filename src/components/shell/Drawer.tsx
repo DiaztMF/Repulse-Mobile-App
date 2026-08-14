@@ -7,6 +7,7 @@ import {
   Watch,
   Phone,
   FlaskConical,
+  ListChecks,
   Users,
   Download,
   Activity,
@@ -25,6 +26,7 @@ const ITEMS = [
   { to: "/family", label: "Family", Icon: Users },
   { to: "/export", label: "Export", Icon: Download },
   { to: "/test-panel", label: "Test panel", Icon: FlaskConical },
+  { to: "/conformance", label: "GATT conformance", Icon: ListChecks },
 ];
 
 /** Everything that is not a tab lives here. Kept as a plain overlay

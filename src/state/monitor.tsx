@@ -12,7 +12,16 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { MockTransport, type Scenario } from "@/ble/mock";
 import { useAuth } from "@/firebase/auth";
 import { fetchInterventions, saveVerification } from "@/firebase/nights";
-import type { BleEvent, BleTransport, Device, Link, Room, Vitals } from "@/ble/transport";
+import type {
+  Actuator,
+  BandCommand,
+  BleEvent,
+  BleTransport,
+  Device,
+  Link,
+  Room,
+  Vitals,
+} from "@/ble/transport";
 import {
   actuatorsFor,
   chooseIntervention,
@@ -74,6 +83,12 @@ export type Monitor = {
   synthetic: boolean;
   startSleep: () => void;
   endSession: () => void;
+  /** Straight through to the devices. The conformance screen needs to
+   *  drive each characteristic on its own, outside the state machine. */
+  send: (a: Actuator) => Promise<void>;
+  command: (c: BandCommand) => Promise<void>;
+  /** Raw event tap, for measuring how long something takes to arrive. */
+  listen: (fn: (e: BleEvent) => void) => () => void;
   play: (s: Scenario) => Promise<void>;
   stop: () => Promise<void>;
 };
@@ -299,6 +314,9 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
       synthetic: transport instanceof MockTransport,
       startSleep: () => send({ t: "start-sleep", at: Date.now() }),
       endSession: () => send({ t: "session-end", at: Date.now(), reason: "wake" }),
+      send: async (a) => transport?.send(a),
+      command: async (c) => transport?.command(c),
+      listen: (fn) => transport?.on(fn) ?? (() => {}),
       play: async (s: Scenario) => {
         await transport?.stop();
         const next = new MockTransport(s);

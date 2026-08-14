@@ -99,6 +99,7 @@ export const router = createBrowserRouter([
       { path: "/devices", lazy: lazyRoute(() => import("@/screens/settings/Devices"), "Devices") },
       { path: "/contacts", lazy: lazyRoute(() => import("@/screens/onboarding/Contacts"), "Contacts") },
       { path: "/test-panel", lazy: lazyRoute(() => import("@/screens/settings/TestPanel"), "TestPanel") },
+      { path: "/conformance", lazy: lazyRoute(() => import("@/screens/settings/Conformance"), "Conformance") },
       { path: "/family", lazy: lazyRoute(() => import("@/screens/settings/Family"), "Family") },
       { path: "/export", lazy: lazyRoute(() => import("@/screens/settings/Export"), "Export") },
       { path: "/ecg", lazy: lazyRoute(() => import("@/screens/settings/Ecg"), "Ecg") },
