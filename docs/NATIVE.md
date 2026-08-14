@@ -8,6 +8,24 @@ records nothing.
 
 ---
 
+## 0. The monitoring plugin lives outside `android/`
+
+`plugins/repulse-monitor/` holds the service, the notification channels,
+and the lock-screen alert. It is a local Capacitor plugin, referenced from
+`package.json` as `file:plugins/repulse-monitor`, and its own manifest is
+merged into the app's at build time.
+
+That location is the whole point: it is **committed**, so nothing in this
+section has to be reapplied by hand after a fresh clone. Only the two
+items below still do, because they belong to the generated project itself.
+
+The M0 harness (`src/lib/m0.ts`) still uses the older foreground-service
+plugin and its `dataSync` declaration in §1. The new service declares
+`connectedDevice` instead — Android 15 caps `dataSync` at six hours in any
+24, and holding a link to the band is what this one actually does.
+
+---
+
 ## 1. `android/app/src/main/AndroidManifest.xml`
 
 Inside `<application>`, after the `<provider>` block:
@@ -84,3 +102,25 @@ On the phone:
 **A1 passes** on eight hours with no gap over 60 seconds. The panel names
 every gap with its time, because "it mostly worked" is not an answer to a
 question that decides the architecture (`PRD.md` §3.5, §14 M0).
+
+**M0 has been run and it failed.** Three nights, best result 7 ticks of
+511, and ticks only ever arrived while the screen was on. The harness
+stays for regression checks; the conclusion is in `MVP_PLAN.md` §1.
+
+---
+
+## Checking the lock-screen alert
+
+This is the piece M0 forced, and the only part of it that can be proved
+without firmware.
+
+1. Test panel → **Lock-screen alert** → *Raise alert in 10 seconds*
+2. Lock the phone and put it down
+3. The screen must wake **by itself** and show ALERT over the lock screen
+
+Grant the notification prompt first. On Android 14+ the OS may also ask
+for full-screen intent permission separately — if the screen stays dark
+but a banner appears on unlock, that permission is what is missing:
+Settings → Apps → RePulse → *Alarms & reminders* / *Full-screen intents*.
+
+A phone that only shows the banner is a phone that would not wake anyone.

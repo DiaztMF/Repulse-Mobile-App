@@ -8,7 +8,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { Capacitor } from "@capacitor/core";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { RepulseMonitor } from "repulse-monitor";
 import { MockTransport, type Scenario } from "@/ble/mock";
 import { useAuth } from "@/firebase/auth";
 import { fetchInterventions, saveVerification } from "@/firebase/nights";
@@ -131,6 +133,10 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
   // pure and cannot know what has been persisted; this is what stops the
   // same event being written twice on a re-render.
   const written = useRef(new Set<string>());
+
+  /** A session is running. Dims the interface, and is what the native
+   *  service's lifetime follows. */
+  const isNight = phase === "MONITORING" || phase === "COMFORT" || phase === "WIND_DOWN";
 
   // --- events in ---------------------------------------------------------
 
@@ -288,6 +294,36 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
     }
   }, [machine.rows, uid]);
 
+  // --- the native half ---------------------------------------------------
+  //
+  // M0's answer, wired in. The service holds the process open with the
+  // screen off; the full-screen intent is what puts this screen in front
+  // of someone asleep. Neither can be JavaScript — that is the whole
+  // finding, measured over three nights.
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    if (isNight) {
+      void RepulseMonitor.start({
+        title: "RePulse is watching",
+        body: "Monitoring until morning.",
+      }).catch(() => {});
+    } else {
+      void RepulseMonitor.stop().catch(() => {});
+    }
+  }, [isNight]);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    // Stage 3 is the rung whose contract text is "hard buzz + ask the
+    // phone to light up". This is the app doing as it is asked.
+    if (machine.stage >= 3) {
+      void RepulseMonitor.raiseAlert({ stage: machine.stage }).catch(() => {});
+    } else {
+      void RepulseMonitor.clearAlert().catch(() => {});
+    }
+  }, [machine.stage]);
+
   // --- commands out ------------------------------------------------------
 
   useEffect(() => {
@@ -310,7 +346,7 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
       vitals,
       room,
       motionMg,
-      isNight: phase === "MONITORING" || phase === "COMFORT" || phase === "WIND_DOWN",
+      isNight,
       synthetic: transport instanceof MockTransport,
       startSleep: () => send({ t: "start-sleep", at: Date.now() }),
       endSession: () => send({ t: "session-end", at: Date.now(), reason: "wake" }),

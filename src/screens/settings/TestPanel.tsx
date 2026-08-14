@@ -10,6 +10,7 @@ import { NIGHTS, INTERVENTIONS } from "@/data/mock";
 import * as m0 from "@/lib/m0";
 import { useMonitor } from "@/state/monitor";
 import type { Scenario } from "@/ble/mock";
+import { RepulseMonitor } from "repulse-monitor";
 
 /** The five §11.5 names, in the order a demo would want them. */
 const SCENARIOS: [Scenario, string][] = [
@@ -49,6 +50,7 @@ export function TestPanel() {
   const [gateMsg, setGateMsg] = useState<string | null>(null);
   const [verdict, setVerdict] = useState<m0.Verdict | null>(null);
   const [checking, setChecking] = useState(m0.startedAt() !== null);
+  const [nativeMsg, setNativeMsg] = useState<string | null>(null);
 
   const minutes = (ms: number) => `${Math.round(ms / 60000)} min`;
 
@@ -179,6 +181,44 @@ export function TestPanel() {
             Stop playback
           </Button>
         </div>
+
+        {/* The one thing M0 said had to stop being JavaScript. Ten seconds
+            is enough to lock the phone and put it down — the point is to
+            see the screen light up on its own, not to watch it happen
+            while holding it. */}
+        <h2 className="label mt-8 text-[var(--color-ash)]">Lock-screen alert</h2>
+        <p className="mt-2 text-[length:var(--text-meta)] text-[var(--color-ash)]">
+          Raises the native alert in 10 seconds. Lock the phone and wait —
+          the screen has to wake by itself, over the lock screen.
+        </p>
+        <Button
+          variant="secondary"
+          className="mt-4"
+          onClick={() => {
+            setNativeMsg("Lock the phone now — 10 seconds.");
+            window.setTimeout(() => {
+              void RepulseMonitor.raiseAlert({ stage: 3 })
+                .then(() => setNativeMsg("Alert raised."))
+                .catch((e) =>
+                  setNativeMsg(`Could not raise it: ${e instanceof Error ? e.message : String(e)}`),
+                );
+            }, 10_000);
+          }}
+        >
+          Raise alert in 10 seconds
+        </Button>
+        <Button
+          variant="secondary"
+          className="mt-3"
+          onClick={() => void RepulseMonitor.clearAlert().catch(() => {})}
+        >
+          Clear the alert
+        </Button>
+        {nativeMsg && (
+          <p className="mt-4 text-[length:var(--text-meta)] text-[var(--color-ash)]">
+            {nativeMsg}
+          </p>
+        )}
 
         <h2 className="label mt-8 text-[var(--color-ash)]">Shortcuts</h2>
         <p className="mt-2 text-[length:var(--text-meta)] text-[var(--color-ash)]">
