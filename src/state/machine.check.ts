@@ -100,6 +100,7 @@ const restless: Input = {
 const settled = drive(
   { ...initial, phase: "MONITORING" },
   restless,
+  { t: "chose", intervention: "white_noise", volume: 3, track: 2 },
   { t: "settled", at: T + 244_000 },
 );
 assert.equal(settled.phase, "MONITORING", "back to monitoring");
@@ -107,6 +108,19 @@ assert.equal(settled.rows.length, 1, "exactly one row");
 assert.equal(settled.rows[0]!.result, "berhasil");
 assert.equal(settled.rows[0]!.settle_time_s, 244);
 assert.equal(settled.rows[0]!.trigger.hr, 78);
+// §7.1 wants the intervention on the row, or the counter it feeds has no
+// idea which one to credit.
+assert.deepEqual(settled.rows[0]!.intervention, {
+  type: "white_noise",
+  volume: 3,
+  track: 2,
+});
+
+// A choice only lands while a check window is open.
+assert.equal(
+  reduce({ ...initial, phase: "MONITORING" }, { t: "chose", intervention: "aroma" }).comfort,
+  null,
+);
 
 // A failure retries once, then gives up — and still writes one row.
 let failing = drive({ ...initial, phase: "MONITORING" }, restless);

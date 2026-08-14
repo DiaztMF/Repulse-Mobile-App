@@ -10,12 +10,16 @@ import {
 } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { MockTransport, type Scenario } from "@/ble/mock";
+import { useAuth } from "@/firebase/auth";
+import { fetchInterventions, saveVerification } from "@/firebase/nights";
 import type { BleEvent, BleTransport, Device, Link, Room, Vitals } from "@/ble/transport";
 import {
   actuatorsFor,
+  chooseIntervention,
   initial,
   reduce,
   type Input,
+  type Intervention,
   type Machine,
 } from "./machine";
 
@@ -82,8 +86,18 @@ export function useMonitor(): Monitor {
   return m;
 }
 
+/** §7.2's counters, as the chooser wants them. */
+type Scores = Record<Intervention, { tried: number; worked: number }>;
+const NO_SCORES: Scores = {
+  white_noise: { tried: 0, worked: 0 },
+  aroma: { tried: 0, worked: 0 },
+  light: { tried: 0, worked: 0 },
+};
+
 export function MonitorProvider({ children }: { children: ReactNode }) {
   const [machine, dispatch] = useReducer(reduce, initial);
+  const uid = useAuth().user?.uid;
+  const [scores, setScores] = useState<Scores>(NO_SCORES);
   const [transport, setTransport] = useState<BleTransport | null>(null);
   const [vitals, setVitals] = useState<Vitals | null>(null);
   const [room, setRoom] = useState<Room | null>(null);
@@ -97,6 +111,11 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
    *  every sample and nothing renders from it. */
   const calmSince = useRef<number | null>(null);
   const phase = machine.phase;
+
+  // Rows already written. The reducer keeps the whole list because it is
+  // pure and cannot know what has been persisted; this is what stops the
+  // same event being written twice on a re-render.
+  const written = useRef(new Set<string>());
 
   // --- events in ---------------------------------------------------------
 
@@ -186,6 +205,73 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
     const id = window.setInterval(() => dispatch({ t: "tick", at: Date.now() }), 1000);
     return () => window.clearInterval(id);
   }, [phase]);
+
+  // Counters come from the account, so an intervention that has already
+  // been shown to work on this person is preferred from the first night of
+  // the demo rather than after three more.
+  useEffect(() => {
+    if (!uid) return;
+    void fetchInterventions(uid).then((rows) => {
+      const next = { ...NO_SCORES };
+      for (const r of rows) {
+        const k =
+          r.key === "dim_light" ? "light" : (r.key as Intervention);
+        if (k in next) next[k] = { tried: r.tries, worked: r.success };
+      }
+      setScores(next);
+    });
+  }, [uid]);
+
+  // --- choosing what to try ----------------------------------------------
+  //
+  // §7.2: highest score with at least three attempts, default order until
+  // then, and one try in five goes to the runner-up so the first thing
+  // that ever worked does not stay the only thing ever tried.
+
+  useEffect(() => {
+    if (!transport || phase !== "COMFORT" || !machine.comfort) return;
+    if (machine.comfort.intervention) return;
+    // §5.3 allows one other intervention after a failure, and the reducer
+    // has already cleared the choice — so a retry lands here again and
+    // must not pick the same thing twice.
+    const avoid = machine.comfort.retried ? machine.comfort.row.intervention?.type : undefined;
+    const pick = chooseIntervention(
+      scores,
+      () => Math.random() < 0.2,
+      (["white_noise", "aroma", "light"] as const).filter((k) => k !== avoid),
+    );
+    const command =
+      pick === "white_noise"
+        ? ({ kind: "noise", level: 2 } as const)
+        : pick === "aroma"
+          ? ({ kind: "aroma", seconds: 25 } as const)
+          : ({ kind: "light", mode: "off" } as const);
+    void transport.send(command);
+    dispatch({
+      t: "chose",
+      intervention: pick,
+      ...(pick === "white_noise" ? { volume: 2, track: 2 } : {}),
+    });
+  }, [transport, phase, machine.comfort, scores]);
+
+  // --- the learning loop, written down -----------------------------------
+  //
+  // §7.1. Without this the loop is open and the Insights screen is
+  // decoration: an action fired, and nobody ever found out whether it
+  // helped.
+
+  useEffect(() => {
+    if (!uid) return;
+    for (const row of machine.rows) {
+      if (written.current.has(row.timestamp)) continue;
+      written.current.add(row.timestamp);
+      void saveVerification(uid, row).catch(() => {
+        // Losing a row costs one data point. Throwing here would take the
+        // night down with it, and the night is worth more.
+        written.current.delete(row.timestamp);
+      });
+    }
+  }, [machine.rows, uid]);
 
   // --- commands out ------------------------------------------------------
 

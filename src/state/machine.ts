@@ -100,6 +100,10 @@ export type Input =
       baselineHr: number;
       room: VerificationRow["room_state"];
     }
+  /** What was actually tried. The chooser lives outside the reducer —
+   *  §7.2 needs the account's history and the reducer is pure — but the
+   *  row cannot be written without knowing which one it was. */
+  | { t: "chose"; intervention: Intervention; volume?: number; track?: number }
   | { t: "settled"; at: number }
   | { t: "stage"; at: number; stage: 0 | 1 | 2 | 3 | 4 }
   | { t: "link"; device: "band" | "bedside"; up: boolean }
@@ -182,6 +186,23 @@ export function reduce(m: Machine, i: Input): Machine {
         ...m,
         phase: "COMFORT",
         comfort: { startedAt: i.at, intervention: null, retried: false, row },
+      };
+    }
+
+    case "chose": {
+      if (m.phase !== "COMFORT" || !m.comfort) return m;
+      const intervention = {
+        type: i.intervention,
+        ...(i.volume !== undefined ? { volume: i.volume } : {}),
+        ...(i.track !== undefined ? { track: i.track } : {}),
+      };
+      return {
+        ...m,
+        comfort: {
+          ...m.comfort,
+          intervention: i.intervention,
+          row: { ...m.comfort.row, intervention },
+        },
       };
     }
 

@@ -40,6 +40,14 @@ service cloud.firestore {
         allow read, write: if isOwner(uid);
       }
 
+      // One row per comfort event — the learning loop's evidence. Owner
+      // only: a row carries the room's temperature, humidity, light and
+      // noise at a named minute of the night, which is a description of
+      // someone's bedroom while they slept in it.
+      match /verifications/{rowId} {
+        allow read, write: if isOwner(uid);
+      }
+
       // The owner grants and revokes; a viewer cannot add themselves.
       match /viewers/{viewerUid} {
         allow read, write: if isOwner(uid);

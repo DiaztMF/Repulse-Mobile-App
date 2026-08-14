@@ -2,13 +2,16 @@ import {
   collection,
   doc,
   getDocs,
+  increment,
   limit,
   orderBy,
   query,
+  setDoc,
   writeBatch,
 } from "firebase/firestore";
 import { db } from "./app";
-import type { Intervention, Night } from "@/data/mock";
+import type { Intervention, InterventionKey, Night } from "@/data/mock";
+import type { VerificationRow } from "@/state/machine";
 
 /**
  * Firestore layout, matching the spec:
@@ -40,6 +43,61 @@ export async function fetchInterventions(uid: string): Promise<Intervention[]> {
   return snap.docs.map((d) => d.data() as Intervention);
 }
 
+const verificationsRef = (uid: string) =>
+  collection(db!, "users", uid, "verifications");
+
+/** Only three of the four keys can be commanded today; `cooling` has no
+ *  actuator behind it yet and exists in the history data only. */
+const KEY: Record<string, InterventionKey> = {
+  white_noise: "white_noise",
+  aroma: "aroma",
+  light: "dim_light",
+};
+
+/**
+ * One row per COMFORT event, and the counter that row moves. PRD §7.1 and
+ * §7.2.
+ *
+ * This is the product's central claim made auditable: almost everything
+ * that calls itself a closed loop fires an action and never learns whether
+ * it helped. Without this write, the loop is open and the Insights screen
+ * is decoration.
+ *
+ * Rows with no intervention still get written. §5.3: an event the bedside
+ * could not answer is real and belongs in the history — it just must not
+ * count as a failed intervention, so it never touches the counters.
+ */
+export async function saveVerification(uid: string, row: VerificationRow) {
+  if (!db) return;
+  const id = row.timestamp;
+  await setDoc(doc(verificationsRef(uid), id), row);
+
+  const key = row.intervention ? KEY[row.intervention.type] : undefined;
+  // A null result means nothing was tried, not that something failed.
+  if (!key || row.result === null || row.bedside_offline) return;
+
+  await setDoc(
+    doc(interventionsRef(uid), key),
+    {
+      key,
+      tries: increment(1),
+      success: increment(row.result === "berhasil" ? 1 : 0),
+      // Kept as a running total so an average can be recomputed without
+      // reading every row back. §7.3 needs the average, not the samples.
+      totalSettleSec: increment(row.settle_time_s ?? 0),
+    },
+    { merge: true },
+  );
+}
+
+export async function fetchVerifications(uid: string, count = 100) {
+  if (!db) return [];
+  const snap = await getDocs(
+    query(verificationsRef(uid), orderBy("timestamp", "desc"), limit(count)),
+  );
+  return snap.docs.map((d) => d.data() as VerificationRow);
+}
+
 /**
  * Writes the synthetic fortnight for this account. Doubles as the demo
  * safety net: the insight screens need a fortnight of history to say
@@ -62,7 +120,7 @@ export async function seed(uid: string, nights: Night[], interventions: Interven
 export async function reset(uid: string) {
   if (!db) throw new Error("Firebase is not configured");
   const batch = writeBatch(db);
-  for (const ref of [nightsRef(uid), interventionsRef(uid)]) {
+  for (const ref of [nightsRef(uid), interventionsRef(uid), verificationsRef(uid)]) {
     const snap = await getDocs(ref);
     snap.docs.forEach((d) => batch.delete(d.ref));
   }
