@@ -53,7 +53,7 @@ export function TestPanel() {
   };
 
   const stopGate = async () => {
-    await m0.stop();
+    await m0.stop(user?.uid);
     setChecking(false);
     setGateMsg("Stopped.");
   };
@@ -248,8 +248,12 @@ export function TestPanel() {
             >
               {verdict.passed ? "A1 passed" : "A1 failed"}
             </p>
+            {/* Ticks against ticks expected, because "7 ticks" sounds like
+                a result and "7 of 511" is one. */}
             <p className="mt-3 text-[length:var(--text-meta)] text-[var(--color-ash)]">
-              {verdict.ticks} ticks over {minutes(verdict.spanMs)}. Worst gap{" "}
+              <span className="num">{verdict.ticks}</span> of{" "}
+              <span className="num">{verdict.expected}</span> ticks over{" "}
+              {minutes(verdict.spanMs)}. Worst gap{" "}
               {Math.round(verdict.worstGapMs / 1000)}s.
             </p>
             {/* Named, not summarised. "It mostly worked" is not an answer

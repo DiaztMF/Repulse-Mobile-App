@@ -34,7 +34,13 @@ export type Run = {
 
 export type Verdict = {
   ticks: number;
-  /** Wall-clock span from first tick to last. */
+  /** How many ticks the span should have held. A run that dies in its
+   *  first minute is the failure this gate exists to catch, and counting
+   *  only the ticks that arrived cannot see it. */
+  expected: number;
+  /** Wall-clock span from the run starting to it stopping — not from the
+   *  first tick to the last. Those are the same thing only when nothing
+   *  went wrong, which is the case we are not testing for. */
   spanMs: number;
   worstGapMs: number;
   /** Every gap over the threshold, newest last. */
@@ -105,6 +111,8 @@ export async function start(uid: string) {
   const begin = Date.now();
   localStorage.setItem(LOCAL_KEY, String(begin));
   await set(runRef(uid), { startedAt: begin, ticks: {} });
+  // `stoppedAt` is deliberately absent until stop() writes it — its absence
+  // is what tells the reader the run is still open.
 
   const tick = () => {
     const now = Date.now();
@@ -117,12 +125,17 @@ export async function start(uid: string) {
   timer = window.setInterval(tick, TICK_MS);
 }
 
-export async function stop() {
+export async function stop(uid?: string) {
   if (timer !== undefined) {
     window.clearInterval(timer);
     timer = undefined;
   }
   localStorage.removeItem(LOCAL_KEY);
+  // Without this the reader cannot tell "silent until you stopped it" from
+  // "silent until you happened to read it three hours later".
+  if (uid && rtdb) {
+    await set(ref(rtdb, `live/${uid}/m0/stoppedAt`), Date.now()).catch(() => {});
+  }
   if (!Capacitor.isNativePlatform()) return;
   await ForegroundService.stopForegroundService().catch(() => {
     // Already gone, or the OS took it — which is itself the result.
@@ -133,26 +146,38 @@ export async function stop() {
 export async function verdict(uid: string): Promise<Verdict | null> {
   if (!rtdb) return null;
   const snap = await get(runRef(uid));
-  const run = snap.val() as { startedAt?: number; ticks?: Record<string, number> } | null;
-  if (!run?.ticks) return null;
+  const run = snap.val() as {
+    startedAt?: number;
+    stoppedAt?: number;
+    ticks?: Record<string, number>;
+  } | null;
+  if (!run?.ticks || !run.startedAt) return null;
 
   const ticks = Object.values(run.ticks).sort((a, b) => a - b);
-  if (ticks.length < 2) {
-    return { ticks: ticks.length, spanMs: 0, worstGapMs: 0, breaks: [], passed: false };
-  }
+
+  // The run's own boundaries, not the first and last tick. Measuring
+  // between ticks only asks "was it regular while it was awake"; a run
+  // that fired three times and died reported four ticks, no gap, and
+  // PASSED — the exact outcome this gate is supposed to catch.
+  const begin = run.startedAt;
+  const end = run.stoppedAt ?? Date.now();
+  const marks = [begin, ...ticks, end];
 
   const breaks: { at: number; gapMs: number }[] = [];
   let worst = 0;
 
-  for (let i = 1; i < ticks.length; i++) {
-    const gap = ticks[i]! - ticks[i - 1]!;
+  for (let i = 1; i < marks.length; i++) {
+    const gap = marks[i]! - marks[i - 1]!;
     if (gap > worst) worst = gap;
-    if (gap > MAX_GAP_MS) breaks.push({ at: ticks[i - 1]!, gapMs: gap });
+    if (gap > MAX_GAP_MS) breaks.push({ at: marks[i - 1]!, gapMs: gap });
   }
+
+  const spanMs = Math.max(0, end - begin);
 
   return {
     ticks: ticks.length,
-    spanMs: ticks[ticks.length - 1]! - ticks[0]!,
+    expected: Math.floor(spanMs / TICK_MS) + 1,
+    spanMs,
     worstGapMs: worst,
     breaks,
     passed: breaks.length === 0,
