@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { SampleBadge } from "@/components/shell/SampleBadge";
 import { useMonitor } from "@/state/monitor";
 import { cn } from "@/lib/cn";
@@ -29,8 +28,7 @@ const TO_STAGE_4_S = 30;
  * the mechanism.
  */
 export function Alert() {
-  const navigate = useNavigate();
-  const { stage, links, vitals, synthetic } = useMonitor();
+  const { stage, links, vitals, synthetic, standDown } = useMonitor();
   const [left, setLeft] = useState(TO_STAGE_4_S);
 
   // PRD §5.5: when the band drops mid-ladder the countdown carries on and
@@ -109,8 +107,13 @@ export function Alert() {
         {estimated ? "seconds · estimated" : "seconds until your contacts are alerted"}
       </p>
 
+      {/* Stands the ladder down rather than just leaving the screen. The
+          old version navigated away while the machine was still in ALERT,
+          so the actuators stayed on and the router put them straight back
+          here. Leaving is a consequence of standing down, not a substitute
+          for it. */}
       <button
-        onClick={() => navigate("/tonight", { replace: true })}
+        onClick={standDown}
         className="label mt-16 h-14 w-full max-w-[320px] rounded-[var(--radius-pill)] border border-[var(--color-ivory)] text-[var(--color-ivory)]"
       >
         I am okay

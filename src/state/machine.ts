@@ -121,7 +121,12 @@ export function reduce(m: Machine, i: Input): Machine {
     case "stage": {
       if (i.stage === 0) {
         // Stood down. Back where we were, and nobody is called.
-        if (m.phase !== "ALERT") return { ...m, stage: 0 };
+        //
+        // SOS_SENT belongs here too. Leaving it out meant nothing could
+        // ever leave that phase — not a body answering late, not the
+        // person tapping "I am okay" — so the screen threw them straight
+        // back at the emergency they had just dismissed.
+        if (m.phase !== "ALERT" && m.phase !== "SOS_SENT") return { ...m, stage: 0 };
         return { ...m, stage: 0, phase: m.resume ?? "MONITORING", resume: null };
       }
       if (i.stage === 4) return { ...m, stage: 4, phase: "SOS_SENT" };

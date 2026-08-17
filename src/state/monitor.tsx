@@ -32,6 +32,7 @@ import {
   type Input,
   type Intervention,
   type Machine,
+  type Phase,
 } from "./machine";
 
 /**
@@ -85,6 +86,10 @@ export type Monitor = {
   synthetic: boolean;
   startSleep: () => void;
   endSession: () => void;
+  /** "I am okay", tapped. The band is still the authority — if it reports
+   *  the stage again this comes straight back — but the phone in someone's
+   *  reach is a second path, and it has to actually work. */
+  standDown: () => void;
   /** Straight through to the devices. The conformance screen needs to
    *  drive each characteristic on its own, outside the state machine. */
   send: (a: Actuator) => Promise<void>;
@@ -307,7 +312,14 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
       void RepulseMonitor.start({
         title: "RePulse is watching",
         body: "Monitoring until morning.",
-      }).catch(() => {});
+      })
+        .then(({ started }) => {
+          // ponytail: logged, not shown. A refusal means the night runs
+          // without the service holding the process open — worth a screen
+          // of its own once someone decides what it should say.
+          if (!started) console.warn("[repulse] nearby devices refused; no service this night");
+        })
+        .catch(() => {});
     } else {
       void RepulseMonitor.stop().catch(() => {});
     }
@@ -350,6 +362,7 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
       synthetic: transport instanceof MockTransport,
       startSleep: () => send({ t: "start-sleep", at: Date.now() }),
       endSession: () => send({ t: "session-end", at: Date.now(), reason: "wake" }),
+      standDown: () => send({ t: "stage", at: Date.now(), stage: 0 }),
       send: async (a) => transport?.send(a),
       command: async (c) => transport?.command(c),
       listen: (fn) => transport?.on(fn) ?? (() => {}),
@@ -400,16 +413,28 @@ export function EscalationRoute() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
+  // Read at the moment a phase changes, never as a trigger. Watching the
+  // path meant every deliberate navigation was undone on the next render:
+  // tapping "Add a contact" from the SOS screen bounced straight back, and
+  // so did anything else the person tried. The alert is allowed to come to
+  // you once — it is not allowed to hold you there.
+  const at = useRef(pathname);
+  at.current = pathname;
+  const previous = useRef<Phase | null>(null);
+
   useEffect(() => {
+    if (phase === previous.current) return;
+    previous.current = phase;
+
     const to = phase === "ALERT" ? "/alert" : phase === "SOS_SENT" ? "/sos" : null;
     if (to) {
-      if (pathname !== to) navigate(to, { replace: true });
+      if (at.current !== to) navigate(to, { replace: true });
       return;
     }
     // Stood down. Only move someone who is actually looking at one of
     // these — never yank a user off a screen they navigated to themselves.
-    if (EMERGENCY.includes(pathname)) navigate("/tonight", { replace: true });
-  }, [phase, pathname, navigate]);
+    if (EMERGENCY.includes(at.current)) navigate("/tonight", { replace: true });
+  }, [phase, navigate]);
 
   return <Outlet />;
 }

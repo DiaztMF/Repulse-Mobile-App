@@ -27,7 +27,7 @@ import {
 export function Sos() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { vitals, synthetic } = useMonitor();
+  const { vitals, synthetic, standDown } = useMonitor();
   const [sent, setSent] = useState(false);
   const [position, setPosition] = useState<Position>(null);
   const [locating, setLocating] = useState(true);
@@ -75,8 +75,10 @@ export function Sos() {
             Send by SMS as well
           </a>
         )}
+        {/* Same reason as Cancel below: the phase has to leave SOS_SENT or
+            the router hands this screen straight back. */}
         <button
-          onClick={() => navigate("/tonight", { replace: true })}
+          onClick={standDown}
           className="label mt-4 h-14 w-full max-w-[320px] rounded-[var(--radius-pill)] border border-[var(--color-ash-dim)] text-[var(--color-ash)]"
         >
           Close
@@ -139,8 +141,11 @@ export function Sos() {
         </>
       )}
 
+      {/* Stands the ladder down, which is what leaves this screen. Merely
+          navigating left the machine in SOS_SENT, so the router put the
+          person straight back on the emergency they had just dismissed. */}
       <button
-        onClick={() => navigate("/tonight", { replace: true })}
+        onClick={standDown}
         className="label mt-4 h-14 w-full rounded-[var(--radius-pill)] border border-[var(--color-ivory)] text-[var(--color-ivory)]"
       >
         Cancel — I am okay

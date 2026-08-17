@@ -56,6 +56,12 @@ assert.equal(busy.phase, "ALERT", "the wake window cannot preempt an alert");
 const sos = reduce({ ...initial, phase: "ALERT" }, { t: "stage", at: T, stage: 4 });
 assert.equal(sos.phase, "SOS_SENT", "stage 4 is SOS_SENT");
 
+// SOS_SENT used to be a phase nothing could leave, so "I am okay" left the
+// screen without leaving the phase and the router put it straight back.
+const okay = reduce({ ...sos, resume: "MONITORING" }, { t: "stage", at: T + 60_000, stage: 0 });
+assert.equal(okay.phase, "MONITORING", "SOS_SENT stands down too");
+assert.equal(okay.stage, 0);
+
 // --- Rule 3: reverse polarity --------------------------------------------
 
 const emergency = actuatorsFor("SOS_SENT");
