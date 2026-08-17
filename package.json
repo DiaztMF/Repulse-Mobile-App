@@ -17,6 +17,7 @@
     "check:sos": "node --experimental-strip-types --disable-warning=ExperimentalWarning src/lib/sos.check.ts",
     "check:screening": "node --experimental-strip-types --disable-warning=ExperimentalWarning src/lib/screening.check.ts",
     "check:native": "cd android && gradlew assembleDebug",
+    "splash": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/splash.ts",
     "check": "npm run check:data && npm run check:gate && npm run check:copy && npm run check:ble && npm run check:codec && npm run check:machine && npm run check:screening && npm run check:sos",
     "dev:tunnel": "vite --mode tunnel"
   },
@@ -46,6 +47,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.4",
     "oxlint": "^1.75.0",
+    "sharp": "^0.35.3",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.2",
     "vite": "^8.2.0"
