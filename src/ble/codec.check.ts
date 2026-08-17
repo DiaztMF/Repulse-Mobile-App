@@ -26,6 +26,7 @@ import {
   decodeSosPress,
   decodeVitals,
   encodeActuator,
+  encodeBandCommand,
 } from "./codec.ts";
 
 const at = 1_700_000_000_000;
@@ -160,5 +161,18 @@ const flash = JSON.parse(
   new TextDecoder().decode(encodeActuator({ kind: "light", mode: "white-flash" }, 2)),
 );
 assert.equal(flash.light.mode, "alert", "the contract's name, not ours");
+
+// §3.8's keys, not TypeScript's. The payload is passed through verbatim, so
+// `durationMs` on the air is a command the band never runs and never
+// complains about.
+const vibrate = JSON.parse(
+  new TextDecoder().decode(encodeBandCommand({ cmd: "vibrate", pattern: "hard", durationMs: 800 })),
+);
+assert.deepEqual(vibrate, { cmd: "vibrate", pattern: "hard", duration_ms: 800 });
+
+const sync = JSON.parse(
+  new TextDecoder().decode(encodeBandCommand({ cmd: "sync_time", epochS: 1_786_512_000 })),
+);
+assert.deepEqual(sync, { cmd: "sync_time", epoch_s: 1_786_512_000 });
 
 console.log("ok — every characteristic decodes to the contract's own worked examples");

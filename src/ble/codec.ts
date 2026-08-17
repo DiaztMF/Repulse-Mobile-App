@@ -267,9 +267,25 @@ export function encodeActuator(a: Actuator, commandId: number): Uint8Array {
   }
 }
 
-/** §3.8 band `0009`. */
+/**
+ * §3.8 band `0009`.
+ *
+ * The JSON goes out verbatim, so a key that is camelCase here is a command
+ * the firmware does not recognise — and a firmware that ignores an unknown
+ * field says nothing about it. Conformance test 1 would have failed on the
+ * day the band arrived and looked like a broken motor.
+ *
+ * `BandConfig` avoided this by spelling the contract's keys directly; this
+ * union did not, because its fields are read by TypeScript elsewhere.
+ */
+const WIRE: Record<string, string> = {
+  durationMs: "duration_ms",
+  epochS: "epoch_s",
+  durationS: "duration_s",
+};
+
 export function encodeBandCommand(c: BandCommand): Uint8Array {
-  return utf8(c);
+  return utf8(Object.fromEntries(Object.entries(c).map(([k, v]) => [WIRE[k] ?? k, v])));
 }
 
 /** §3.7 band `0005`. Absent fields mean unchanged, so an empty object is a

@@ -1,10 +1,14 @@
 # RePulse — Kontrak BLE GATT
 
-**Versi:** 2.0 · 13 Agustus 2026
+**Versi:** 2.1 · 17 Agustus 2026
 **Untuk:** pengembang firmware smartband dan bedside
-**Balasan diminta pada:** formulir di Bagian 8
+**Balasan diminta pada:** formulir di Bagian 7
 
 Dokumen ini mendefinisikan seluruh permukaan BLE antara aplikasi Android dan kedua perangkat. Aplikasi sudah dibangun di atas kontrak ini, jadi perubahan bentuk payload berarti perubahan kode di sisi aplikasi.
+
+> **Perubahan dari 2.0:** tidak ada perubahan pada byte, UUID, atau enum mana pun — firmware yang sudah dikerjakan terhadap 2.0 tetap sah. Yang berubah hanya rujukan nomor bagian yang salah di header, dan Bagian 7 kini menyebutkan tenggat sebenarnya.
+
+Delapan uji di Bagian 6 sekarang sudah ada sebagai layar di dalam aplikasi, bukan tabel yang dibaca sekali. Saat verifikasi bersama, aplikasi yang mengirim perintahnya dan mencatat hasilnya.
 
 ---
 
@@ -363,6 +367,10 @@ Panel Uji di aplikasi menyediakan tombol manual untuk tiap perintah. Ini yang di
 ---
 
 ## 7. Untuk diisi pengembang firmware
+
+**Demo penjurian: 24 Agustus 2026.** Pertanyaan 14 yang paling menentukan, dan jawaban jujur lebih berguna daripada jawaban optimis: bila firmware tidak siap sebelum tanggal itu, aplikasi tampil di atas lapisan simulasi dengan penanda "data contoh" di layar — itu rencana yang sudah ada, bukan kegagalan. Yang tidak bisa diselamatkan adalah mengetahuinya pada 23 Agustus.
+
+Tidak perlu menunggu firmware lengkap untuk mulai menguji bersama. Begitu perangkat bisa *advertising* dengan service UUID yang benar dan satu characteristic saja bisa dibaca, uji 2 dan 8 di Bagian 6 sudah bisa dijalankan.
 
 | # | Pertanyaan | Jawaban |
 |---|---|---|
