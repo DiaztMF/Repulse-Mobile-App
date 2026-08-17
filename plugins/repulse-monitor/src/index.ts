@@ -22,8 +22,15 @@ import { registerPlugin } from "@capacitor/core";
  * life. This is a mirror with a loud voice, not a second brain.
  */
 export interface RepulseMonitorPlugin {
-  /** Starts the foreground service. Safe to call twice. */
-  start(options?: { title?: string; body?: string }): Promise<void>;
+  /**
+   * Starts the foreground service. Safe to call twice.
+   *
+   * Asks for Nearby devices first: Android 14+ refuses a `connectedDevice`
+   * service outright unless it is granted. `started: false` means the
+   * person said no, and the night will not be held open — the one answer
+   * this must never give silently.
+   */
+  start(options?: { title?: string; body?: string }): Promise<{ started: boolean }>;
   stop(): Promise<void>;
   isRunning(): Promise<{ running: boolean }>;
 

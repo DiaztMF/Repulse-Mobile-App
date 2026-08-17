@@ -23,9 +23,15 @@ dist-ssr
 *.sln
 *.sw?
 
-# Capacitor native projects
-android/
-ios/
+# Capacitor native projects. Anchored to the root: an unanchored `android/`
+# also swallowed plugins/repulse-monitor/android/, which is hand-written
+# source, so the plugin's Kotlin never reached the repository at all.
+/android/
+/ios/
+
+# What Gradle leaves behind in the plugin module that is source.
+plugins/*/android/build/
+plugins/*/android/.gradle/
 
 # Env
 .env

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Merged into the app's manifest at build time, which is the point of
+         keeping this plugin outside android/: that folder is gitignored, so
+         anything declared there is lost on the next clone. -->
+
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- Android 14+ treats connectedDevice as a claim it verifies, not a
+         label: the service is refused unless the app actually holds one of
+         the device-connection permissions. These are the ones this app will
+         use for real the moment BLE lands, so the claim is honest today and
+         true tomorrow.
+
+         neverForLocation: scan results are never used to infer position,
+         and saying so keeps the location prompt out of the way.
+
+         ponytail: no legacy BLUETOOTH/BLUETOOTH_ADMIN for API < 31 — that
+         path also needs ACCESS_FINE_LOCATION to scan at all. Add both if a
+         pre-Android-12 phone ever has to run this. -->
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation" />
+
+    <!-- Android 14+ requires this to put a notification in front of a
+         locked screen. Without it the alert becomes an ordinary heads-up
+         banner that a sleeping person will never see. -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+
+    <application>
+        <!-- connectedDevice, not dataSync: dataSync is capped at six hours
+             in any 24 on Android 15, and this service has to last a night
+             and then the next one. The type is honest either way — it
+             exists to hold a link to the band. -->
+        <service
+            android:name="id.repulse.monitor.MonitorService"
+            android:foregroundServiceType="connectedDevice"
+            android:exported="false" />
+    </application>
+
+</manifest>
