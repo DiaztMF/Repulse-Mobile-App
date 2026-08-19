@@ -59,20 +59,23 @@ export interface RepulseMonitorPlugin {
   requestPermissions(): Promise<{ nearby: PermissionState }>;
 
   /**
-   * O4. `available` means one of the known vendor autostart screens
-   * actually resolves on this phone — asked of the package manager, not
-   * guessed from `manufacturer`, because the activity names move between
-   * OS versions and a manufacturer table said "Xiaomi" on an Oppo for as
-   * long as it existed.
+   * O4. Only the manufacturer, and only for the wording.
    *
-   * `manufacturer` is only for the wording; it decides nothing.
+   * An earlier version also reported whether a vendor autostart screen
+   * resolved, and that answer could not be trusted twice over: package
+   * visibility hides those packages from us on Android 11+, and ColorOS 15
+   * guards its startup manager with a signature permission no third-party
+   * app can hold — the component resolves and still refuses to open.
+   * Whether the step matters is a fact about the vendor, not about what we
+   * are allowed to see.
    */
-  autostart(): Promise<{ manufacturer: string; available: boolean }>;
+  autostart(): Promise<{ manufacturer: string }>;
 
   /**
-   * Opens that screen, or the app's own settings page when there is none.
-   * `opened` is what actually happened, and the screen gates its "I have
-   * turned it on" button on it.
+   * Tries each known vendor autostart screen, then the app's own settings
+   * page, which exists everywhere. `vendor` says which one it reached, and
+   * the screen changes what it asks of the person accordingly — there is
+   * no honest way to give directions without knowing where they landed.
    */
   openAutostart(): Promise<{ opened: boolean; vendor: boolean }>;
 }

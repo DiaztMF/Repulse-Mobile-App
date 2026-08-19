@@ -21,6 +21,7 @@ private const val NEARBY = "nearby"
  *  anybody. Each pair is package to activity. */
 private val AUTOSTART_SCREENS = listOf(
     "com.miui.securitycenter" to "com.miui.permcenter.autostart.AutoStartManagementActivity",
+    "com.oplus.battery" to "com.oplus.startupapp.view.StartupAppListActivity",
     "com.coloros.safecenter" to "com.coloros.safecenter.permission.startup.StartupAppListActivity",
     "com.coloros.safecenter" to "com.coloros.safecenter.startupapp.StartupAppListActivity",
     "com.oppo.safe" to "com.oppo.safe.permission.startup.StartupAppListActivity",
@@ -68,11 +69,7 @@ class RepulseMonitorPlugin : Plugin() {
      */
     @PluginMethod
     fun autostart(call: PluginCall) {
-        call.resolve(
-            JSObject()
-                .put("manufacturer", Build.MANUFACTURER ?: "")
-                .put("available", resolvable() != null)
-        )
+        call.resolve(JSObject().put("manufacturer", Build.MANUFACTURER ?: ""))
     }
 
     /**
@@ -86,38 +83,37 @@ class RepulseMonitorPlugin : Plugin() {
      */
     @PluginMethod
     fun openAutostart(call: PluginCall) {
-        val component = resolvable()
-        val intent =
-            if (component != null) {
-                Intent().setComponent(component)
-            } else {
-                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                    .setData(Uri.fromParts("package", context.packageName, null))
+        for ((pkg, cls) in AUTOSTART_SCREENS) {
+            val intent = Intent()
+                .setComponent(ComponentName(pkg, cls))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            try {
+                context.startActivity(intent)
+                call.resolve(JSObject().put("opened", true).put("vendor", true))
+                return
+            } catch (e: Exception) {
+                // Two ways to fail and neither is worth distinguishing: the
+                // screen is not on this phone, or it is and we are not
+                // allowed near it. ColorOS 15 answers the second — its
+                // startup manager demands a signature permission no
+                // third-party app can hold, on the explicit component and
+                // on the implicit action alike. Try the next one.
             }
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        // Always reachable, on every Android that exists. Not the startup
+        // list, and the screen does not claim it is.
+        val details = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+            .setData(Uri.fromParts("package", context.packageName, null))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         try {
-            context.startActivity(intent)
-            call.resolve(JSObject().put("opened", true).put("vendor", component != null))
+            context.startActivity(details)
+            call.resolve(JSObject().put("opened", true).put("vendor", false))
         } catch (e: Exception) {
-            android.util.Log.e("RePulse", "autostart settings refused", e)
+            android.util.Log.e("RePulse", "no settings screen would open", e)
             call.resolve(JSObject().put("opened", false).put("vendor", false))
         }
     }
 
-    /**
-     * Every vendor autostart screen we know of, in no particular order —
-     * only one will resolve on any given phone.
-     *
-     * ponytail: a list, not a lookup by manufacturer. A phone that answers
-     * to one of these is one of these, whatever Build.MANUFACTURER says,
-     * and Realme, OnePlus and Oppo all answer to the ColorOS entries.
-     */
-    private fun resolvable(): ComponentName? =
-        AUTOSTART_SCREENS
-            .map { (pkg, cls) -> ComponentName(pkg, cls) }
-            .firstOrNull { c ->
-                context.packageManager.resolveActivity(Intent().setComponent(c), 0) != null
-            }
 
     /**
      * Nearby devices has to be granted before the service can start at

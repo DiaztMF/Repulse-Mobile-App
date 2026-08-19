@@ -8,30 +8,51 @@ import { Button } from "@/components/ui/Button";
 
 /**
  * Toggle names differ per vendor and naming the wrong one is worse than
- * naming none, so each entry carries the exact labels the user will see
- * in that manufacturer's settings app.
+ * naming none, so each entry carries the exact labels the user will see in
+ * that manufacturer's settings app.
+ *
+ * `manual` is the same instruction for the case where the app could only
+ * reach the app's own settings page. That is not a rare fallback: ColorOS
+ * 15 guards its startup manager with a signature permission, so on a
+ * current Oppo it is the only door that opens, and directions written for
+ * a screen the person is not looking at are worse than no directions.
  */
-const VENDORS: Record<string, { label: string; toggles: string[] }> = {
-  xiaomi: { label: "Xiaomi", toggles: ["Autostart", "No battery restrictions"] },
-  redmi: { label: "Xiaomi", toggles: ["Autostart", "No battery restrictions"] },
-  poco: { label: "Xiaomi", toggles: ["Autostart", "No battery restrictions"] },
-  oppo: { label: "Oppo", toggles: ["Auto-launch", "Allow background activity"] },
-  vivo: { label: "Vivo", toggles: ["Auto-start", "High background power"] },
-  realme: { label: "Realme", toggles: ["Auto-launch", "Allow background activity"] },
-  oneplus: { label: "OnePlus", toggles: ["Auto-launch", "Allow background activity"] },
-  huawei: { label: "Huawei", toggles: ["Auto-launch", "Manage manually"] },
-  honor: { label: "Honor", toggles: ["Auto-launch", "Manage manually"] },
-  samsung: { label: "Samsung", toggles: ["Allow background activity"] },
+type Vendor = { label: string; toggles: string[]; manual: string };
+
+const VENDORS: Record<string, Vendor> = {
+  xiaomi: {
+    label: "Xiaomi",
+    toggles: ["Autostart", "No battery restrictions"],
+    manual: "Open Battery saver and choose No restrictions. Autostart lives in Settings, under Apps, Permissions, Autostart.",
+  },
+  oppo: {
+    label: "Oppo",
+    toggles: ["Auto-launch", "Allow background activity"],
+    manual: "Open Battery usage on the page that opened and allow RePulse to run in the background. Auto-launch is in Settings, Battery, Startup manager — no app is allowed to open that one for you.",
+  },
+  vivo: {
+    label: "Vivo",
+    toggles: ["Auto-start", "High background power"],
+    manual: "Open Battery on the page that opened and allow high background power use.",
+  },
+  huawei: {
+    label: "Huawei",
+    toggles: ["Auto-launch", "Manage manually"],
+    manual: "Open Battery on the page that opened and set app launch to Manage manually.",
+  },
+  samsung: {
+    label: "Samsung",
+    toggles: ["Allow background activity"],
+    manual: "Open Battery on the page that opened and set it to Unrestricted.",
+  },
 };
 
-/**
- * A phone whose settings screen we can open but whose toggle names we do
- * not know. Naming the wrong toggle is worse than naming none — an
- * instruction that does not match what is on the screen teaches people to
- * distrust the rest of the setup — so this names none and describes the
- * outcome instead.
- */
-const UNKNOWN = { label: "", toggles: [] as string[] };
+// ColorOS answers for all three, and so do their toggle names.
+VENDORS.realme = { ...VENDORS.oppo!, label: "Realme" };
+VENDORS.oneplus = { ...VENDORS.oppo!, label: "OnePlus" };
+VENDORS.redmi = { ...VENDORS.xiaomi! };
+VENDORS.poco = { ...VENDORS.xiaomi! };
+VENDORS.honor = { ...VENDORS.huawei!, label: "Honor" };
 
 /**
  * O4 — Vendor autostart. The number one cause of silent failure on
@@ -45,7 +66,11 @@ const UNKNOWN = { label: "", toggles: [] as string[] };
 export function Autostart() {
   const navigate = useNavigate();
   const [opened, setOpened] = useState(false);
-  const [vendor, setVendor] = useState<{ label: string; toggles: string[] } | null>(null);
+  const [vendor, setVendor] = useState<Vendor | null>(null);
+  // Whether the button reached the vendor's own autostart list or only the
+  // app's settings page. The directions below are useless if they describe
+  // a screen the person is not looking at.
+  const [direct, setDirect] = useState(false);
 
   // Asked of the phone, not inferred from a name. The manufacturer only
   // chooses the wording; whether this screen appears at all is decided by
@@ -57,14 +82,10 @@ export function Autostart() {
     const decide = async () => {
       if (!Capacitor.isNativePlatform()) return null;
       try {
-        const { manufacturer, available } = await RepulseMonitor.autostart();
-        if (!available) return null;
-        return VENDORS[manufacturer.toLowerCase()] ?? UNKNOWN;
+        const { manufacturer } = await RepulseMonitor.autostart();
+        return VENDORS[manufacturer.toLowerCase()] ?? null;
       } catch (e) {
-        // Skipping costs a step that may have been needed. Showing the
-        // wrong vendor's instructions costs the trust that carries the
-        // rest of setup.
-        console.error("[autostart] unavailable", e);
+        console.error("[autostart] could not read the manufacturer", e);
         return null;
       }
     };
@@ -82,8 +103,9 @@ export function Autostart() {
 
   const openSettings = async () => {
     try {
-      const { opened: did } = await RepulseMonitor.openAutostart();
+      const { opened: did, vendor: direct } = await RepulseMonitor.openAutostart();
       setOpened(did);
+      setDirect(direct);
     } catch (e) {
       console.error("[autostart] could not open settings", e);
     }
@@ -99,9 +121,8 @@ export function Autostart() {
       </h1>
 
       <p className="mt-4 text-[var(--color-ash)]">
-        {vendor.label
-          ? `Your phone is made by ${vendor.label}. ${vendor.label} shuts down apps running in the background — including the one watching your sleep.`
-          : "Your phone shuts down apps running in the background — including the one watching your sleep."}
+        Your phone is made by {vendor.label}. {vendor.label} shuts down apps
+        running in the background — including the one watching your sleep.
       </p>
       <p className="mt-3 text-[var(--color-ash)]">
         Without this, monitoring can stop in the middle of the night with no
@@ -114,17 +135,19 @@ export function Autostart() {
         className="mt-8"
         onClick={() => void openSettings()}
       >
-        {vendor.label ? `Open ${vendor.label} settings` : "Open settings"}
+        Open {vendor.label} settings
         <ChevronRight className="size-4" strokeWidth={2} />
       </Button>
 
       <p className="mt-8 text-[var(--color-ash)]">
-        {vendor.toggles.length
-          ? "On the screen that opens, find RePulse and turn on:"
-          : "On the screen that opens, find RePulse and allow it to keep running in the background."}
+        {!opened
+          ? "The button above opens the right part of your settings."
+          : direct && vendor.toggles.length
+            ? "On the screen that opened, find RePulse and turn on:"
+            : vendor.manual}
       </p>
       <ul className="mt-3 space-y-2">
-        {vendor.toggles.map((t) => (
+        {opened && direct && vendor.toggles.map((t) => (
           <li
             key={t}
             className="flex items-center gap-3 text-[var(--color-ivory)]"
