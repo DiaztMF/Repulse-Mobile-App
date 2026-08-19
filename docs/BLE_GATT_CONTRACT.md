@@ -1,12 +1,12 @@
 # RePulse — Kontrak BLE GATT
 
-**Versi:** 2.1 · 17 Agustus 2026
+**Versi:** 2.2 · 19 Agustus 2026
 **Untuk:** pengembang firmware smartband dan bedside
 **Balasan diminta pada:** formulir di Bagian 7
 
 Dokumen ini mendefinisikan seluruh permukaan BLE antara aplikasi Android dan kedua perangkat. Aplikasi sudah dibangun di atas kontrak ini, jadi perubahan bentuk payload berarti perubahan kode di sisi aplikasi.
 
-> **Perubahan dari 2.0:** tidak ada perubahan pada byte, UUID, atau enum mana pun — firmware yang sudah dikerjakan terhadap 2.0 tetap sah. Yang berubah hanya rujukan nomor bagian yang salah di header, dan Bagian 7 kini menyebutkan tenggat sebenarnya.
+> **Perubahan dari 2.1:** satu nilai baru, `percent = 255` pada `0008`, berarti baterai tidak terukur. Tidak ada byte, UUID, atau enum lain yang berubah.
 
 Delapan uji di Bagian 6 sekarang sudah ada sebagai layar di dalam aplikasi, bukan tabel yang dibaca sekali. Saat verifikasi bersama, aplikasi yang mengirim perintahnya dan mencatat hasilnya.
 
@@ -169,13 +169,15 @@ Turun dari tahap 2 atau 3 kembali ke 0 berarti tubuh merespons. Transisi ini **h
 
 | Offset | Tipe | Field |
 |---|---|---|
-| 0 | `uint8` | `percent` 0–100 |
+| 0 | `uint8` | `percent` 0–100, atau `255` = tidak terukur |
 | 1 | `uint8` | `charging` 0 / 1 |
 | 2–5 | `uint32` | `epoch_s` — jam gelang saat ini. `0` = belum pernah disinkronkan |
 
 ESP32-C3 kehilangan waktu saat kehabisan daya atau reboot, dan kejadian di buffer `0006` jadi bercap epoch nol. Itu merusak `settle_time_s` — selisih dua cap waktu — yang merusak Skor Intervensi, satu-satunya bukti bahwa loop belajar produk ini bekerja.
 
 Selama tersambung, cap waktu ditentukan HP. Field ini murni untuk jalur offline.
+
+`255` mengikuti idiom yang sama dengan `255` pada enum posisi §3.2: bukan nilai, melainkan ketiadaan nilai. Rangkaian gelang saat ini tidak punya pembagi tegangan, jadi tidak ada yang bisa diukur — dan melaporkan `100` adalah angka yang sepenuhnya masuk akal sekaligus sepenuhnya karangan. Gelang yang menyatakan penuh sepanjang malam lalu mati adalah persis kegagalan senyap yang produk ini ada untuk mencegahnya. Aplikasi menampilkan tanda hubung.
 
 ### 3.7 `0005` — Konfigurasi (app → band)
 

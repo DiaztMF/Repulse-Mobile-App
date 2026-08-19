@@ -58,7 +58,9 @@ export type SosPress = { at: number };
 /** §3.6 `0008`. */
 export type BandStatus = {
   at: number;
-  percent: number;
+  /** §3.6. Null when the band reports 255 — no divider fitted, so there
+   *  is nothing to measure. Not the same as flat. */
+  percent: number | null;
   charging: boolean;
   /** 0 = the band has never had its clock set. §3.6 explains why this
    *  ruins settle times, and settle times are the learning loop's proof. */

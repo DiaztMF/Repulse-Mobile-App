@@ -91,11 +91,17 @@ export function decodeSosPress(b: Uint8Array): boolean {
   return b[0] === 1;
 }
 
-/** §3.6 `0008`. `epochS` of 0 means the band has never had its clock set. */
+/**
+ * §3.6 `0008`. Two absences, spelled differently and both load-bearing:
+ * `epochS` of 0 means the band has never had its clock set, and `percent`
+ * of 255 means there is nothing measuring the battery. Neither is a
+ * reading, and a screen that renders them as one is lying in the two
+ * places §3.6 exists to stop it.
+ */
 export function decodeBandStatus(b: Uint8Array, at: number): BandStatus {
   return {
     at,
-    percent: b[0]!,
+    percent: b[0] === 255 ? null : b[0]!,
     charging: b[1] === 1,
     epochS: dv(b).getUint32(2, true),
   };

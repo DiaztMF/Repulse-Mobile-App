@@ -92,7 +92,11 @@ export function Devices() {
           fields={[
             {
               label: "Battery",
-              value: bandStatus ? `${bandStatus.percent}%` : dash,
+              // §3.6's 255 arrives as null: no divider is fitted, so there
+              // is nothing measuring it. A dash, never a number — a band
+              // that claims full all night and then dies is the silent
+              // failure this whole product argues against.
+              value: bandStatus?.percent != null ? `${bandStatus.percent}%` : dash,
               ...(bandStatus?.charging ? { note: "charging" } : {}),
             },
             { label: "Signal", value: attached ? "connected" : links.band },
