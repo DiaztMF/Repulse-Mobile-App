@@ -150,6 +150,23 @@ export function stageOf(motion: Motion[], vitals: Vitals[]): Stage {
   return "light";
 }
 
+/**
+ * The resting pulse in one stretch of samples: the low plateau, not the
+ * single lowest beat.
+ *
+ * A percentile rather than a minimum because PPG throws the occasional
+ * impossible reading, and one artefact must not become the figure every
+ * personal threshold is measured against for the next fortnight (§3.1).
+ * Null below a floor of samples — thirty seconds of a loose band is not
+ * a baseline, it is a guess with a number on it.
+ */
+export function restingFrom(bpm: number[], minSamples = 10): number | null {
+  if (bpm.length < minSamples) return null;
+  const sorted = [...bpm].sort((a, b) => a - b);
+  const i = Math.min(sorted.length - 1, Math.round((sorted.length - 1) * 0.05));
+  return sorted[i]!;
+}
+
 /** §8.1. A rolling mean over previous nights, not tonight — a baseline
  *  that includes the night being judged moves to meet it. */
 export function sleepingBaseline(previousNightRestingBpm: number[]): number | null {

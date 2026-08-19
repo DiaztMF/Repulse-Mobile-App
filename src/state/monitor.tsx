@@ -16,9 +16,11 @@ import { LiveTransport } from "@/ble/live";
 import { useAuth } from "@/firebase/auth";
 import { fetchInterventions, saveNight, saveVerification } from "@/firebase/nights";
 import { NightRecorder, nightDate } from "@/data/night";
+import { DEFAULT_BASELINE_BPM, readBaseline } from "@/lib/baseline";
 import type {
   Actuator,
   BandCommand,
+  BandConfig,
   BandStatus,
   BleEvent,
   BleTransport,
@@ -68,13 +70,15 @@ const MIN_NIGHT_MIN = 20;
 export const TUNING = {
   /** §7.1's own worked example is 0.42 g, so the line sits just under it. */
   restlessMg: 400,
+  /** Only ever the stand-in. Calibration overwrites it per person, and
+   *  `baselineBpm()` below prefers the recorded figure. */
   /** Above the sleeping baseline. §5.3 wants both signals, not either. */
   hrOverBaseline: 8,
   /** Below this, and holding, counts as settled again. */
   calmMg: 120,
   /** How long it has to hold. One quiet second is not a settled body. */
   calmForMs: 30_000,
-  baselineBpm: 62,
+  baselineBpm: DEFAULT_BASELINE_BPM,
 };
 
 export type Monitor = {
@@ -104,6 +108,7 @@ export type Monitor = {
    *  drive each characteristic on its own, outside the state machine. */
   send: (a: Actuator) => Promise<void>;
   command: (c: BandCommand) => Promise<void>;
+  configure: (c: BandConfig) => Promise<void>;
   /** Raw event tap, for measuring how long something takes to arrive. */
   listen: (fn: (e: BleEvent) => void) => () => void;
   play: (s: Scenario) => Promise<void>;
@@ -255,7 +260,11 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!vitals?.worn) return;
     const now = vitals.at;
-    const hot = vitals.bpm > TUNING.baselineBpm + TUNING.hrOverBaseline;
+    // The recorded pulse if calibration ever measured one. A threshold
+    // hung off a stranger's 62 fires on a person whose resting rate is 48
+    // and stays silent for one whose rate is 76.
+    const baseline = readBaseline() ?? TUNING.baselineBpm;
+    const hot = vitals.bpm > baseline + TUNING.hrOverBaseline;
 
     if (phase === "MONITORING" && motionMg > TUNING.restlessMg && hot) {
       calmSince.current = null;
@@ -264,7 +273,7 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
         at: now,
         movementG: motionMg / 1000,
         hr: vitals.bpm,
-        baselineHr: TUNING.baselineBpm,
+        baselineHr: baseline,
         room: {
           temp_c: room?.tempC ?? null,
           rh: room?.humidityPct ?? null,
@@ -476,6 +485,7 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
       standDown: () => send({ t: "stage", at: Date.now(), stage: 0 }),
       send: async (a) => transport?.send(a),
       command: async (c) => transport?.command(c),
+      configure: async (c) => transport?.configure(c),
       listen: (fn) => transport?.on(fn) ?? (() => {}),
       connect: async () => {
         if (!Capacitor.isNativePlatform()) return false;

@@ -4,10 +4,21 @@ import { useMonitor } from "@/state/monitor";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { GOOD, holdGate } from "@/lib/fitGate";
+import { restingFrom } from "@/lib/screening";
+import { writeBaseline } from "@/lib/baseline";
 
 type Stage = "explain" | "fit" | "running" | "done";
 
-/** Matches `record_baseline` in the firmware contract. */
+/**
+ * Shorter than the contract's worked example, which is `duration_s: 180`.
+ *
+ * No interop problem — the band ignores the figure, vibrates once, and
+ * lets the app do the arithmetic — but it is a weaker baseline, and the
+ * comment that used to sit here claimed the two matched. Thirty seconds
+ * of a still wrist is about thirty beats, enough for a low percentile to
+ * mean something and not enough to be proud of. Three minutes of holding
+ * still before setup will finish is the cost of the better one.
+ */
 const DURATION_S = 30;
 
 
@@ -53,7 +64,13 @@ export function Calibration() {
   const [stable, setStable] = useState(false);
   const [left, setLeft] = useState(DURATION_S);
 
-  const { vitals, links } = useMonitor();
+  /** Every beat seen during the run. §3.1: the band vibrates to mark the
+   *  start and the app does the arithmetic — `record_baseline` in the
+   *  firmware is a cue to hold still, not a measurement of its own. */
+  const samples = useRef<number[]>([]);
+  const [recorded, setRecorded] = useState<number | null>(null);
+
+  const { vitals, links, command, configure } = useMonitor();
   const attached = links.band === "connected";
   // Read on a timer rather than rendered from, so a sample arriving every
   // second does not re-run the interval that is measuring the hold.
@@ -100,6 +117,11 @@ export function Calibration() {
 
   useEffect(() => {
     if (stage !== "running") return;
+    samples.current = [];
+    // One buzz so the wrist knows to go still. The band takes no other
+    // part in this — see `record_baseline` in repulse_band.ino.
+    void command({ cmd: "record_baseline", durationS: DURATION_S }).catch(() => {});
+
     const id = setInterval(() => {
       setLeft((s: number) => {
         if (s <= 1) {
@@ -111,6 +133,31 @@ export function Calibration() {
       });
     }, 1000);
     return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage]);
+
+  // Collected here rather than in the timer so no beat is missed between
+  // ticks, and only while worn — a band on a table reports nothing worth
+  // averaging.
+  useEffect(() => {
+    if (stage !== "running" || !vitals?.worn) return;
+    samples.current.push(vitals.bpm);
+  }, [stage, vitals]);
+
+  /* The figure, once. §3.1 measures every personal threshold for the next
+   * fortnight against it, so a run that did not gather enough beats has to
+   * come out as null and say so — a stand-in printed as a measurement is
+   * how a stranger's resting rate ends up defining this person's alarms. */
+  useEffect(() => {
+    if (stage !== "done" || recorded !== null) return;
+    const bpm = restingFrom(samples.current);
+    if (bpm === null) return;
+    setRecorded(bpm);
+    writeBaseline(bpm);
+    // The band keeps its own copy so the ladder still works with no phone
+    // in the room (§3.7).
+    void configure({ baseline_bpm: bpm }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage]);
 
   const fitCopy =
@@ -205,12 +252,13 @@ export function Calibration() {
             Your resting pulse
           </p>
           <p className="num mt-6 text-center text-[length:var(--text-hero)] leading-none">
-            62
+            {recorded ?? "—"}
           </p>
           <p className="label mt-3 text-center text-[var(--color-ash)]">bpm</p>
           <p className="mt-10 text-center text-[var(--color-ash)]">
-            Saved to the band, so it keeps working even when your phone does
-            not.
+            {recorded !== null
+              ? "Saved to the band, so it keeps working even when your phone does not."
+              : "Not enough beats to measure one yet. The band records it on the first night you wear it, and you can run this again from Settings."}
           </p>
           <div className="flex-1" />
           <Button

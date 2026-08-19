@@ -17,6 +17,7 @@ import {
   desaturations,
   screeningFlag,
   sleepingBaseline,
+  restingFrom,
   stageOf,
   worstPosition,
 } from "./screening.ts";
@@ -139,5 +140,21 @@ assert.equal(sleepingBaseline([]), null, "no history, no baseline");
 assert.equal(sleepingBaseline([60, 62, 64]), 62);
 // Only the last seven, so a baseline from a month ago stops counting.
 assert.equal(sleepingBaseline([100, 60, 60, 60, 60, 60, 60, 60]), 60);
+
+// --- the resting figure calibration records ------------------------------
+//
+// §3.1 measures every personal threshold for the next fortnight against
+// this one number, so both of its failure directions matter.
+assert.equal(restingFrom([]), null, "no samples is not a baseline");
+assert.equal(restingFrom([60, 61, 62]), null, "and neither are three beats");
+
+// A percentile, not a minimum: PPG throws impossible readings, and one of
+// them must not become the figure every alarm is hung off.
+const steadyish = [...Array(40).fill(60), 22];
+assert.equal(restingFrom(steadyish), 60, "one artefact does not set the baseline");
+
+// It is the low plateau, though — not the average.
+const drifting = [...Array(20).fill(58), ...Array(20).fill(74)];
+assert.equal(restingFrom(drifting), 58);
 
 console.log("ok — screening needs all three signals, and 3% must hold for 10s");

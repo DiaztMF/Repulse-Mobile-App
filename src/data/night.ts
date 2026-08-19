@@ -24,6 +24,7 @@ import {
   darkness,
   desatPerHour,
   desaturations,
+  restingFrom,
   stageOf,
   type Stage,
   // Relative, with the extension: this module is pulled into `check:night`
@@ -279,7 +280,7 @@ export class NightRecorder {
           avg: Math.round(this.bpm.reduce((a, b) => a + b, 0) / this.bpm.length),
           min: sorted[0]!,
           max: sorted[sorted.length - 1]!,
-          resting: percentile(sorted, 0.05),
+          resting: restingFrom(this.bpm) ?? sorted[0]!,
           hrv: rmssd(this.rr) ?? 0,
         }
       : { avg: 0, min: 0, max: 0, resting: 0, hrv: 0 };
