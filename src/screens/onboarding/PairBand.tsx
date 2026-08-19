@@ -65,7 +65,7 @@ export function PairBand() {
     connecting: "The band answered and then went quiet. Still trying.",
     connected: "Paired. It will reconnect on its own from now on.",
     "no-radio":
-      "Switch Bluetooth on and come back. Nothing can be found until it is.",
+      "Switch Bluetooth on and come back. The rest of setup still works, and the app will run on sample data until a band is paired.",
   };
 
   return (
@@ -108,13 +108,14 @@ export function PairBand() {
 
       <div className="flex-1" />
 
-      {stage === "connected" && (
+      {(stage === "connected" || stage === "no-radio") && (
         <Button
           size="lg"
-          register="system"
+          register={stage === "connected" ? "system" : undefined}
+          variant={stage === "connected" ? "primary" : "secondary"}
           onClick={() => navigate("/pair/bedside")}
         >
-          Continue
+          {stage === "connected" ? "Continue" : "Continue without a band"}
         </Button>
       )}
 

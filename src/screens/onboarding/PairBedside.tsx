@@ -29,12 +29,23 @@ export function PairBedside() {
   const navigate = useNavigate();
   const { connect, links } = useMonitor();
   const [slow, setSlow] = useState(false);
+  /** No radio at all — a browser, or Bluetooth switched off. Distinct from
+   *  "searching": one is worth waiting through and the other never ends.
+   *  This screen has no skip by design, and a screen with no skip and no
+   *  way to succeed is a wall. */
+  const [radio, setRadio] = useState<boolean | null>(null);
 
   // The band's screen started the radio; this makes the page work when it
   // is reached on its own, from a resumed setup. Scanning twice is not a
   // second scan — the transport is already looking.
   useEffect(() => {
-    void connect();
+    let live = true;
+    void connect().then((ok) => {
+      if (live) setRadio(ok);
+    });
+    return () => {
+      live = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -86,13 +97,21 @@ export function PairBedside() {
               />
             </span>
             <p className="num mt-6 text-[length:var(--text-card)]">
-              RePulse Bedside 2A19
+              RePulse Bedside
             </p>
           </div>
         )}
       </div>
 
-      {searching && slow && (
+      {searching && radio === false && (
+        <p className="mt-8 text-[var(--color-ash)]">
+          Bluetooth is off, so nothing can be found. Switch it on and come
+          back — or carry on, and the app will run on sample data until a
+          bedside unit is paired.
+        </p>
+      )}
+
+      {searching && radio !== false && slow && (
         <div className="mt-8">
           <p className="text-[var(--color-ash)]">
             Still nothing. The usual reasons:
@@ -113,13 +132,14 @@ export function PairBedside() {
 
       <div className="flex-1" />
 
-      {!searching && (
+      {(!searching || radio === false) && (
         <Button
           size="lg"
-          register="system"
+          register={!searching ? "system" : undefined}
+          variant={!searching ? "primary" : "secondary"}
           onClick={() => navigate("/calibration")}
         >
-          Continue
+          {!searching ? "Continue" : "Continue without a bedside unit"}
         </Button>
       )}
       </div>
