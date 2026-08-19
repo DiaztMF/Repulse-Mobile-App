@@ -107,7 +107,7 @@ export class MockTransport implements BleTransport {
     return () => this.listeners.delete(listener);
   }
 
-  async send(_a: Actuator) {
+  async send(_a: Actuator, _opts?: { unclamped?: boolean }) {
     // The bedside confirms completion in §4.4; nothing here needs it yet.
   }
 

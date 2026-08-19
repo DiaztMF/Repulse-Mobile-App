@@ -286,7 +286,21 @@ export function decodeAdvertisement(b: Uint8Array): {
 const utf8 = (o: unknown) => new TextEncoder().encode(JSON.stringify(o));
 
 /** §4.3 bedside `0003`. `commandId` is echoed back in the confirmation. */
-export function encodeActuator(a: Actuator, commandId: number): Uint8Array {
+/**
+ * `unclamped` exists for exactly one caller: §6 test 4, which has to hear
+ * the bedside refuse an over-long aroma request out loud.
+ *
+ * The clamp below is a real safety limit and stays on for everything else.
+ * But a request this app already shortened to 30s is a request the firmware
+ * will happily accept, so a test that sends one proves the opposite of what
+ * it claims — and a firmware that quietly runs 30s instead of refusing 60
+ * would pass it.
+ */
+export function encodeActuator(
+  a: Actuator,
+  commandId: number,
+  opts?: { unclamped?: boolean },
+): Uint8Array {
   switch (a.kind) {
     case "noise":
       return utf8({
@@ -310,7 +324,10 @@ export function encodeActuator(a: Actuator, commandId: number): Uint8Array {
       // one of them will be wrong eventually and it must not be both.
       return utf8({
         command_id: commandId,
-        aroma: { on: a.seconds > 0, duration_s: Math.min(30, Math.max(0, a.seconds)) },
+        aroma: {
+          on: a.seconds > 0,
+          duration_s: opts?.unclamped ? a.seconds : Math.min(30, Math.max(0, a.seconds)),
+        },
       });
     case "siren":
       return utf8({ command_id: commandId, siren: { on: a.on } });

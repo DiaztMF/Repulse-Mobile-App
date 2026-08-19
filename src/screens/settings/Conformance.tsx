@@ -20,6 +20,19 @@ import { cn } from "@/lib/cn";
  * otherwise would produce a green screen that proves nothing.
  */
 
+/**
+ * §3.4: the band only fires after the button has been held this long. Two
+ * seconds of any measurement taken from this screen is therefore the
+ * contract working exactly as written, not latency to be charged against
+ * it — and the test used to charge it anyway, so a perfect band reported
+ * something over 2000 ms and failed every single time.
+ */
+const SOS_HOLD_MS = 2000;
+
+/** §6 test 2's own budget: the indicate lands within two seconds of the
+ *  band deciding to send. */
+const SOS_BUDGET_MS = 2000;
+
 type Verdict = "pass" | "fail" | "pending";
 
 type Test = {
@@ -103,6 +116,8 @@ export function Conformance() {
   // remember which screen switches it on.
   useEffect(() => {
     void connect();
+    // Leaving the screen has to take the armed test with it.
+    return () => cleanup.current?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -114,7 +129,14 @@ export function Conformance() {
     cleanup.current = null;
   };
 
+  /* Whatever was armed before is torn down first. Without this, arming a
+   * second test leaves the first one's listener subscribed — and test 8's
+   * sixty-second timer still fires, calling `set(8, …)`, which clears
+   * `armed` and disarms whatever is running by then. Run 8, move on to 2,
+   * and a minute later 2 gives up silently. */
   const arm = async (t: Test) => {
+    cleanup.current?.();
+    cleanup.current = null;
     setArmed(t.n);
     setNotes((s) => ({ ...s, [t.n]: "" }));
 
@@ -125,15 +147,30 @@ export function Conformance() {
         break;
 
       case 2: {
-        // A real measurement: the contract gives this one a number, so the
-        // app times it rather than asking anyone to feel confident.
-        const sentAt = Date.now();
+        /* A real measurement, but an upper bound rather than an exact one.
+         * The app cannot see the moment a thumb lands on the button, so
+         * what it times is arming → indicate: the operator's reaction, the
+         * two-second hold §3.4 requires, and then the radio.
+         *
+         * The hold comes off because it is the contract behaving. The
+         * reaction time stays on, which makes the figure pessimistic — so
+         * a pass proves §3.4 holds, while a narrow fail may only mean a
+         * slow hand. Re-arm and press straight away before believing one. */
+        const armedAt = Date.now();
         cleanup.current = listen((e) => {
           if (e.kind !== "sos") return;
-          const ms = Date.now() - sentAt;
-          set(2, ms < 2000 ? "pass" : "fail", `Arrived in ${ms} ms`);
+          const ms = Date.now() - armedAt;
+          const latency = ms - SOS_HOLD_MS;
+          set(
+            2,
+            latency < SOS_BUDGET_MS ? "pass" : "fail",
+            `${latency} ms once the required 2 s hold is taken off (${ms} ms from arming)`,
+          );
         });
-        setNotes((s) => ({ ...s, 2: "Waiting — hold the band's SOS button for 2 seconds" }));
+        setNotes((s) => ({
+          ...s,
+          2: "Press and hold the band's button now — start straight away, the reaction time counts against this one.",
+        }));
         break;
       }
 
@@ -147,9 +184,10 @@ export function Conformance() {
         // firmware that quietly runs 30s instead looks identical from here
         // unless it says no out loud.
         //
-        // Our own encoder clamps to 30 before sending, so this deliberately
-        // goes around it: the point is to hear the device refuse, not to
-        // watch ourselves behave.
+        // Our own encoder clamps to 30 before sending, so this has to go
+        // around it — and until now the comment said so while the code did
+        // not. 30 seconds is exactly the limit, which the bedside accepts,
+        // so the test failed every time against firmware behaving perfectly.
         cleanup.current = listen((e) => {
           if (e.kind !== "ack") return;
           set(
@@ -160,7 +198,7 @@ export function Conformance() {
               : `Answered "${e.status}" — the limit was not enforced`,
           );
         });
-        await send({ kind: "aroma", seconds: 60 });
+        await send({ kind: "aroma", seconds: 60 }, { unclamped: true });
         setNotes((s) => ({
           ...s,
           4: "Requested 60s. Waiting for the confirmation to come back refused.",
@@ -191,13 +229,18 @@ export function Conformance() {
 
       case 8: {
         let alerted = false;
-        cleanup.current = listen((e) => {
+        const off = listen((e) => {
           if (e.kind === "escalation" && e.data.stage > 0) alerted = true;
         });
         setNotes((s) => ({ ...s, 8: "Watching. Leave the band off your wrist." }));
-        window.setTimeout(() => {
+        const timer = window.setTimeout(() => {
           set(8, alerted ? "fail" : "pass", alerted ? "An ALERT was raised" : "Quiet for 60s");
         }, 60_000);
+        // The timer belongs to the teardown too, or it outlives the test.
+        cleanup.current = () => {
+          off();
+          window.clearTimeout(timer);
+        };
         break;
       }
     }

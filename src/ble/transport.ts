@@ -153,7 +153,8 @@ export interface BleTransport {
   /** Returns an unsubscribe. */
   on(listener: (e: BleEvent) => void): () => void;
 
-  send(a: Actuator): Promise<void>;
+  /** `unclamped` is for §6 test 4 only — see `encodeActuator`. */
+  send(a: Actuator, opts?: { unclamped?: boolean }): Promise<void>;
   command(c: BandCommand): Promise<void>;
   configure(c: BandConfig): Promise<void>;
 

@@ -406,10 +406,15 @@ export class LiveTransport implements BleTransport {
     return BleClient.write(id, service, characteristic, view(data));
   }
 
-  async send(a: Actuator) {
+  async send(a: Actuator, opts?: { unclamped?: boolean }) {
     const id = this.id.bedside;
     if (!id) return;
-    await this.write(id, BEDSIDE_SERVICE, D.actuator, encodeActuator(a, this.nextCommandId++));
+    await this.write(
+      id,
+      BEDSIDE_SERVICE,
+      D.actuator,
+      encodeActuator(a, this.nextCommandId++, opts),
+    );
   }
 
   async command(c: BandCommand) {

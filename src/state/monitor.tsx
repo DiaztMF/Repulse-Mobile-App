@@ -102,7 +102,7 @@ export type Monitor = {
   standDown: () => void;
   /** Straight through to the devices. The conformance screen needs to
    *  drive each characteristic on its own, outside the state machine. */
-  send: (a: Actuator) => Promise<void>;
+  send: (a: Actuator, opts?: { unclamped?: boolean }) => Promise<void>;
   command: (c: BandCommand) => Promise<void>;
   configure: (c: BandConfig) => Promise<void>;
   /** Raw event tap, for measuring how long something takes to arrive. */
@@ -481,7 +481,7 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
       startSleep: () => send({ t: "start-sleep", at: Date.now() }),
       endSession: () => send({ t: "session-end", at: Date.now(), reason: "wake" }),
       standDown: () => send({ t: "stage", at: Date.now(), stage: 0 }),
-      send: async (a) => transport?.send(a),
+      send: async (a, opts) => transport?.send(a, opts),
       command: async (c) => transport?.command(c),
       configure: async (c) => transport?.configure(c),
       listen: (fn) => transport?.on(fn) ?? (() => {}),

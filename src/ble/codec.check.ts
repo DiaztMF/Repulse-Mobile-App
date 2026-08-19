@@ -165,6 +165,17 @@ const long = JSON.parse(new TextDecoder().decode(encodeActuator({ kind: "aroma",
 assert.equal(long.aroma.duration_s, 30, "a 60s request is clamped, never sent as 60");
 assert.equal(long.command_id, 9, "the id the confirmation will echo");
 
+// §6 test 4 has to hear the bedside refuse out loud, so it needs the one
+// path that does not shorten the request first. A 60 already clamped to 30
+// is a request the firmware accepts, and the test would fail against
+// firmware doing exactly the right thing.
+const raw = JSON.parse(
+  new TextDecoder().decode(
+    encodeActuator({ kind: "aroma", seconds: 60 }, 9, { unclamped: true }),
+  ),
+);
+assert.equal(raw.aroma.duration_s, 60, "the conformance path sends what it says it sends");
+
 const off = JSON.parse(new TextDecoder().decode(encodeActuator({ kind: "aroma", seconds: 0 }, 1)));
 assert.equal(off.aroma.on, false);
 
