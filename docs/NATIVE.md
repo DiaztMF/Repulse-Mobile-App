@@ -134,10 +134,30 @@ JSON. **Nothing in Gradle needs editing.** What is needed is the file:
 3. Download `google-services.json` into **`android/app/`**
 4. Authentication → Sign-in method → enable **Google**
 
-**`android/` is gitignored, so that file does not survive a clone.** Nor does
-it survive `cap add android`. It is the second thing on this page that has to
-be put back by hand on a fresh machine, and the symptom is the same both
-times: it builds, it installs, and it fails at the one moment that matters.
+It must be the **same project the web config points at** — `VITE_FB_PROJECT_ID`
+in `.env.local`. An Android app added to a different project issues its token
+for that project, and the JS SDK, initialised against this one, refuses it.
+Everything about the setup looks correct right up to the refusal.
+
+The console's own step 3 ("Add Firebase SDK") is already done here and should
+be skipped. Capacitor's template ships the `com.google.gms:google-services`
+classpath in `android/build.gradle` and applies the plugin in
+`android/app/build.gradle` if and only if the JSON is present. The console
+shows Kotlin DSL; this project is Groovy with `buildscript` syntax, which is
+the case its own banner offers a link for. Nothing there needs changing.
+
+### `rgcfaIncludeGoogle = true`
+
+In `android/variables.gradle`. The plugin defaults it to **false**, and with
+it false the Google Sign-In libraries are `compileOnly`: the APK compiles,
+installs, and throws `NoClassDefFoundError` the moment anyone taps the button.
+A build that passes and a feature that cannot run.
+
+**`android/` is gitignored, so neither that line nor the JSON survives a
+clone**, and neither survives `cap add android`. They are the second and third
+things on this page that have to be put back by hand on a fresh machine, and
+the symptom is the same every time: it builds, it installs, and it fails at
+the one moment that matters.
 
 The debug and release certificates are different. A release build needs its
 own SHA-1 added to the same console page, or sign-in works right up until the
