@@ -5,6 +5,8 @@ import {
   decodeBandStatus,
   decodeBufferPacket,
   decodeEcg,
+  readable,
+  type Packet,
   decodeEscalation,
   decodeMotion,
   decodeOxygen,
@@ -91,6 +93,9 @@ export class LiveTransport implements BleTransport {
 
   /** §3.9. Entries arriving between `flush_start` and the sentinel. */
   private flushing: BufferEntry[] | null = null;
+  /** Characteristics already complained about, so a fault firing at
+   *  40 Hz does not bury itself in its own log. */
+  private warned = new Set<Packet>();
 
   private scanning = false;
   private scanStartedAt = 0;
@@ -274,27 +279,61 @@ export class LiveTransport implements BleTransport {
     await this.idle();
   }
 
+  /**
+   * Every notification enters here, and this is the only place bytes off
+   * the air are trusted.
+   *
+   * Two guards, because they catch different failures. The length check is
+   * the real one: a packet shorter than §3 promises cannot be decoded, and
+   * the decoders index straight into a DataView, so three of them threw
+   * RangeError and one read a torn two-byte packet as an escalation to
+   * stage 3. The catch behind it is for everything I have not thought of —
+   * an exception raised in a notification callback takes the stream down
+   * for the rest of the night, and a night is worth more than a packet.
+   *
+   * Logged once per characteristic. A firmware fault that fires at 40 Hz
+   * would otherwise fill the console and hide itself.
+   */
+  private take(kind: Packet, v: DataView, fn: (b: Uint8Array) => void) {
+    const b = bytes(v);
+    if (!readable(kind, b)) {
+      if (!this.warned.has(kind)) {
+        this.warned.add(kind);
+        console.warn(`[ble] ${kind} arrived in ${b.length} bytes, too short to read — dropped`);
+      }
+      return;
+    }
+    try {
+      fn(b);
+    } catch (e) {
+      if (!this.warned.has(kind)) {
+        this.warned.add(kind);
+        console.error(`[ble] ${kind} would not decode`, e);
+      }
+    }
+  }
+
   private async attachBand(id: string) {
     const at = () => Date.now();
-    const notify = (c: string, fn: (v: DataView) => void) =>
-      BleClient.startNotifications(id, BAND_SERVICE, c, fn);
+    const notify = (c: string, kind: Packet, fn: (b: Uint8Array) => void) =>
+      BleClient.startNotifications(id, BAND_SERVICE, c, (v) => this.take(kind, v, fn));
 
-    await notify(B.vitals, (v) => {
-      for (const s of decodeVitals(bytes(v), at())) this.emit({ kind: "vitals", data: s });
+    await notify(B.vitals, "vitals", (b) => {
+      for (const s of decodeVitals(b, at())) this.emit({ kind: "vitals", data: s });
     });
-    await notify(B.oxygen, (v) => this.emit({ kind: "oxygen", data: decodeOxygen(bytes(v), at()) }));
-    await notify(B.motion, (v) => this.emit({ kind: "motion", data: decodeMotion(bytes(v), at()) }));
-    await notify(B.sos, (v) => {
-      if (decodeSosPress(bytes(v))) this.emit({ kind: "sos", data: { at: at() } });
+    await notify(B.oxygen, "oxygen", (b) => this.emit({ kind: "oxygen", data: decodeOxygen(b, at()) }));
+    await notify(B.motion, "motion", (b) => this.emit({ kind: "motion", data: decodeMotion(b, at()) }));
+    await notify(B.sos, "sos", (b) => {
+      if (decodeSosPress(b)) this.emit({ kind: "sos", data: { at: at() } });
     });
-    await notify(B.escalation, (v) =>
-      this.emit({ kind: "escalation", data: decodeEscalation(bytes(v), at()) }),
+    await notify(B.escalation, "escalation", (b) =>
+      this.emit({ kind: "escalation", data: decodeEscalation(b, at()) }),
     );
-    await notify(B.status, (v) =>
-      this.emit({ kind: "band-status", data: decodeBandStatus(bytes(v), at()) }),
+    await notify(B.status, "status", (b) =>
+      this.emit({ kind: "band-status", data: decodeBandStatus(b, at()) }),
     );
-    await notify(B.ecg, (v) => this.emit({ kind: "ecg", ...decodeEcg(bytes(v)) }));
-    await notify(B.buffer, (v) => this.buffered(id, bytes(v)));
+    await notify(B.ecg, "ecg", (b) => this.emit({ kind: "ecg", ...decodeEcg(b) }));
+    await notify(B.buffer, "buffer", (b) => this.buffered(id, b));
 
     // §3.8: sent on every connect, not once at pairing. An ESP32-C3 loses
     // its clock on a flat battery, and then every offline event it
@@ -310,13 +349,15 @@ export class LiveTransport implements BleTransport {
   private async attachBedside(id: string) {
     const at = () => Date.now();
     await BleClient.startNotifications(id, BEDSIDE_SERVICE, D.room, (v) =>
-      this.emit({ kind: "room", data: decodeRoom(bytes(v), at()) }),
+      this.take("room", v, (b) => this.emit({ kind: "room", data: decodeRoom(b, at()) })),
     );
     await BleClient.startNotifications(id, BEDSIDE_SERVICE, D.snore, (v) =>
-      this.emit({ kind: "snore", data: { at: at(), flagged: decodeSnore(bytes(v), at()).flagged } }),
+      this.take("snore", v, (b) =>
+        this.emit({ kind: "snore", data: { at: at(), flagged: decodeSnore(b, at()).flagged } }),
+      ),
     );
     await BleClient.startNotifications(id, BEDSIDE_SERVICE, D.ack, (v) =>
-      this.emit({ kind: "ack", ...decodeAck(bytes(v)) }),
+      this.take("ack", v, (b) => this.emit({ kind: "ack", ...decodeAck(b) })),
     );
   }
 

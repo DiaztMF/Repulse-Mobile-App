@@ -108,6 +108,42 @@ export function decodeBandStatus(b: Uint8Array, at: number): BandStatus {
 }
 
 /** §4.1 bedside `0001`. Every fraction is a scaled integer here. */
+/**
+ * Shortest packet each characteristic can carry and still be read, from
+ * the offset tables in §3 and §4.
+ *
+ * Bytes off a radio are not bytes from a test. A notification can arrive
+ * truncated — firmware mid-development, an MTU renegotiated under a weak
+ * link — and the decoders below index straight into a DataView, so three
+ * of them threw RangeError out of the notification callback. One throw
+ * there takes the stream down for the rest of the night, silently.
+ *
+ * The quieter one is worse. `decodeEscalation` read a single byte as a
+ * stage 3 with no reason attached, so a torn packet could raise an alarm
+ * that no heart asked for. A packet too short to read is not a packet to
+ * guess at.
+ */
+export const MIN_BYTES = {
+  vitals: 1,
+  oxygen: 2,
+  motion: 2,
+  sos: 1,
+  escalation: 2,
+  status: 6,
+  buffer: 3,
+  ecg: 2,
+  room: 9,
+  snore: 2,
+  ack: 2,
+} as const;
+
+export type Packet = keyof typeof MIN_BYTES;
+
+/** Whether the buffer is long enough to decode without inventing bytes. */
+export function readable(kind: Packet, b: Uint8Array): boolean {
+  return b.length >= MIN_BYTES[kind];
+}
+
 export function decodeRoom(b: Uint8Array, at: number): Room {
   const v = dv(b);
   // A bedroom cannot sit at 0% relative humidity. §4.1 carries no marker for

@@ -27,6 +27,7 @@ import {
   decodeVitals,
   encodeActuator,
   encodeBandCommand,
+  readable,
   replay,
 } from "./codec.ts";
 
@@ -213,5 +214,29 @@ assert.equal(
   ),
   false,
 );
+
+// --- packets shorter than the contract promises --------------------------
+//
+// Bytes off a radio are not bytes from a test. A truncated notification -
+// a firmware still under development, an MTU renegotiated mid-connection -
+// used to reach the decoders raw, and three of them threw RangeError out
+// of a notification callback, which takes the stream down for the rest of
+// the night. A fourth was worse: `decodeEscalation` read one byte as a
+// stage 3, so a torn packet could raise an alarm nobody's heart asked for.
+assert.equal(readable("motion", u8(5)), false, "half a motion reading is none");
+assert.equal(readable("status", u8(87, 0)), false);
+assert.equal(readable("room", u8(1, 2, 3)), false);
+assert.equal(readable("escalation", u8(3)), false, "a stage needs its reason");
+assert.equal(readable("ack", u8(42)), false);
+assert.equal(readable("oxygen", u8(96)), false);
+
+// And the contract's own worked examples all pass, or the guard would be
+// dropping the traffic it exists to protect.
+assert.equal(readable("vitals", u8(0b1000_1100, 62, ...le16(968))), true);
+assert.equal(readable("motion", u8(...le16(420))), true);
+assert.equal(readable("status", u8(87, 0, ...le32(1_786_512_000))), true);
+assert.equal(readable("room", u8(...le16(291), ...le16(740), ...le32(40), 48)), true);
+assert.equal(readable("escalation", u8(3, 1)), true);
+assert.equal(readable("buffer", u8(...le16(0), 0)), true);
 
 console.log("ok — every characteristic decodes to the contract's own worked examples");
