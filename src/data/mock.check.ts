@@ -6,6 +6,7 @@
  */
 import assert from "node:assert/strict";
 import { NIGHTS, INTERVENTIONS, seriesFor, nightByDate } from "./mock.ts";
+import { screeningFlag } from "../lib/screening.ts";
 
 assert.equal(NIGHTS.length, 14, "fortnight");
 
@@ -52,6 +53,25 @@ assert.equal(
 );
 for (const i of INTERVENTIONS) {
   assert.ok(i.success <= i.tries, `${i.key} success <= tries`);
+}
+
+// §8.2's screening sentence has to fire on the synthetic fortnight, and
+// fire for the real reason. The rule wants three signals at once, so a
+// generator tweak that quietly drops one would take the demo's most
+// consequential screen silent without failing anything else.
+{
+  const flagged = NIGHTS.filter((n) =>
+    screeningFlag({
+      desatPerHour: n.breathing.desatPerHour,
+      snoreMinutes: n.breathing.snoreMin,
+      sleepMinutes: n.sleep.durationMin - n.sleep.awake,
+    }),
+  );
+  assert.equal(flagged.length, 2, "two nights clear §8.2, which is what makes it a pattern");
+  assert.ok(
+    flagged.every((n) => n.breathing.desatPerHour >= 5),
+    "and they clear it on the dips, not by accident",
+  );
 }
 
 console.log(

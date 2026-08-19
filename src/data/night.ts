@@ -317,6 +317,7 @@ export class NightRecorder {
         type: "desaturation",
         at: this.minute(d.from),
         title: "Oxygen dipped below your baseline",
+        position: d.position,
       });
     }
 

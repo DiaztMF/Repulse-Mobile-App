@@ -30,6 +30,10 @@ export type NightEvent = {
   settleSec?: number | null;
   /** True when reconstructed from the band buffer rather than watched live. */
   offline?: boolean;
+  /** Desaturation events only. §3.2 forbids merging left and right, and
+   *  the weekly report has to name the position — without it carried here
+   *  that sentence cannot be written from measured data at all. */
+  position?: "supine" | "left" | "right" | "prone" | "unknown";
 };
 
 export type Night = {
@@ -163,6 +167,7 @@ function buildNight(daysAgo: number): Night {
         type: "desaturation",
         at: Math.round(120 + r() * 180),
         title: "Oxygen dipped below your baseline",
+        position: "supine",
       });
       events.push({
         id: `${date}-s0`,
@@ -201,8 +206,14 @@ function buildNight(daysAgo: number): Night {
     },
     light: { darkOptimalMin, pollutionMin },
     breathing: {
-      desatPerHour: heavyBreathing ? Math.round((1.6 + r() * 1.4) * 10) / 10 : Math.round(r() * 6) / 10,
-      snoreMin: heavyBreathing ? Math.round(22 + r() * 40) : Math.round(r() * 8),
+      /* The two heavy nights are sized to clear §8.2 for real: five dips an
+       * hour and snoring across a fifth of the night, both at once. The
+       * screening sentence is the most consequential thing this app says,
+       * and the demo has to show the actual rule firing — loosening the
+       * threshold until weak data trips it would rehearse a false positive
+       * in front of the judges. */
+      desatPerHour: heavyBreathing ? Math.round((5.2 + r() * 1.8) * 10) / 10 : Math.round(r() * 6) / 10,
+      snoreMin: heavyBreathing ? Math.round(95 + r() * 35) : Math.round(r() * 8),
       spo2DeltaPct: heavyBreathing ? -(3 + Math.round(r() * 2)) : -(1 + Math.round(r())),
     },
     counts: { restless, anomaly: daysAgo === 8 ? 1 : 0, offlineMin },

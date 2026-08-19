@@ -3,6 +3,7 @@ import { formatDuration } from "@/data/mock";
 import { useStore } from "@/data/store";
 import { METRIC_COLOR, BAND_COLOR } from "@/lib/metrics";
 import { COPY } from "@/lib/copy";
+import { screeningFlag, worstPosition } from "@/lib/screening";
 import { RowList } from "@/components/vitals/VitalLayout";
 
 /**
@@ -10,10 +11,39 @@ import { RowList } from "@/components/vitals/VitalLayout";
  * condition: one night proves nothing, which is exactly why this screen
  * exists rather than a verdict on the nightly view.
  */
+/** The sentence reads "while you were ___", so the words have to fit it. */
+const POSITION_PHRASE: Record<string, string> = {
+  supine: "on your back",
+  left: "on your left side",
+  right: "on your right side",
+  prone: "face down",
+};
+
 export function BreathingTrend() {
   const WEEK = useStore().nights.slice(0, 7);
 
+  /* The chart's own threshold: a night worth drawing in red. Deliberately
+   * lower than the screening bar, because a dip is worth seeing long
+   * before it is worth mentioning to a doctor. */
   const flagged = WEEK.filter((n) => n.breathing.desatPerHour >= 1);
+
+  /* §8.2's bar, and nothing else. It wants three signals at once — enough
+   * sleep, dips at five an hour, and snoring across a fifth of the night —
+   * and this screen used to raise the sentence on one of them at a fifth
+   * of the threshold. `screeningFlag` carries the real rule and its own
+   * check file; the comment above it calls a false positive the thing that
+   * sends someone to a doctor for nothing, which is precisely what a bar
+   * set five times too low would have produced.
+   *
+   * Two nights, not one: this screen reports a pattern, and one night has
+   * never been a pattern. */
+  const screened = WEEK.filter((n) =>
+    screeningFlag({
+      desatPerHour: n.breathing.desatPerHour,
+      snoreMinutes: n.breathing.snoreMin,
+      sleepMinutes: n.sleep.durationMin - n.sleep.awake,
+    }),
+  );
   const snoring = WEEK.filter((n) => n.breathing.snoreMin >= 15);
   const worst = Math.max(...WEEK.map((n) => n.breathing.desatPerHour));
   const totalPos = WEEK.reduce(
@@ -27,6 +57,18 @@ export function BreathingTrend() {
   );
   const posTotal =
     totalPos.supine + totalPos.left + totalPos.right + totalPos.prone || 1;
+
+  /* Which position the dips actually clustered in. This line used to say
+   * "on your back" whatever the week held — a claim about a correlation
+   * nobody had computed, on the screen where correlation is the whole
+   * point. Now it is counted, and it stays off the screen entirely on a
+   * week with no dips to attribute. */
+  const dips = WEEK.flatMap((n) =>
+    n.events.filter((e) => e.type === "desaturation" && e.position && e.position !== "unknown"),
+  );
+  const worstDipPosition = worstPosition(
+    dips.map((e) => ({ from: 0, to: 0, lowest: 0, position: e.position! })),
+  );
 
   return (
     <div className="pb-4">
@@ -101,11 +143,13 @@ export function BreathingTrend() {
             { label: "Face down", value: formatDuration(totalPos.prone), level: totalPos.prone / posTotal },
           ]}
         />
-        <p className="mt-3 text-[length:var(--text-meta)] text-[var(--color-ash)]">
-          Most dips happened while you were on your back.
-        </p>
+        {worstDipPosition && (
+          <p className="mt-3 text-[length:var(--text-meta)] text-[var(--color-ash)]">
+            Most dips happened while you were {POSITION_PHRASE[worstDipPosition]}.
+          </p>
+        )}
 
-        {flagged.length >= 2 && (
+        {screened.length >= 2 && (
           <div className="mt-10 rounded-[var(--radius-card)] bg-[var(--color-surface)] p-5">
             <p>{COPY.breathingScreening}</p>
           </div>
