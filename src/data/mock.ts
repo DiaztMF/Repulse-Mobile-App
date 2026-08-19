@@ -36,18 +36,9 @@ export type Night = {
   date: string;
   /** Null when the band was not worn — the room data still exists. */
   score: number | null;
-  /** `deep`, `light`, and `rem` are null on measured nights. Sleep staging
-   *  comes from brain activity, and a MAX30102 on a wrist cannot reach it —
-   *  see `night.ts`. Time asleep and time awake survive because a still body
-   *  and a moving one really are distinguishable from the accelerometer. */
-  sleep: {
-    startMin: number;
-    durationMin: number;
-    deep: number | null;
-    light: number | null;
-    rem: number | null;
-    awake: number;
-  };
+  /** Staged by `screening.stageOf` on a measured night: §8.1's coarse
+   *  four-way split from movement and RR spread, deliberately not finer. */
+  sleep: { startMin: number; durationMin: number; deep: number; light: number; rem: number; awake: number };
   heart: { avg: number; min: number; max: number; resting: number; hrv: number };
   /** Null per field: the bedside can be absent, or present with no DHT, and
    *  lux and dB come from chips of their own. */

@@ -8,29 +8,40 @@
  * perfect hardware tomorrow, the morning after would still have shown
  * SAMPLE DATA, because nothing had produced anything else.
  *
- * Kept free of React and Firestore so it can be checked in node. A
- * night takes eight hours to happen and the aggregation has exactly one
- * chance to be right.
+ * Kept free of React and Firestore so it can be checked in node. A night
+ * takes eight hours to happen and the aggregation has exactly one chance
+ * to be right.
  *
- * ── What this hardware cannot measure ──
- *
- * Sleep staging. Deep, light, and REM come from brain activity, and a
- * MAX30102 on a wrist has no access to it. Wearables that print those
- * numbers are inferring them from heart rate and movement, and the
- * inference is weak enough that this build refuses to make it: they are
- * recorded as null and drawn as absent. Time asleep and time awake are
- * different — a still body and a moving one really are distinguishable
- * from the accelerometer, so those are measured.
+ * Almost none of the judgement lives here. Staging, darkness, and
+ * desaturation are all `screening.ts`, which already carries §8's
+ * thresholds and its own check file; this class buffers samples, decides
+ * where one window ends and the next begins, and hands them over. A
+ * second opinion on any of those numbers is a second answer to a
+ * question §8 has already answered once.
  */
-import type { BleEvent } from "@/ble/transport";
+import type { BleEvent, Motion, Oxygen, Room, Vitals } from "@/ble/transport";
+import {
+  darkness,
+  desatPerHour,
+  desaturations,
+  stageOf,
+  type Stage,
+  // Relative, with the extension: this module is pulled into `check:night`
+  // by node's type stripper, which erases type-only imports but has to
+  // resolve real ones itself and knows nothing of Vite's `@` alias.
+} from "../lib/screening.ts";
 import type { Contributor, Night, NightEvent } from "./mock";
 
-/** Above this, and the body is not asleep. Same figure the comfort
- *  machine uses for restlessness, because it is the same question. */
-const AWAKE_MG = 400;
-
-/** §4.1's own threshold for optimal darkness. */
-const DARK_LUX = 3;
+/**
+ * How much night one staging decision covers.
+ *
+ * §8.1 classifies from average movement and the spread of the RR
+ * intervals, so the window has to be long enough for a spread to mean
+ * something and short enough that a stage change is not smeared across
+ * the whole night. Five minutes is roughly what the sleep literature
+ * uses for an epoch-based summary, and at ~1 Hz it is 300 intervals.
+ */
+const WINDOW_MS = 5 * 60_000;
 
 /** Longer than this between calls and the interval is a gap, not a
  *  reading held steady. Sized against `tick`, not against the radio: a
@@ -66,24 +77,27 @@ export class NightRecorder {
 
   private bpm: number[] = [];
   private rr: number[] = [];
-  private spo2: number[] = [];
+  private oxygen: Oxygen[] = [];
+  private rooms: Room[] = [];
   private position: Record<Position, number> = { supine: 0, left: 0, right: 0, prone: 0 };
 
-  /** Millisecond ledgers. Integrated against real elapsed time rather
-   *  than counted as samples, because notification rates drift and a
-   *  dropped connection must not shorten the night it interrupted. */
-  private awakeMs = 0;
-  private darkMs = 0;
-  private pollutionMs = 0;
+  /** Millisecond ledgers, integrated against elapsed time rather than
+   *  counted as samples: notification rates drift, and a dropped
+   *  connection must not shorten the night it interrupted. */
   private snoreMs = 0;
   private offlineMs = 0;
 
+  /** The current staging window, and the minutes already filed. */
+  private winStart: number;
+  private winMotion: Motion[] = [];
+  private winVitals: Vitals[] = [];
+  private stageMin: Record<Stage, number> = { awake: 0, light: 0, deep: 0, rem: 0 };
+  /** Windows that held no samples at all. Not a stage — the absence of one. */
+  private unstagedMin = 0;
+
   private restless = 0;
   private anomaly = 0;
-  private desaturations = 0;
 
-  private moving = false;
-  private lux: number | null = null;
   private snoring = false;
   private bandUp = true;
 
@@ -93,23 +107,44 @@ export class NightRecorder {
   constructor(startedAt: number) {
     this.startedAt = startedAt;
     this.lastAt = startedAt;
+    this.winStart = startedAt;
   }
 
-  /** Charges elapsed time to whichever ledgers are currently open. Every
-   *  event calls this first, so the ledgers always describe the interval
-   *  that just ended rather than the one about to start. */
+  /** Charges elapsed time to whichever ledgers are open, and closes the
+   *  staging window when it is full. Every event calls this first, so the
+   *  ledgers always describe the interval that just ended. */
   private advance(at: number) {
     const dt = at - this.lastAt;
     this.lastAt = at;
-    if (dt <= 0 || dt > MAX_SAMPLE_GAP_MS) return;
-
-    if (this.moving) this.awakeMs += dt;
-    if (!this.bandUp) this.offlineMs += dt;
-    if (this.snoring) this.snoreMs += dt;
-    if (this.lux !== null) {
-      if (this.lux < DARK_LUX) this.darkMs += dt;
-      else this.pollutionMs += dt;
+    if (dt > 0 && dt <= MAX_SAMPLE_GAP_MS) {
+      if (!this.bandUp) this.offlineMs += dt;
+      if (this.snoring) this.snoreMs += dt;
     }
+    if (at - this.winStart >= WINDOW_MS) this.closeWindow(at);
+  }
+
+  private closeWindow(at: number) {
+    const minutes = (at - this.winStart) / 60_000;
+    this.winStart = at;
+    if (minutes <= 0) return;
+
+    /* A window with no samples in it is time nobody measured, and it must
+     * not be staged. `stageOf` answers "awake" for an empty set — correct
+     * for a still wrist that is still reporting, and a fabrication for a
+     * band that has dropped off the air. The app would be claiming the
+     * sleeper was up all the hour it simply could not see.
+     *
+     * Held separately so `light` cannot quietly absorb it either. The
+     * hypnogram then falls short of the night by exactly the unmeasured
+     * minutes, which is the same figure `counts.offlineMin` already
+     * reports beside it. */
+    if (this.winMotion.length === 0 && this.winVitals.length === 0) {
+      this.unstagedMin += minutes;
+      return;
+    }
+    this.stageMin[stageOf(this.winMotion, this.winVitals)] += minutes;
+    this.winMotion = [];
+    this.winVitals = [];
   }
 
   /**
@@ -124,7 +159,12 @@ export class NightRecorder {
 
   /** A comfort event the machine acted on. Kept separate from `feed`
    *  because the decision belongs to the machine, never to the recorder. */
-  comfort(at: number, intervention: NightEvent["intervention"], settleSec: number | null, offline: boolean) {
+  comfort(
+    at: number,
+    intervention: NightEvent["intervention"],
+    settleSec: number | null,
+    offline: boolean,
+  ) {
     this.advance(at);
     this.restless++;
     this.events.push({
@@ -148,18 +188,21 @@ export class NightRecorder {
         if (!e.data.worn) break;
         this.bpm.push(e.data.bpm);
         if (e.data.rrMs > 0) this.rr.push(e.data.rrMs);
+        this.winVitals.push(e.data);
         break;
       }
       case "motion":
-        this.moving = e.data.levelMg > AWAKE_MG;
+        this.winMotion.push(e.data);
         break;
       case "oxygen": {
-        if (e.data.spo2Pct > 0) this.spo2.push(e.data.spo2Pct);
+        // 0 is "not valid", never "zero percent". §3.2, and `desaturations`
+        // drops them again on its own side.
+        if (e.data.spo2Pct > 0) this.oxygen.push({ ...e.data, at });
         if (e.data.position !== "unknown") this.position[e.data.position]++;
         break;
       }
       case "room":
-        this.lux = e.data.lux;
+        this.rooms.push({ ...e.data, at });
         break;
       case "snore":
         if (e.data.flagged && !this.snoring) {
@@ -187,16 +230,18 @@ export class NightRecorder {
       case "link":
         if (e.device === "band") {
           this.bandUp = e.state === "connected";
-          // A band that stopped reporting mid-thrash would otherwise leave
-          // `moving` latched, and every silent minute would be billed as
-          // time awake.
-          if (!this.bandUp) this.moving = false;
+          // Samples stop arriving, so the open window would otherwise be
+          // judged on whatever happened just before the radio went quiet.
+          if (!this.bandUp) {
+            this.winMotion = [];
+            this.winVitals = [];
+          }
         }
         break;
       case "buffered":
-        // §3.9. The band's own timestamps already rode in with these, and
-        // `replay` restored them, so they are fed like anything else — but
-        // they are the reason `advance` guards against long gaps.
+        // §3.9. The band's own timestamps rode in with these and `replay`
+        // restored them, so they are fed like anything else — and they are
+        // why `advance` guards against long gaps in both directions.
         for (const b of e.events) this.feed(b, this.atOf(b) ?? at);
         break;
     }
@@ -219,9 +264,9 @@ export class NightRecorder {
    */
   finish(at: number, date: string): Night {
     this.advance(at);
+    this.closeWindow(at);
 
     const durationMin = Math.max(0, Math.round((at - this.startedAt) / 60_000));
-    const awake = Math.min(durationMin, Math.round(this.awakeMs / 60_000));
     const sorted = [...this.bpm].sort((a, b) => a - b);
 
     // No usable pulse all night means the band was not worn. The room was
@@ -239,13 +284,43 @@ export class NightRecorder {
         }
       : { avg: 0, min: 0, max: 0, resting: 0, hrv: 0 };
 
-    const darkOptimalMin = Math.round(this.darkMs / 60_000);
-    const pollutionMin = Math.round(this.pollutionMs / 60_000);
-    const snoreMin = Math.round(this.snoreMs / 60_000);
-    const hours = durationMin / 60;
+    /* Rounded once, then light absorbs the remainder — the same trick
+     * mock.ts uses. Four independently rounded figures do not add up to
+     * the duration, and a bar chart whose parts miss its own total is the
+     * first thing anyone notices. */
+    const deep = Math.round(worn ? this.stageMin.deep : 0);
+    const rem = Math.round(worn ? this.stageMin.rem : 0);
+    const awake = Math.round(worn ? this.stageMin.awake : 0);
+    const unstaged = Math.round(worn ? this.unstagedMin : 0);
+    const light = Math.max(0, durationMin - deep - rem - awake - unstaged);
 
-    const spo2Baseline = this.spo2.length ? percentile([...this.spo2].sort((a, b) => b - a), 0.1) : 0;
-    const spo2Low = this.spo2.length ? percentile([...this.spo2].sort((a, b) => a - b), 0.05) : 0;
+    const { darkOptimalMin, pollutionMin } = darkness(this.rooms);
+
+    // Tonight's own high plateau. §8.1's rolling baseline is for resting
+    // pulse across nights; oxygen has no equivalent here, and a baseline
+    // taken from a different night's finger placement would be worse than
+    // one taken from this night's best readings.
+    const spo2High = this.oxygen.length
+      ? percentile([...this.oxygen.map((o) => o.spo2Pct)].sort((a, b) => b - a), 0.1)
+      : 0;
+    const desats = desaturations(this.oxygen, spo2High);
+    /* The deepest dip that actually qualified as an event, not a low
+     * percentile of every sample. A percentile answers "where does the
+     * bottom of the night sit", which a single short desaturation can
+     * never reach — and a screen headed "from baseline" showing 0% on a
+     * night that had one is worse than showing nothing. */
+    const deepest = desats.length ? Math.min(...desats.map((d) => d.lowest)) : null;
+
+    for (const d of desats) {
+      this.events.push({
+        id: `d${this.nextId++}`,
+        type: "desaturation",
+        at: this.minute(d.from),
+        title: "Oxygen dipped below your baseline",
+      });
+    }
+
+    const snoreMin = Math.round(this.snoreMs / 60_000);
 
     const contributors: Contributor[] = worn
       ? [
@@ -255,6 +330,7 @@ export class NightRecorder {
             value: fmtDur(durationMin - awake),
             delta: durationMin - awake >= 420 ? 6 : -4,
           },
+          { key: "deep", label: "Deep sleep", value: fmtDur(deep), delta: deep >= 70 ? 5 : -3 },
           {
             key: "restless",
             label: "Restlessness",
@@ -267,19 +343,12 @@ export class NightRecorder {
             value: fmtDur(darkOptimalMin),
             delta: pollutionMin < 15 ? 3 : -2,
           },
-          {
-            key: "awake",
-            label: "Awake",
-            value: fmtDur(awake),
-            delta: awake <= 30 ? 3 : -4,
-          },
         ]
       : [];
 
-    /* Built only from what was measured. The synthetic set scores partly
-     * on deep sleep; this one cannot, and inventing a stage figure to keep
-     * the formula symmetrical would put a fabricated number underneath
-     * every score the app ever shows. */
+    /* Built from the contributors the screen already shows, so the number
+     * and its explanation cannot drift apart. Anomalies are not among them
+     * — they belong to the night, not to any one factor. */
     const score = worn
       ? Math.max(
           0,
@@ -295,18 +364,18 @@ export class NightRecorder {
       sleep: {
         startMin: new Date(this.startedAt).getHours() * 60 + new Date(this.startedAt).getMinutes(),
         durationMin,
-        deep: null,
-        light: null,
-        rem: null,
+        deep,
+        light,
+        rem,
         awake,
       },
       heart,
-      room: { tempC: null, rh: null, lux: this.lux, db: null },
+      room: { tempC: null, rh: null, lux: this.rooms.at(-1)?.lux ?? null, db: null },
       light: { darkOptimalMin, pollutionMin },
       breathing: {
-        desatPerHour: hours > 0 ? Math.round((this.desaturations / hours) * 10) / 10 : 0,
+        desatPerHour: desatPerHour(desats, durationMin * 60_000),
         snoreMin,
-        spo2DeltaPct: this.spo2.length ? spo2Low - spo2Baseline : 0,
+        spo2DeltaPct: deepest !== null ? deepest - spo2High : 0,
       },
       counts: {
         restless: this.restless,

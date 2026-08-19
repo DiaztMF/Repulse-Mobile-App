@@ -44,15 +44,21 @@ function run(r: NightRecorder, minutes: number, at: number, each: (sec: number) 
   assert.equal(n.sleep.durationMin, 400);
   assert.equal(n.date, "2026-08-19", "filed under the evening it began");
 
-  // The claim this build refuses to make.
-  assert.equal(n.sleep.deep, null, "no EEG, no deep sleep");
-  assert.equal(n.sleep.rem, null);
-  assert.equal(n.sleep.light, null);
-
+  // §8.1's coarse split, from `screening.stageOf`. A metronome pulse in a
+  // still body is deep sleep, and the parts must add back up to the night.
+  assert.equal(n.sleep.deep, 400, "still body, low RR spread");
+  assert.equal(n.sleep.rem, 0);
   assert.equal(n.sleep.awake, 0, "40 mg is a sleeping body");
+  assert.equal(
+    n.sleep.deep + n.sleep.light + n.sleep.rem + n.sleep.awake,
+    n.sleep.durationMin,
+    "the bar cannot miss its own total",
+  );
   assert.equal(n.heart.avg, 58);
   assert.equal(n.heart.resting, 58);
-  assert.equal(n.light.darkOptimalMin, 400, "0.4 lux is under the 3 lux line");
+  // `darkness` measures the intervals between room samples, so it never
+  // claims the stretch after the last one. 400 samples, 399 gaps.
+  assert.equal(n.light.darkOptimalMin, 399, "0.4 lux is under the 3 lux line");
   assert.equal(n.light.pollutionMin, 0);
   assert.equal(n.counts.offlineMin, 0);
   assert.ok(n.score !== null && n.score > 60, "a quiet night scores above the base");
@@ -69,7 +75,7 @@ function run(r: NightRecorder, minutes: number, at: number, each: (sec: number) 
   const n = r.finish(at, nightDate(start));
 
   assert.equal(n.sleep.durationMin, 150);
-  assert.equal(n.sleep.awake, 30, "movement above the line is awake time");
+  assert.equal(n.sleep.awake, 30, "§8.1: average movement over 300 mg is awake");
   assert.equal(n.heart.max, 72);
   assert.equal(n.heart.min, 56);
 }
@@ -83,8 +89,9 @@ function run(r: NightRecorder, minutes: number, at: number, each: (sec: number) 
 
   assert.equal(n.score, null, "nothing measured the sleeper");
   assert.equal(n.heart.avg, 0);
+  assert.equal(n.sleep.deep, 0, "an unworn band staged nothing");
   assert.deepEqual(n.contributors, [], "nothing to attribute a score to");
-  assert.equal(n.light.darkOptimalMin, 300, "the room was still recorded");
+  assert.equal(n.light.darkOptimalMin, 299, "the room was still recorded");
   assert.match(n.insight, /not worn/);
 }
 
@@ -97,7 +104,7 @@ function run(r: NightRecorder, minutes: number, at: number, each: (sec: number) 
   const n = r.finish(at, nightDate(start));
 
   assert.equal(n.light.pollutionMin, 40);
-  assert.equal(n.light.darkOptimalMin, 200);
+  assert.equal(n.light.darkOptimalMin, 199);
   assert.match(n.insight, /Light was leaking/);
 }
 
@@ -197,6 +204,36 @@ function run(r: NightRecorder, minutes: number, at: number, each: (sec: number) 
   assert.equal(n.sleep.awake, 0, "two silent hours are not two hours of thrashing");
 }
 
+// --- oxygen dips are §8.2's, not ours ------------------------------------
+//
+// The count comes from `screening.desaturations`, which already holds the
+// 3% drop and the 10-second hold and has its own check file. A second
+// implementation here would be a second answer to a settled question.
+{
+  const r = new NightRecorder(start);
+  const ox = (spo2Pct: number): BleEvent => ({
+    kind: "oxygen",
+    data: { at: 0, spo2Pct, position: "supine" },
+  });
+  // Two hours at 97%, then a dip to 92% held for a full minute.
+  let at = run(r, 120, start, (s) => [
+    vitals(58, 1020),
+    motion(20),
+    ...(s % 20 === 0 ? [ox(97)] : []),
+  ]);
+  at = run(r, 1, at, (s) => [vitals(58, 1020), motion(20), ...(s % 20 === 0 ? [ox(92)] : [])]);
+  at = run(r, 60, at, (s) => [
+    vitals(58, 1020),
+    motion(20),
+    ...(s % 20 === 0 ? [ox(97)] : []),
+  ]);
+  const n = r.finish(at, nightDate(start));
+
+  assert.equal(n.events.filter((e) => e.type === "desaturation").length, 1);
+  assert.ok(n.breathing.desatPerHour > 0, "reported per hour of sleep, per §8.2");
+  assert.equal(n.breathing.spo2DeltaPct, -5, "the dip against the night's own plateau");
+}
+
 // --- silence is what has to be counted -----------------------------------
 //
 // The band drops off the air and stops sending anything at all, so nothing
@@ -214,7 +251,12 @@ function run(r: NightRecorder, minutes: number, at: number, each: (sec: number) 
 
   assert.equal(n.counts.offlineMin, 60, "an hour of nothing is an hour of nothing");
   assert.equal(n.sleep.durationMin, 70);
-  assert.equal(n.sleep.awake, 0, "a lost band is not a thrashing sleeper");
+  assert.equal(n.sleep.awake, 0, "a lost band is not a sleeper who was up all night");
+  assert.equal(
+    n.sleep.deep + n.sleep.light + n.sleep.rem + n.sleep.awake,
+    10,
+    "only the measured ten minutes are staged; the hour shows as the gap it was",
+  );
 }
 
 // --- the date belongs to the evening, not to UTC -------------------------
