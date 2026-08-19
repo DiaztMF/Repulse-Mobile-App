@@ -63,10 +63,6 @@ import {
  * exist — PRD §7.2 already expects the personal baseline to come from the
  * three-minute calibration, not from here.
  */
-/** Shorter than this and nothing was slept through — a tap on Start
- *  followed by a tap on Stop must not overwrite the date's real night. */
-const MIN_NIGHT_MIN = 20;
-
 export const TUNING = {
   /** §7.1's own worked example is 0.42 g, so the line sits just under it. */
   restlessMg: 400,
@@ -399,10 +395,12 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
       const r = recorder.current;
       recorder.current = null;
       if (!r) return;
+      /* Written however short it was. §5.2 says a brief session is
+       * recorded and never scored, and `finish` has already withheld the
+       * score — throwing it away instead was my own invention, and it is
+       * the opposite of what the rule asks for. `saveNight` protects the
+       * date from being overwritten by something shorter. */
       const night = r.finish(Date.now(), nightDate(r.startedAt));
-      // A session someone opened and closed again is not a night, and
-      // filing it would overwrite whatever that date already held.
-      if (night.sleep.durationMin < MIN_NIGHT_MIN) return;
       void saveNight(uid, night).catch((e) => console.error("[night] not saved", e));
     };
   }, [startedAt, uid]);

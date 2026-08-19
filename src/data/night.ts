@@ -31,6 +31,7 @@ import {
   // by node's type stripper, which erases type-only imports but has to
   // resolve real ones itself and knows nothing of Vite's `@` alias.
 } from "../lib/screening.ts";
+import { MIN_SCORED_SESSION_MS } from "../state/machine.ts";
 import type { Contributor, Night, NightEvent } from "./mock";
 
 /**
@@ -92,6 +93,10 @@ export class NightRecorder {
   private winStart: number;
   private winMotion: Motion[] = [];
   private winVitals: Vitals[] = [];
+  /** When the first and last sample of the open window actually arrived.
+   *  A window is only evidence for the stretch its samples span. */
+  private winFirstAt: number | null = null;
+  private winLastAt: number | null = null;
   private stageMin: Record<Stage, number> = { awake: 0, light: 0, deep: 0, rem: 0 };
   /** Windows that held no samples at all. Not a stage — the absence of one. */
   private unstagedMin = 0;
@@ -99,6 +104,9 @@ export class NightRecorder {
   private restless = 0;
   private anomaly = 0;
 
+  /** Inside an escalation episode. The ladder reports every rung it
+   *  climbs, and they are all one anomaly. */
+  private escalating = false;
   private snoring = false;
   private bandUp = true;
 
@@ -141,11 +149,39 @@ export class NightRecorder {
      * reports beside it. */
     if (this.winMotion.length === 0 && this.winVitals.length === 0) {
       this.unstagedMin += minutes;
+      this.winFirstAt = null;
+      this.winLastAt = null;
       return;
     }
-    this.stageMin[stageOf(this.winMotion, this.winVitals)] += minutes;
+
+    /* Credited only for the stretch the samples actually span.
+     *
+     * Android suspends JavaScript timers once the screen has been off a
+     * while — the default, and the whole reason the foreground service
+     * exists. While frozen, no events arrive and no tick fires, so the
+     * recorder sees one very long step. Crediting that step to the stage
+     * its last few samples suggested files three unmeasured hours as three
+     * hours of deep sleep: a fabricated measurement that looks entirely
+     * ordinary, which is the worst failure this product has.
+     *
+     * One gap of grace at each edge, because a window's first sample lands
+     * just after it opens and its last just before it closes. */
+    const span = (this.winLastAt ?? 0) - (this.winFirstAt ?? 0);
+    const covered = Math.min(minutes, (span + 2 * MAX_SAMPLE_GAP_MS) / 60_000);
+
+    this.stageMin[stageOf(this.winMotion, this.winVitals)] += covered;
+    this.unstagedMin += minutes - covered;
     this.winMotion = [];
     this.winVitals = [];
+    this.winFirstAt = null;
+    this.winLastAt = null;
+  }
+
+  /** Marks that a real reading landed at this instant, which is what makes
+   *  the window evidence rather than an assumption. */
+  private sampled(at: number) {
+    this.winFirstAt ??= at;
+    this.winLastAt = at;
   }
 
   /**
@@ -190,10 +226,12 @@ export class NightRecorder {
         this.bpm.push(e.data.bpm);
         if (e.data.rrMs > 0) this.rr.push(e.data.rrMs);
         this.winVitals.push(e.data);
+        this.sampled(at);
         break;
       }
       case "motion":
         this.winMotion.push(e.data);
+        this.sampled(at);
         break;
       case "oxygen": {
         // 0 is "not valid", never "zero percent". §3.2, and `desaturations`
@@ -217,8 +255,14 @@ export class NightRecorder {
         this.snoring = e.data.flagged;
         break;
       case "escalation":
-        // Stage 0 is the ladder standing down, not an anomaly of its own.
-        if (e.data.stage > 0) {
+        /* §3.5 is a ladder, so one anomaly reports stage 1, then 2, then 3,
+         * then 4 as it climbs. Counting the rungs files a single episode as
+         * four anomalies, writes four entries onto the timeline, and docks
+         * the score four times for it. Only the climb off zero counts, and
+         * stage 0 is the stand-down that ends the episode — which is also
+         * what lets the next one be counted. */
+        if (e.data.stage > 0 && !this.escalating) {
+          this.escalating = true;
           this.anomaly++;
           this.events.push({
             id: `a${this.nextId++}`,
@@ -226,6 +270,8 @@ export class NightRecorder {
             at: this.minute(at),
             title: "Heart rhythm needed checking",
           });
+        } else if (e.data.stage === 0) {
+          this.escalating = false;
         }
         break;
       case "link":
@@ -236,6 +282,8 @@ export class NightRecorder {
           if (!this.bandUp) {
             this.winMotion = [];
             this.winVitals = [];
+            this.winFirstAt = null;
+            this.winLastAt = null;
           }
         }
         break;
@@ -274,6 +322,12 @@ export class NightRecorder {
     // still recorded, and `score: null` is the shape the screens already
     // handle for exactly that case.
     const worn = sorted.length >= 10;
+
+    /* §5.2, whose rule machine.ts has carried all along: shorter than two
+     * hours is recorded but never scored. A ninety-minute nap has none of
+     * the structure a sleep score claims to summarise, and scoring it puts
+     * a number on the same screen and in the same units as a real night. */
+    const scorable = worn && at - this.startedAt >= MIN_SCORED_SESSION_MS;
 
     const heart = worn
       ? {
@@ -324,7 +378,7 @@ export class NightRecorder {
 
     const snoreMin = Math.round(this.snoreMs / 60_000);
 
-    const contributors: Contributor[] = worn
+    const contributors: Contributor[] = scorable
       ? [
           {
             key: "duration",
@@ -339,19 +393,28 @@ export class NightRecorder {
             value: `${this.restless} times`,
             delta: this.restless <= 4 ? 4 : -5,
           },
-          {
-            key: "dark",
-            label: "Optimal Darkness",
-            value: fmtDur(darkOptimalMin),
-            delta: pollutionMin < 15 ? 3 : -2,
-          },
+          /* Only when something watched the room. With no bedside there
+           * are no lux samples, so both figures are zero — and a rule keyed
+           * off "pollution under fifteen minutes" reads that as a
+           * well-darkened room and awards the points. The score would be
+           * rewarding the absence of a sensor. */
+          ...(this.rooms.length >= 2
+            ? [
+                {
+                  key: "dark",
+                  label: "Optimal Darkness",
+                  value: fmtDur(darkOptimalMin),
+                  delta: pollutionMin < 15 ? 3 : -2,
+                },
+              ]
+            : []),
         ]
       : [];
 
     /* Built from the contributors the screen already shows, so the number
      * and its explanation cannot drift apart. Anomalies are not among them
      * — they belong to the night, not to any one factor. */
-    const score = worn
+    const score = scorable
       ? Math.max(
           0,
           Math.min(100, 60 + contributors.reduce((a, c) => a + c.delta, 0) - this.anomaly * 6),

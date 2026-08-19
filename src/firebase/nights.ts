@@ -1,6 +1,7 @@
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   increment,
   limit,
@@ -49,7 +50,19 @@ export async function fetchNights(uid: string, count = 14): Promise<Night[]> {
  */
 export async function saveNight(uid: string, night: Night) {
   if (!db) return;
-  await setDoc(doc(nightsRef(uid), night.date), night);
+  const ref = doc(nightsRef(uid), night.date);
+
+  /* One evening can hold more than one session — a nap, a false start, or
+   * a night that was stopped and begun again — and they all file under the
+   * same date. Whole-document writes mean the last one wins, so an eight
+   * hour night would be replaced by the two minutes someone spent tapping
+   * Start and Stop again at breakfast. The longest session of an evening
+   * is the night; a seeded placeholder always yields to a measured one. */
+  const existing = await getDoc(ref);
+  const prev = existing.exists() ? (existing.data() as Night) : null;
+  if (prev && !prev.seeded && prev.sleep.durationMin > night.sleep.durationMin) return;
+
+  await setDoc(ref, night);
 }
 
 export async function fetchInterventions(uid: string): Promise<Intervention[]> {

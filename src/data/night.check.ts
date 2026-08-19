@@ -140,6 +140,43 @@ function run(r: NightRecorder, minutes: number, at: number, each: (sec: number) 
   assert.equal(n.events.filter((e) => e.type === "anomaly").length, 1);
 }
 
+// --- one episode that climbs is still one episode ------------------------
+//
+// §3.5 is a ladder: one anomaly reports stage 1, then 2, then 3, then 4 as
+// it escalates. Counting the rungs instead of the climb files a single
+// episode as four anomalies, writes four entries onto the timeline, and
+// docks the score four times for it.
+{
+  const r = new NightRecorder(start);
+  let at = run(r, 30, start, () => [vitals(58, 1020), motion(20)]);
+  for (const stage of [1, 2, 3, 4] as const) {
+    r.feed({ kind: "escalation", data: { at, stage, reason: "threshold" } }, at);
+    at += 20_000;
+  }
+  at = run(r, 30, at, () => [vitals(58, 1020), motion(20)]);
+  const n = r.finish(at, nightDate(start));
+
+  assert.equal(n.counts.anomaly, 1, "four rungs, one climb");
+  assert.equal(n.events.filter((e) => e.type === "anomaly").length, 1);
+}
+
+// --- but a second episode after a stand-down is a second one -------------
+{
+  const r = new NightRecorder(start);
+  let at = run(r, 20, start, () => [vitals(58, 1020), motion(20)]);
+  r.feed({ kind: "escalation", data: { at, stage: 1, reason: "threshold" } }, at);
+  at += 20_000;
+  r.feed({ kind: "escalation", data: { at, stage: 2, reason: "threshold" } }, at);
+  at += 20_000;
+  r.feed({ kind: "escalation", data: { at, stage: 0, reason: "none" } }, at);
+  at = run(r, 20, at, () => [vitals(58, 1020), motion(20)]);
+  r.feed({ kind: "escalation", data: { at, stage: 1, reason: "irregular" } }, at);
+  at = run(r, 20, at, () => [vitals(58, 1020), motion(20)]);
+  const n = r.finish(at, nightDate(start));
+
+  assert.equal(n.counts.anomaly, 2, "the body answered, then it happened again");
+}
+
 // --- snoring is measured in minutes, not in notifications ----------------
 
 {
@@ -257,6 +294,76 @@ function run(r: NightRecorder, minutes: number, at: number, each: (sec: number) 
     10,
     "only the measured ten minutes are staged; the hour shows as the gap it was",
   );
+}
+
+// --- credit is not given for a room nobody watched -----------------------
+//
+// With no bedside in the room there are no lux samples, so darkness is zero
+// minutes and pollution is zero minutes — and a contributor keyed off
+// "pollution under fifteen minutes" reads that as a well-darkened room and
+// awards the points. The score then rewards the absence of a sensor.
+{
+  const r = new NightRecorder(start);
+  const at = run(r, 300, start, () => [vitals(58, 1030), motion(30)]);
+  const n = r.finish(at, nightDate(start));
+
+  assert.ok(
+    !n.contributors.some((c) => c.key === "dark"),
+    "no room samples, no darkness verdict",
+  );
+  assert.ok(n.score !== null, "the rest of the night still scores");
+}
+
+// --- §5.2: a short session is recorded, and never scored -----------------
+//
+// machine.ts has carried MIN_SCORED_SESSION_MS and its rule since before
+// any of this existed, and nothing had ever called it. A ninety-minute nap
+// scored like a night, and the guard I had written instead threw short
+// sessions away entirely — the opposite of "recorded".
+{
+  const r = new NightRecorder(start);
+  const at = run(r, 90, start, () => [vitals(58, 1030), motion(30)]);
+  const n = r.finish(at, nightDate(start));
+
+  assert.equal(n.score, null, "ninety minutes is not a night to score");
+  assert.equal(n.sleep.durationMin, 90, "but it is recorded in full");
+  assert.equal(n.heart.avg, 58, "and everything measured in it still counts");
+  assert.deepEqual(n.contributors, [], "nothing to attribute a score that does not exist");
+}
+
+{
+  const r = new NightRecorder(start);
+  const at = run(r, 121, start, () => [vitals(58, 1030), motion(30)]);
+  assert.ok(r.finish(at, nightDate(start)).score !== null, "just past two hours, and it scores");
+}
+
+// --- Doze freezes the clock, and the night must not fill the gap ---------
+//
+// Android suspends JavaScript timers once the screen has been off a while.
+// That is not a hypothesis, it is the default, and it is the entire reason
+// the foreground service exists. When it happens no events arrive and no
+// tick fires, so the recorder simply sees a very long step.
+//
+// A staging window credits elapsed wall-clock time to one decision. Left
+// unchecked, three hours in which nothing was measured are filed as three
+// hours of deep sleep, backed by whatever handful of samples was still in
+// the buffer — a fabricated measurement that looks entirely ordinary,
+// which is the worst failure this product has.
+{
+  const r = new NightRecorder(start);
+  let at = run(r, 10, start, () => [vitals(58, 1030), motion(30)]);
+  // Three hours of frozen timers, then the phone wakes.
+  at += 3 * 3600 * 1000;
+  at = run(r, 10, at, () => [vitals(58, 1030), motion(30)]);
+  const n = r.finish(at, nightDate(start));
+
+  assert.equal(n.sleep.durationMin, 200, "the night really was that long");
+  const staged = n.sleep.deep + n.sleep.light + n.sleep.rem + n.sleep.awake;
+  assert.ok(
+    staged <= 25,
+    `only the measured minutes may be staged, got ${staged} of 200`,
+  );
+  assert.ok(n.sleep.deep < 30, "three unmeasured hours are not deep sleep");
 }
 
 // --- the date belongs to the evening, not to UTC -------------------------
