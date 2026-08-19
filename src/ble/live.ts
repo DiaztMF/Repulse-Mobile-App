@@ -368,17 +368,31 @@ export class LiveTransport implements BleTransport {
    */
   private buffered(id: string, raw: Uint8Array) {
     const packet = decodeBufferPacket(raw);
-    if (!this.flushing) this.flushing = [];
 
     if (!packet.sentinel) {
+      if (!this.flushing) this.flushing = [];
       this.flushing.push(...packet.entries);
       this.lastSeq = packet.seq;
       return;
     }
 
-    const events = replay(this.flushing);
+    /* Replayed once, acknowledged every time.
+     *
+     * §3.9 has the band hold its buffer until the ACK lands, and resend the
+     * sentinel until it does. So a repeated sentinel means our answer never
+     * arrived, and staying silent would leave the band waiting forever with
+     * a night it will not release. It gets another ACK.
+     *
+     * What must not repeat is the replay. Emitting the entries again would
+     * put every rescued event on the timeline twice, and §11 already forbids
+     * an offline event from arriving as though it were new — arriving twice
+     * is worse. Clearing first is what makes the second sentinel harmless. */
+    const pending = this.flushing;
     this.flushing = null;
-    if (events.length) this.emit({ kind: "buffered", events });
+    if (pending) {
+      const events = replay(pending);
+      if (events.length) this.emit({ kind: "buffered", events });
+    }
 
     void this.write(id, BAND_SERVICE, B.buffer, flushAck(this.lastSeq)).catch((e) =>
       console.error("[ble] flush ack failed — the band keeps its buffer, which is the point", e),

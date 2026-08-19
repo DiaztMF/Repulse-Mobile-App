@@ -1,11 +1,13 @@
 # RePulse — Kontrak BLE GATT
 
-**Versi:** 2.4 · 19 Agustus 2026
+**Versi:** 2.5 · 19 Agustus 2026
 **Untuk:** pengembang firmware smartband dan bedside
 **Balasan diminta pada:** formulir di Bagian 7
 
 Dokumen ini mendefinisikan seluruh permukaan BLE antara aplikasi Android dan kedua perangkat. Aplikasi sudah dibangun di atas kontrak ini, jadi perubahan bentuk payload berarti perubahan kode di sisi aplikasi.
 
+> **Perubahan dari 2.4:** §3.9 menambahkan jeda antar paket flush dan aturan sentinel sekali-lalu-ulang. Tidak ada byte, UUID, atau tipe yang berubah — ini soal tempo, bukan format.
+>
 > **Perubahan dari 2.3:** `rh_pct_x10 = 0` pada `0001` bedside berarti sensor suhu/kelembapan tidak menjawab — `temp_c_x10` ikut diabaikan, karena keduanya dari sensor yang sama. Tidak ada byte, UUID, atau tipe yang berubah.
 >
 > **Perubahan dari 2.2:** `000A` menjadi opsional. Rangkaian final tidak memakai AD8232 — denyut dibaca MAX30102 lewat `0001`. Tidak ada byte, UUID, atau enum yang berubah; karakteristiknya tetap ada di kontrak untuk perangkat yang memasangnya.
@@ -249,6 +251,10 @@ Read biasa tidak cukup karena isi buffer bisa melebihi satu MTU:
 | 5 | Penanda putus / sambung | `[0=putus 1=sambung, 0, 0, 0]` |
 
 Penghapusan hanya setelah ACK, supaya putus di tengah flush tidak menghilangkan data.
+
+**Beri jeda antar paket, dan kirim sentinel sekali.** Loop firmware berjalan ribuan kali per detik; tanpa jeda, 256 entri terkirim sebagai ~22 notify berturut-turut dalam mikrodetik dan kolam buffer host habis — notify mulai gagal tanpa suara, dan sebagian malam yang tersimpan hilang justru saat sedang diselamatkan. Satu paket per interval koneksi sudah cukup.
+
+Sentinel lebih tajam lagi: statusnya baru turun saat ACK diterima, jadi mengirimnya di tiap putaran loop berarti ribuan sentinel untuk satu jabat tangan, dan aplikasi membalas satu tulis ACK untuk tiap-tiapnya. Kirim sekali, lalu ulangi tiap 2 detik sampai ACK datang — pengulangan tetap perlu, karena sentinel yang hilang tidak boleh membuat gelang menunggu selamanya. Aplikasi menjawab setiap sentinel tetapi hanya memutar ulang entri sekali.
 
 ### 3.10 `000A` — Aliran EKG
 
