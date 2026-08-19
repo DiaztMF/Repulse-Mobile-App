@@ -14,7 +14,8 @@ import { RepulseMonitor } from "repulse-monitor";
 import { MockTransport, type Scenario } from "@/ble/mock";
 import { LiveTransport } from "@/ble/live";
 import { useAuth } from "@/firebase/auth";
-import { fetchInterventions, saveVerification } from "@/firebase/nights";
+import { fetchInterventions, saveNight, saveVerification } from "@/firebase/nights";
+import { NightRecorder, nightDate } from "@/data/night";
 import type {
   Actuator,
   BandCommand,
@@ -60,6 +61,10 @@ import {
  * exist — PRD §7.2 already expects the personal baseline to come from the
  * three-minute calibration, not from here.
  */
+/** Shorter than this and nothing was slept through — a tap on Start
+ *  followed by a tap on Stop must not overwrite the date's real night. */
+const MIN_NIGHT_MIN = 20;
+
 export const TUNING = {
   /** §7.1's own worked example is 0.42 g, so the line sits just under it. */
   restlessMg: 400,
@@ -159,6 +164,10 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
   // same event being written twice on a re-render.
   const written = useRef(new Set<string>());
 
+  /** Accumulates the night while it happens. A ref rather than state: it
+   *  changes on every notification and nothing renders from it. */
+  const recorder = useRef<NightRecorder | null>(null);
+
   /** A session is running. Dims the interface, and is what the native
    *  service's lifetime follows. */
   const isNight = phase === "MONITORING" || phase === "COMFORT" || phase === "WIND_DOWN";
@@ -192,6 +201,10 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
     return off;
 
     function onEvent(e: BleEvent) {
+      // Before the switch, so a night keeps every reading regardless of
+      // which of them any screen happens to care about.
+      recorder.current?.feed(e, Date.now());
+
       switch (e.kind) {
         case "vitals":
           setVitals(e.data);
@@ -342,6 +355,16 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
     for (const row of machine.rows) {
       if (written.current.has(row.timestamp)) continue;
       written.current.add(row.timestamp);
+      recorder.current?.comfort(
+        Date.parse(row.timestamp),
+        row.intervention
+          ? row.intervention.type === "light"
+            ? "dim_light"
+            : row.intervention.type
+          : undefined,
+        row.settle_time_s,
+        row.bedside_offline,
+      );
       void saveVerification(uid, row).catch(() => {
         // Losing a row costs one data point. Throwing here would take the
         // night down with it, and the night is worth more.
@@ -349,6 +372,42 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
       });
     }
   }, [machine.rows, uid]);
+
+  // --- the night, written down -------------------------------------------
+  //
+  // The gap this closes: `fetchNights` could read, `seed` could write a
+  // synthetic fortnight, and `saveVerification` could log one comfort
+  // event — but nothing had ever written a measured night. Without this,
+  // a flawless band would still be followed by a morning of SAMPLE DATA.
+
+  const startedAt = machine.sessionStartedAt;
+
+  useEffect(() => {
+    if (startedAt == null || !uid) return;
+    recorder.current = new NightRecorder(startedAt);
+
+    return () => {
+      const r = recorder.current;
+      recorder.current = null;
+      if (!r) return;
+      const night = r.finish(Date.now(), nightDate(r.startedAt));
+      // A session someone opened and closed again is not a night, and
+      // filing it would overwrite whatever that date already held.
+      if (night.sleep.durationMin < MIN_NIGHT_MIN) return;
+      void saveNight(uid, night).catch((e) => console.error("[night] not saved", e));
+    };
+  }, [startedAt, uid]);
+
+  /* The recorder's own clock. Its ledgers advance on elapsed time, and a
+   * band that has dropped off the air sends nothing to advance them with —
+   * which is precisely the silence that has to be counted as offline
+   * minutes. Five seconds, comfortably inside the recorder's own 30-second
+   * gap guard. */
+  useEffect(() => {
+    if (startedAt == null) return;
+    const id = setInterval(() => recorder.current?.tick(Date.now()), 5_000);
+    return () => clearInterval(id);
+  }, [startedAt]);
 
   // --- the native half ---------------------------------------------------
   //

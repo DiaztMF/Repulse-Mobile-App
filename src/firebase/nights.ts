@@ -37,6 +37,21 @@ export async function fetchNights(uid: string, count = 14): Promise<Night[]> {
   return snap.docs.map((d) => d.data() as Night);
 }
 
+/**
+ * One measured night, keyed by its own date so a session that runs past
+ * midnight still files under the evening it began.
+ *
+ * Written whole rather than merged. §11's rule is that synthetic data is a
+ * fallback and never a blend, and a seeded document sitting at this date
+ * would otherwise keep its `seeded: true` underneath the real figures —
+ * which is precisely the stamp that makes the SAMPLE DATA badge honest.
+ * Overwriting drops it, and the badge goes out because the night is real.
+ */
+export async function saveNight(uid: string, night: Night) {
+  if (!db) return;
+  await setDoc(doc(nightsRef(uid), night.date), night);
+}
+
 export async function fetchInterventions(uid: string): Promise<Intervention[]> {
   if (!db) return [];
   const snap = await getDocs(interventionsRef(uid));

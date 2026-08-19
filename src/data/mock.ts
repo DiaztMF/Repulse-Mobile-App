@@ -36,9 +36,22 @@ export type Night = {
   date: string;
   /** Null when the band was not worn — the room data still exists. */
   score: number | null;
-  sleep: { startMin: number; durationMin: number; deep: number; light: number; rem: number; awake: number };
+  /** `deep`, `light`, and `rem` are null on measured nights. Sleep staging
+   *  comes from brain activity, and a MAX30102 on a wrist cannot reach it —
+   *  see `night.ts`. Time asleep and time awake survive because a still body
+   *  and a moving one really are distinguishable from the accelerometer. */
+  sleep: {
+    startMin: number;
+    durationMin: number;
+    deep: number | null;
+    light: number | null;
+    rem: number | null;
+    awake: number;
+  };
   heart: { avg: number; min: number; max: number; resting: number; hrv: number };
-  room: { tempC: number; rh: number; lux: number; db: number };
+  /** Null per field: the bedside can be absent, or present with no DHT, and
+   *  lux and dB come from chips of their own. */
+  room: { tempC: number | null; rh: number | null; lux: number | null; db: number | null };
   light: { darkOptimalMin: number; pollutionMin: number };
   breathing: { desatPerHour: number; snoreMin: number; spo2DeltaPct: number };
   counts: { restless: number; anomaly: number; offlineMin: number };
@@ -250,8 +263,10 @@ export function seriesFor(date: string) {
       movement: r() > 0.94 ? Math.round(r() * 60) : Math.round(r() * 8),
       spo2Delta: r() > 0.97 ? night.breathing.spo2DeltaPct : -Math.round(r()),
       lux: i < 25 ? Math.round((night.light.pollutionMin > 25 ? 8 : 1) * r() * 10) / 10 : Math.round(r() * 8) / 10,
-      tempC: Math.round((night.room.tempC + (r() - 0.5)) * 10) / 10,
-      db: Math.round(night.room.db + (r() * 8 - 4)),
+      // Synthetic nights always carry a room; a measured one may not, and
+      // a series is only drawn for a night that has the field.
+      tempC: Math.round(((night.room.tempC ?? 0) + (r() - 0.5)) * 10) / 10,
+      db: Math.round((night.room.db ?? 0) + (r() * 8 - 4)),
     };
   });
 }

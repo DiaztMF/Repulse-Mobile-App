@@ -78,9 +78,11 @@ export function Vital() {
           rows={[
             {
               label: "Room temperature",
-              value: `${n.room.tempC} °C`,
-              level: Math.min(1, (n.room.tempC - 22) / 8),
-              attention: n.room.tempC > 28,
+              // A room nobody measured is not a comfortable room. Drawing a
+              // dash costs one row; drawing 0 °C invents a cold night.
+              value: n.room.tempC != null ? `${n.room.tempC} °C` : "Not measured",
+              level: n.room.tempC != null ? Math.min(1, (n.room.tempC - 22) / 8) : 0,
+              attention: (n.room.tempC ?? 0) > 28,
             },
             {
               label: "Restless spells",
@@ -201,9 +203,9 @@ export function Vital() {
           },
           {
             label: "Temperature above 28°",
-            value: n.room.tempC > 28 ? "yes" : "no",
-            level: Math.min(1, (n.room.tempC - 22) / 8),
-            attention: n.room.tempC > 28,
+            value: n.room.tempC == null ? "Not measured" : n.room.tempC > 28 ? "yes" : "no",
+            level: n.room.tempC != null ? Math.min(1, (n.room.tempC - 22) / 8) : 0,
+            attention: (n.room.tempC ?? 0) > 28,
           },
         ]}
       />

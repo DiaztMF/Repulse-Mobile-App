@@ -60,7 +60,7 @@ export function Home() {
 
       {/* Hero */}
       <section
-        className={`mt-6 px-5 py-10 ${heroClass(night.room.lux, night.light.pollutionMin > 25)}`}
+        className={`mt-6 px-5 py-10 ${heroClass(night.room.lux ?? 0, night.light.pollutionMin > 25)}`}
       >
         {scored ? (
           <>

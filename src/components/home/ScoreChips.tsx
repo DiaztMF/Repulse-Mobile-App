@@ -14,7 +14,7 @@ export function ScoreChips({ night }: { night: Night }) {
     { to: "/vitals/pulse", label: "Pulse", Icon: HeartPulse, color: METRIC_COLOR.pulse, value: night.score ? night.heart.avg : "—" },
     { to: "/vitals/breathing", label: "SpO₂", Icon: Wind, color: METRIC_COLOR.breath, value: night.score ? `${night.breathing.spo2DeltaPct}%` : "—" },
     { to: "/vitals/movement", label: "Restless", Icon: Waves, color: METRIC_COLOR.sleep, value: night.score ? night.counts.restless : "—" },
-    { to: "/vitals/room", label: "Room", Icon: Home, color: METRIC_COLOR.room, value: `${night.room.tempC}°` },
+    { to: "/vitals/room", label: "Room", Icon: Home, color: METRIC_COLOR.room, value: night.room.tempC != null ? `${night.room.tempC}°` : "—" },
   ];
 
   return (
