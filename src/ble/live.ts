@@ -293,13 +293,7 @@ export class LiveTransport implements BleTransport {
     await notify(B.status, (v) =>
       this.emit({ kind: "band-status", data: decodeBandStatus(bytes(v), at()) }),
     );
-    await notify(B.ecg, (v) => {
-      // The trace belongs to the recorder screen, which subscribes for
-      // itself. What matters here is only §3.10's lead flag: a garbage
-      // waveform drawn as a real one is the most dangerous thing this app
-      // could show.
-      if (!decodeEcg(bytes(v)).leadOn) console.warn("[ble] ecg packet with no contact");
-    });
+    await notify(B.ecg, (v) => this.emit({ kind: "ecg", ...decodeEcg(bytes(v)) }));
     await notify(B.buffer, (v) => this.buffered(id, bytes(v)));
 
     // §3.8: sent on every connect, not once at pairing. An ESP32-C3 loses

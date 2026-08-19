@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { DeviceArt } from "@/components/ui/DeviceArt";
 import { EcgTrace } from "@/components/home/EcgTrace";
 import { COPY } from "@/lib/copy";
+import { useMonitor } from "@/state/monitor";
 
 type Stage = "idle" | "recording" | "done";
 const SECONDS = 30;
@@ -13,19 +14,51 @@ const SECONDS = 30;
  * finger on the second electrode, so it can never run during sleep.
  */
 export function Ecg() {
+  const { links, listen, command } = useMonitor();
+  const attached = links.band === "connected";
   const [stage, setStage] = useState<Stage>("idle");
   const [contact, setContact] = useState(false);
   const [left, setLeft] = useState(SECONDS);
+  /** Set the moment a packet arrives without contact. §3.10: the app
+   *  refuses to save a recording taken with the leads off, and a trace it
+   *  drew anyway would be noise presented as a heart. */
+  const broke = useRef(false);
 
-  // TODO: read lead-off detection from the band.
+  // §3.10's lead flag, which only exists while a stream is running — so
+  // the band is asked for one to answer the question the screen is asking.
+  // With no band there is nothing to read, and the flow still has to be
+  // walkable, so contact is assumed after a moment instead.
   useEffect(() => {
     if (stage !== "idle") return;
-    const t = setTimeout(() => setContact(true), 2500);
-    return () => clearTimeout(t);
-  }, [stage]);
+    if (!attached) {
+      const t = setTimeout(() => setContact(true), 2500);
+      return () => clearTimeout(t);
+    }
+    const off = listen((e) => {
+      if (e.kind === "ecg") setContact(e.leadOn);
+    });
+    void command({ cmd: "ecg_start", durationS: SECONDS }).catch(() => {});
+    return () => {
+      off();
+      void command({ cmd: "ecg_stop" }).catch(() => {});
+    };
+  }, [stage, attached, listen, command]);
+
+  // While recording, a single packet with the leads off spoils the whole
+  // trace. Remembered rather than shown live: a flicker mid-recording
+  // would have somebody move their hand and guarantee the thing it warns
+  // about.
+  useEffect(() => {
+    if (stage !== "recording" || !attached) return;
+    broke.current = false;
+    return listen((e) => {
+      if (e.kind === "ecg" && !e.leadOn) broke.current = true;
+    });
+  }, [stage, attached, listen]);
 
   useEffect(() => {
     if (stage !== "recording") return;
+    if (attached) void command({ cmd: "ecg_start", durationS: SECONDS }).catch(() => {});
     const id = setInterval(() => {
       setLeft((s: number) => {
         if (s <= 1) {

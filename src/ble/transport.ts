@@ -104,7 +104,12 @@ export type BleEvent =
   /** §3.9 `0006`. Events the band recorded while nobody was listening.
    *  Flagged so the timeline can mark them — PRD §11 forbids an offline
    *  event from looking identical to a live one. */
-  | { kind: "buffered"; events: BleEvent[] };
+  | { kind: "buffered"; events: BleEvent[] }
+  /** §3.10 `000A`, and only while a recording the user asked for is
+   *  running. `leadOn` travels with the samples rather than beside them:
+   *  a trace drawn without it is a picture of noise presented as a heart,
+   *  which is the most dangerous thing this app could show. */
+  | { kind: "ecg"; seq: number; leadOn: boolean; samples: Int16Array };
 
 /** §4.3 `0003` on the bedside. The only commands that exist. */
 export type Actuator =

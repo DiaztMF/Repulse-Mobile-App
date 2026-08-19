@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, Minus, X } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -91,11 +91,20 @@ const TESTS: Test[] = [
 ];
 
 export function Conformance() {
-  const { command, send, listen, links, synthetic } = useMonitor();
+  const { command, send, listen, links, synthetic, connect } = useMonitor();
   const [verdicts, setVerdicts] = useState<Record<number, Verdict>>({});
   const [notes, setNotes] = useState<Record<number, string>>({});
   const [armed, setArmed] = useState<number | null>(null);
   const cleanup = useRef<(() => void) | null>(null);
+
+  // Verification day starts on this screen, and it is reachable from the
+  // drawer without going near pairing. Asking for the radio here means a
+  // bench with two devices powered up does not also need somebody to
+  // remember which screen switches it on.
+  useEffect(() => {
+    void connect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const set = (n: number, v: Verdict, note?: string) => {
     setVerdicts((s) => ({ ...s, [n]: v }));
