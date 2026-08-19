@@ -92,6 +92,10 @@ export class LiveTransport implements BleTransport {
   /** §3.9. Entries arriving between `flush_start` and the sentinel. */
   private flushing: BufferEntry[] | null = null;
 
+  private scanning = false;
+  private scanStartedAt = 0;
+  private rescanTimer: ReturnType<typeof setTimeout> | null = null;
+
   on(listener: (e: BleEvent) => void) {
     this.listeners.add(listener);
     return () => {
@@ -119,19 +123,66 @@ export class LiveTransport implements BleTransport {
 
     this.link("band", "scanning");
     this.link("bedside", "scanning");
+    await this.scan();
+  }
 
-    // One scan for both, filtered on the service UUID and never the name.
-    // §2 is blunt about it: a device whose advertisement omits the UUID is
-    // a device this app will never find, and that is the contract the
-    // firmware is being held to.
+  /**
+   * One scan for both devices, filtered on the service UUID and never the
+   * name. §2 is blunt about it: a device whose advertisement omits the
+   * UUID is one this app will never find, and that is the contract the
+   * firmware is held to.
+   */
+  private async scan() {
+    if (this.scanning || !this.running) return;
+    this.scanning = true;
+    this.scanStartedAt = Date.now();
     await BleClient.requestLEScan(
       { services: [BAND_SERVICE, BEDSIDE_SERVICE], allowDuplicates: true },
       (r) => void this.saw(r),
     );
   }
 
+  /**
+   * Scanning all night is a scan nobody needs: once both devices are
+   * attached there is nothing left to discover, and a continuous LE scan
+   * is one of the more expensive things an app can leave running beside
+   * somebody's bed.
+   *
+   * §2.1 is why this is safe. The band's stage also rides on its
+   * advertisement, and that path exists precisely for a phone that has
+   * lost the connection — which restarts the scan below.
+   */
+  private async idle() {
+    if (!this.scanning) return;
+    if (this.state.band !== "connected" || this.state.bedside !== "connected") return;
+    this.scanning = false;
+    try {
+      await BleClient.stopLEScan();
+    } catch {
+      // Already stopped.
+    }
+  }
+
+  /**
+   * Android blocks an app that starts more than five scans in thirty
+   * seconds, and blocks it silently — a disconnect loop would spend the
+   * budget and then look like a band that simply stopped existing. Ten
+   * seconds between starts keeps that from ever being the explanation.
+   */
+  private rescan() {
+    if (!this.running || this.scanning || this.rescanTimer) return;
+    const wait = Math.max(0, 10_000 - (Date.now() - this.scanStartedAt));
+    this.rescanTimer = setTimeout(() => {
+      this.rescanTimer = null;
+      void this.scan().catch((e) => console.error("[ble] rescan failed", e));
+    }, wait);
+  }
+
   async stop() {
     this.running = false;
+    this.scanning = false;
+    if (this.rescanTimer) clearTimeout(this.rescanTimer);
+    this.rescanTimer = null;
     try {
       await BleClient.stopLEScan();
     } catch {
@@ -194,6 +245,7 @@ export class LiveTransport implements BleTransport {
       // running on the wrist whether we can hear it or not.
       delete this.id[device];
       this.link(device, "lost");
+      this.rescan();
     });
 
     // §1: bonded, so a reconnect at 3am does not ask anybody to pair.
@@ -219,6 +271,7 @@ export class LiveTransport implements BleTransport {
     else await this.attachBedside(id);
 
     this.link(device, "connected");
+    await this.idle();
   }
 
   private async attachBand(id: string) {

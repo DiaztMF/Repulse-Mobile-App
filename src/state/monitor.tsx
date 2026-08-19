@@ -18,6 +18,7 @@ import { fetchInterventions, saveVerification } from "@/firebase/nights";
 import type {
   Actuator,
   BandCommand,
+  BandStatus,
   BleEvent,
   BleTransport,
   Device,
@@ -79,6 +80,9 @@ export type Monitor = {
   vitals: Vitals | null;
   room: Room | null;
   motionMg: number;
+  /** §3.6. Null until the band has reported once — which is not the same
+   *  as a band with a flat battery, and D2 has to be able to say which. */
+  bandStatus: BandStatus | null;
   /** True while a sleep session is running, which is what dims the whole
    *  interface. Owned here so the rule cannot drift into screens. */
   isNight: boolean;
@@ -139,6 +143,7 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
   const [vitals, setVitals] = useState<Vitals | null>(null);
   const [room, setRoom] = useState<Room | null>(null);
   const [motionMg, setMotionMg] = useState(0);
+  const [bandStatus, setBandStatus] = useState<BandStatus | null>(null);
   const [links, setLinks] = useState<Record<Device, Link>>({
     band: "idle",
     bedside: "idle",
@@ -208,6 +213,13 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
           // when we heard the press before the stage.
           dispatch({ t: "stage", at: e.data.at, stage: 4 });
           break;
+        // §3.6. Battery, charge state, and the band's own clock — the last
+        // of which is a silent failure mode: a drifted clock corrupts
+        // settle times without ever looking wrong on a screen.
+        case "band-status":
+          setBandStatus(e.data);
+          break;
+
         case "motion":
           setMotionMg(e.data.levelMg);
           break;
@@ -394,6 +406,7 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
       vitals,
       room,
       motionMg,
+      bandStatus,
       isNight,
       synthetic: transport instanceof MockTransport,
       startSleep: () => send({ t: "start-sleep", at: Date.now() }),
@@ -437,7 +450,7 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
         send({ t: "session-end", at: Date.now(), reason: "wake" });
       },
     };
-  }, [phase, machine.stage, machine.rows, links, vitals, room, motionMg, transport]);
+  }, [phase, machine.stage, machine.rows, links, vitals, room, motionMg, bandStatus, transport]);
 
   // The night flag rides on <html> so every colour token steps down
   // together instead of being patched screen by screen.

@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/shell/PageHeader";
+import { useMonitor } from "@/state/monitor";
 import { Button } from "@/components/ui/Button";
 
 type Field = { label: string; value: string; note?: string };
@@ -62,6 +63,24 @@ function DeviceCard({
  * corrupts settle times without ever looking wrong.
  */
 export function Devices() {
+  const { links, vitals, bandStatus } = useMonitor();
+
+  // A dash, never a plausible number. Every row on this screen exists
+  // because it is a silent failure mode, and a screen invented to catch
+  // silent failures cannot itself invent values — this page said "Battery
+  // 87%, Worn yes, Clock in sync" for as long as it was a picture, which
+  // is the exact reading a band that is not there would need to hide.
+  const dash = "—";
+  const attached = links.band === "connected";
+
+  const clock = !bandStatus
+    ? dash
+    : bandStatus.epochS === 0
+      ? "never set"
+      : Math.abs(bandStatus.epochS * 1000 - Date.now()) < 120_000
+        ? "in sync"
+        : "drifted";
+
   return (
     <div className="pb-8">
       <PageHeader title="Devices" showMenu />
@@ -69,25 +88,32 @@ export function Devices() {
       <div className="space-y-3 px-5">
         <DeviceCard
           name="Band"
-          serial="RePulse Band 4C0521039"
+          serial={attached ? "RePulse Band" : "Not connected"}
           fields={[
-            { label: "Battery", value: "87%" },
-            { label: "Signal", value: "strong", note: "−52 dBm" },
-            { label: "Worn", value: "yes" },
-            { label: "Clock", value: "in sync" },
-            { label: "Firmware", value: "1.2.0" },
+            {
+              label: "Battery",
+              value: bandStatus ? `${bandStatus.percent}%` : dash,
+              ...(bandStatus?.charging ? { note: "charging" } : {}),
+            },
+            { label: "Signal", value: attached ? "connected" : links.band },
+            // §3.1: to a MAX30102 an unworn band and a stopped heart read
+            // the same, so this is the flag that decides whether a missing
+            // pulse is an emergency or a bedside table.
+            { label: "Worn", value: vitals ? (vitals.worn ? "yes" : "no") : dash },
+            { label: "Clock", value: clock },
           ]}
         />
 
         <DeviceCard
           name="Bedside unit"
-          serial="RePulse Bedside 2A19"
+          serial={links.bedside === "connected" ? "RePulse Bedside" : "Not connected"}
           fields={[
-            { label: "Power", value: "plugged in" },
-            { label: "Signal", value: "strong", note: "−48 dBm" },
-            { label: "Firmware", value: "1.1.4" },
+            { label: "Signal", value: links.bedside },
             // Users are entitled to know the hardware can act on its own.
-            { label: "Standalone siren", value: "armed" },
+            {
+              label: "Standalone siren",
+              value: links.bedside === "connected" ? "armed" : dash,
+            },
           ]}
         />
 
