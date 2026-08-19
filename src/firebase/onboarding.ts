@@ -25,19 +25,27 @@ export const FINISHED = "done";
 const ref = (uid: string) => doc(db!, "users", uid);
 
 /**
- * Three states, because the callers want different things from the empty
- * one: the splash should not drag an existing user into setup, while a
- * fresh sign-in has nowhere else to send them.
+ * Four states, because the callers want different things from each: the
+ * splash should not drag an existing user into setup, while a fresh sign-in
+ * has nowhere else to send them.
+ *
+ * `unknown` is the one that had to be added. It used to be reported as
+ * `done`, which meant a failed read — denied Firestore rules, no database,
+ * no signal — told a brand-new account that setup was already finished. It
+ * went straight to the dashboard having granted no permissions at all, so
+ * the foreground service could never start and the first night failed in
+ * silence. "I could not find out" is not the same answer as "there is
+ * nothing left to do", and only the caller knows which way to lean.
  */
 export type Progress =
   | { at: "start" }
   | { at: "step"; route: string }
-  | { at: "done" };
+  | { at: "done" }
+  | { at: "unknown" };
 
 /**
- * Errors resolve to `done` rather than throwing. A reader that fails must
- * not strand anyone: being let into the app is a smaller harm than being
- * held at the door, and every step stays reachable either way.
+ * Never throws. A reader that fails must not strand anyone at the door —
+ * but it says so now instead of claiming success.
  */
 export async function readProgress(uid: string): Promise<Progress> {
   if (!db) return { at: "done" };
@@ -50,8 +58,13 @@ export async function readProgress(uid: string): Promise<Progress> {
       at: "step",
       route: STEPS.includes(at as (typeof STEPS)[number]) ? at : STEPS[0],
     };
-  } catch {
-    return { at: "done" };
+  } catch (e) {
+    // Logged because this used to be silent, and a silent failure here is
+    // indistinguishable from a finished account. It is the difference
+    // between a rules problem and a working install, and it costs one line
+    // of logcat to tell them apart.
+    console.error("[onboarding] progress unreadable", e);
+    return { at: "unknown" };
   }
 }
 
