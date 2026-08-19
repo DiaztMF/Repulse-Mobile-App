@@ -108,6 +108,41 @@ first time the project is opened, so that one does not need doing by hand.
 
 ---
 
+## Google sign-in needs `google-services.json`
+
+`signInWithPopup` cannot work inside the WebView. It calls `window.open`,
+Android hands that to Chrome, and the popup flow then waits for the opened
+window to `postMessage` its result back to the window that opened it — which
+a Chrome tab in another app cannot do. The account is chosen, Google reports
+success, and the person is left standing in a browser. Nothing throws.
+
+So the chooser is native (`@capacitor-firebase/authentication`) and only the
+chooser: `skipNativeAuth: true` in `capacitor.config.ts` means the plugin
+hands back a Google ID token and stops, and the JS SDK still owns the
+session — which is where every Firestore read in this app already looks.
+
+Capacitor's own template already carries the Gradle half: the
+`com.google.gms:google-services` classpath is in `android/build.gradle`, and
+`android/app/build.gradle` applies the plugin if and only if it finds the
+JSON. **Nothing in Gradle needs editing.** What is needed is the file:
+
+1. Firebase Console → Project settings → **Add app → Android**, package name
+   `id.repulse.app`
+2. Paste the debug SHA-1. Get it with `cd android && gradlew signingReport` —
+   read the `SHA1:` line under `Variant: debug`. Without it Google returns
+   `10:` (`DEVELOPER_ERROR`) and nothing else
+3. Download `google-services.json` into **`android/app/`**
+4. Authentication → Sign-in method → enable **Google**
+
+**`android/` is gitignored, so that file does not survive a clone.** Nor does
+it survive `cap add android`. It is the second thing on this page that has to
+be put back by hand on a fresh machine, and the symptom is the same both
+times: it builds, it installs, and it fails at the one moment that matters.
+
+The debug and release certificates are different. A release build needs its
+own SHA-1 added to the same console page, or sign-in works right up until the
+APK that goes to the judges.
+
 ## Compiling the Kotlin without Android Studio
 
 ```bash

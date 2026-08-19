@@ -1,9 +1,12 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { Navigate } from "react-router-dom";
+import { Capacitor } from "@capacitor/core";
+import { FirebaseAuthentication } from "@capacitor-firebase/authentication";
 import {
   GoogleAuthProvider,
   createUserWithEmailAndPassword,
   onAuthStateChanged,
+  signInWithCredential,
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
   signInWithPopup,
@@ -55,9 +58,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return (await createUserWithEmailAndPassword(auth, email, password)).user
         .uid;
     },
+    /**
+     * On the phone the account chooser has to be native, because a popup
+     * cannot come back.
+     *
+     * `signInWithPopup` inside the WebView calls `window.open`, which
+     * Android hands to Chrome. The popup flow then waits for the opened
+     * window to `postMessage` its result to the window that opened it —
+     * and a Chrome tab has no such relationship with a WebView in another
+     * app. So the person picks their account, Google says it worked, and
+     * they are left standing in a browser with no way back. Nothing is
+     * thrown, nothing times out, and nothing in this app ever hears about
+     * it.
+     *
+     * The native chooser runs in this app's own process and returns a
+     * token to the caller. `skipNativeAuth` keeps the session itself in the
+     * JS SDK, where every other Firebase call in this app already lives.
+     */
     google: async () => {
       if (!auth) return "";
-      return (await signInWithPopup(auth, new GoogleAuthProvider())).user.uid;
+      if (!Capacitor.isNativePlatform()) {
+        return (await signInWithPopup(auth, new GoogleAuthProvider())).user.uid;
+      }
+      const { credential } = await FirebaseAuthentication.signInWithGoogle();
+      // No token is not a cancellation — a cancellation throws. It means
+      // the native sign-in succeeded and gave us nothing to sign in with,
+      // which is what a missing SHA-1 or a missing google-services.json
+      // looks like from here.
+      if (!credential?.idToken) throw new Error("Google returned no ID token");
+      const cred = GoogleAuthProvider.credential(credential.idToken);
+      return (await signInWithCredential(auth, cred)).user.uid;
     },
     reset: async (email) => {
       if (auth) await sendPasswordResetEmail(auth, email);

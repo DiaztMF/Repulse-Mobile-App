@@ -22,6 +22,7 @@
     "dev:tunnel": "vite --mode tunnel"
   },
   "dependencies": {
+    "@capacitor-firebase/authentication": "^7.5.0",
     "@capacitor/android": "^7.6.8",
     "@capacitor/cli": "^7.6.8",
     "@capacitor/core": "^7.6.8",
@@ -51,5 +52,10 @@
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.2",
     "vite": "^8.2.0"
+  },
+  "overrides": {
+    "@capacitor-firebase/authentication": {
+      "firebase": "$firebase"
+    }
   }
 }

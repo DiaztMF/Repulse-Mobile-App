@@ -98,8 +98,18 @@ export function SignIn() {
     arrivedSignedIn.current = !!auth.user;
 
   const codeOf = (e: unknown) => (e as { code?: string }).code ?? "";
-  const explain = (code: string): Message =>
-    EXPLAIN[code] ?? { text: `Sign-in failed (${code || "unknown error"}).` };
+
+  /**
+   * The native Google chooser throws plain Errors with no Firebase code —
+   * a missing SHA-1 arrives as "10:" and nothing else. Falling straight to
+   * "unknown error" would throw away the only sentence that says what is
+   * wrong, which is how the earlier version hid its own bug.
+   */
+  const explain = (code: string, e?: unknown): Message => {
+    if (EXPLAIN[code]) return EXPLAIN[code];
+    const detail = code || (e as { message?: string })?.message;
+    return { text: `Sign-in failed (${detail || "unknown error"}).` };
+  };
 
   /**
    * Where an authenticated user belongs. Signing out and back in used to
@@ -109,6 +119,14 @@ export function SignIn() {
    * `start` means nothing was recorded, which here means the account has
    * not been through setup — there is nowhere to send them but the
    * beginning.
+   *
+   * `unknown` leans the same way, and that is the whole point of it being
+   * a separate answer. Someone who has just signed in and cannot be looked
+   * up is far more likely to be new than finished, and the two mistakes are
+   * not the same size: sending a finished user through setup again costs
+   * them some taps, while waving a new one through costs every permission
+   * the night depends on. The splash leans the other way, because by then
+   * they are already inside.
    */
   const destination = async (uid: string) => {
     if (!uid) return "/permissions";
@@ -127,7 +145,7 @@ export function SignIn() {
       navigate(await destination(uid), { replace: true });
     } catch (e) {
       console.error("[auth]", e);
-      setMessage(explain(codeOf(e)));
+      setMessage(explain(codeOf(e), e));
     } finally {
       setBusy(false);
     }
@@ -186,7 +204,7 @@ export function SignIn() {
       setMessage({ text: "Reset link sent. Check your inbox.", ok: true });
     } catch (e) {
       console.error("[auth] reset", e);
-      setMessage(explain(codeOf(e)));
+      setMessage(explain(codeOf(e), e));
     } finally {
       setBusy(false);
     }
