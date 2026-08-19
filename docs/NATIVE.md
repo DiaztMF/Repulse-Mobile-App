@@ -233,3 +233,37 @@ but a banner appears on unlock, that permission is what is missing:
 Settings → Apps → RePulse → *Alarms & reminders* / *Full-screen intents*.
 
 A phone that only shows the banner is a phone that would not wake anyone.
+
+## Oppo, and why O4 cannot take you there
+
+ColorOS 15 keeps its startup manager at
+`com.oplus.battery/com.oplus.startupapp.view.StartupAppListActivity`, and
+guards it with `oplus.permission.OPLUS_COMPONENT_SAFE` — a signature
+permission. Launching it by explicit component and by its own advertised
+implicit action both end the same way:
+
+```
+SecurityException: Permission Denial: starting ...StartupAppListActivity
+  requires oplus.permission.OPLUS_COMPONENT_SAFE
+```
+
+No third-party app can hold it, so no amount of finding the right activity
+name opens that screen. `resolveActivity` is no help either: package
+visibility on Android 11+ hides `com.oplus.battery` from us unless it is
+named in `<queries>`, so a phone that has the screen still answers no.
+
+What can be reached is the app's own settings page, and from there the
+setting that actually matters on this OS:
+
+**Info aplikasi → Penggunaan baterai → Izinkan aktivitas latar belakang**
+
+It starts on **Mode pintar (Disarankan)**, which optimises background
+activity "when power consumption is high" — a night of Bluetooth and a
+foreground service is exactly that. The default is the failure.
+
+So O4 decides whether to appear from `Build.MANUFACTURER`, which is a fact
+about how the phone treats background apps, and finds out where it can land
+by trying. Its instructions change to match wherever that turned out to be.
+Verified on an Oppo CPH2819, ColorOS 15.0.2, Android 15. Every other vendor
+in that table is still best-known wording, not something anyone has watched
+work.

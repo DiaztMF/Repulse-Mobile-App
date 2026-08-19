@@ -25,10 +25,13 @@ const VENDORS: Record<string, Vendor> = {
     toggles: ["Autostart", "No battery restrictions"],
     manual: "Open Battery saver and choose No restrictions. Autostart lives in Settings, under Apps, Permissions, Autostart.",
   },
+  // The only entry below verified against a real phone: an Oppo CPH2819 on
+  // ColorOS 15. The others are the best known wording and should be
+  // checked the first time one of those phones is in the room.
   oppo: {
     label: "Oppo",
     toggles: ["Auto-launch", "Allow background activity"],
-    manual: "Open Battery usage on the page that opened and allow RePulse to run in the background. Auto-launch is in Settings, Battery, Startup manager — no app is allowed to open that one for you.",
+    manual: "Open Battery usage on the page that opened, then choose Allow background activity. The one it starts on — Smart mode, the recommended one — is the setting that stops monitoring at night.",
   },
   vivo: {
     label: "Vivo",
