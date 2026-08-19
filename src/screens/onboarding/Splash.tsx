@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { useAuth } from "@/firebase/auth";
-import { readProgress } from "@/firebase/onboarding";
+import { STEPS, readProgress } from "@/firebase/onboarding";
 
 /** Long enough for the 1100ms draw to finish and be seen. */
 const DRAW_DWELL_MS = 1750;
@@ -47,10 +47,24 @@ export function Splash() {
     let live = true;
     void readProgress(user.uid).then((p) => {
       if (!live) return;
-      // `start` means nothing was ever recorded, which is an account from
-      // before progress was tracked. Dragging a working installation back
-      // through setup would be worse than letting it in.
-      setResume(p.at === "step" ? p.route : null);
+      // `start` — nothing recorded — used to land here as null, and null
+      // means the dashboard. That is how a brand-new account skipped the
+      // whole of onboarding and could never get back to it: sign in with
+      // Google, let the native chooser restart the activity, and the app
+      // comes back up here rather than at the screen that was about to be
+      // navigated to. Splash then waves them through, and because they are
+      // signed in from then on they never see the sign-in screen that would
+      // have sent them to setup. The permissions are never granted, and the
+      // first night fails in silence.
+      //
+      // It leans the way SignIn leans, and for the same reason: walking a
+      // finished account through setup once costs some taps, while waving a
+      // new one through costs every permission the night depends on. An
+      // account that finishes writes `done` and is never asked again.
+      //
+      // `unknown` still lands on the dashboard. That is a read that failed
+      // for somebody already inside, which is not evidence of anything.
+      setResume(p.at === "step" ? p.route : p.at === "start" ? STEPS[0] : null);
       setAsked(true);
     });
     return () => {
