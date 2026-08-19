@@ -102,7 +102,6 @@ export const router = createBrowserRouter([
       { path: "/conformance", lazy: lazyRoute(() => import("@/screens/settings/Conformance"), "Conformance") },
       { path: "/family", lazy: lazyRoute(() => import("@/screens/settings/Family"), "Family") },
       { path: "/export", lazy: lazyRoute(() => import("@/screens/settings/Export"), "Export") },
-      { path: "/ecg", lazy: lazyRoute(() => import("@/screens/settings/Ecg"), "Ecg") },
     ],
   },
 

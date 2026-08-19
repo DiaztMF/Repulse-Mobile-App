@@ -20,7 +20,6 @@ const PARTS = [
   { key: "summary", label: "Night summaries", mbPerNight: 0.002 },
   { key: "events", label: "Events and intervention results", mbPerNight: 0.004 },
   { key: "series", label: "Time series, one sample per 5s", mbPerNight: 0.09 },
-  { key: "ecg", label: "ECG recordings", mbPerNight: 0.015 },
 ];
 
 /** One block per section, each with its own header row. A single flat

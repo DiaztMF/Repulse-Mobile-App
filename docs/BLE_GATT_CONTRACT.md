@@ -1,12 +1,12 @@
 # RePulse — Kontrak BLE GATT
 
-**Versi:** 2.2 · 19 Agustus 2026
+**Versi:** 2.3 · 19 Agustus 2026
 **Untuk:** pengembang firmware smartband dan bedside
 **Balasan diminta pada:** formulir di Bagian 7
 
 Dokumen ini mendefinisikan seluruh permukaan BLE antara aplikasi Android dan kedua perangkat. Aplikasi sudah dibangun di atas kontrak ini, jadi perubahan bentuk payload berarti perubahan kode di sisi aplikasi.
 
-> **Perubahan dari 2.1:** satu nilai baru, `percent = 255` pada `0008`, berarti baterai tidak terukur. Tidak ada byte, UUID, atau enum lain yang berubah.
+> **Perubahan dari 2.2:** `000A` menjadi opsional. Rangkaian final tidak memakai AD8232 — denyut dibaca MAX30102 lewat `0001`. Tidak ada byte, UUID, atau enum yang berubah; karakteristiknya tetap ada di kontrak untuk perangkat yang memasangnya.
 
 Delapan uji di Bagian 6 sekarang sudah ada sebagai layar di dalam aplikasi, bukan tabel yang dibaca sekali. Saat verifikasi bersama, aplikasi yang mengirim perintahnya dan mencatat hasilnya.
 
@@ -86,7 +86,7 @@ Siaran ini juga dipakai aplikasi: saat kehilangan gelang di tengah `ALERT`, apli
 | `0007` | Anomali & tahap eskalasi | **Indicate** | saat berubah |
 | `0008` | Status baterai & jam | Read / Notify | tiap 5 menit |
 | `0009` | Perintah (app → band) | Write | saat diperlukan |
-| `000A` | Aliran EKG | Notify | hanya saat perekaman |
+| `000A` | Aliran EKG | Notify | opsional — lihat 3.10 |
 
 ### 3.1 `0001` — Vital signs
 
@@ -250,7 +250,9 @@ Penghapusan hanya setelah ACK, supaya putus di tengah flush tidak menghilangkan 
 
 ### 3.10 `000A` — Aliran EKG
 
-Aktif hanya selama perekaman yang dipicu pengguna, tidak pernah saat tidur — AD8232 butuh kontak dua titik dengan jari tangan sebelah.
+**Tidak dipakai pada build ini.** Rangkaian final gelang tidak memasang AD8232; denyut sepenuhnya dari MAX30102 lewat `0001`. Karakteristik ini tetap didefinisikan supaya firmware yang sudah menulisnya tidak perlu dibongkar, tetapi ia tidak pernah mengirim notify dan `ecg_start` ditolak. Aplikasi tidak lagi menampilkan layar perekaman EKG. Uji conformance tidak menyertakannya.
+
+Kalau AD8232 dipasang kemudian, sisa bagian ini berlaku apa adanya. Aktif hanya selama perekaman yang dipicu pengguna, tidak pernah saat tidur — AD8232 butuh kontak dua titik dengan jari tangan sebelah.
 
 | Offset | Tipe | Field |
 |---|---|---|

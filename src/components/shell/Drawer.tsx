@@ -10,14 +10,12 @@ import {
   ListChecks,
   Users,
   Download,
-  Activity,
   X,
   LogOut,
   Sun,
   Moon,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { HAS_ECG } from "@/lib/hardware";
 
 const ITEMS = [
   { to: "/settings", label: "Settings", Icon: Settings },
@@ -27,11 +25,6 @@ const ITEMS = [
   { to: "/export", label: "Export", Icon: Download },
   { to: "/test-panel", label: "Test panel", Icon: FlaskConical },
   { to: "/conformance", label: "GATT conformance", Icon: ListChecks },
-  // There is no AD8232 in the band, so there is nothing to record from.
-  // Hidden rather than left to fail politely: by the time the band refuses
-  // `ecg_start`, somebody has already tapped it, held a finger to a
-  // contact that does not exist, and waited thirty seconds.
-  ...(HAS_ECG ? [{ to: "/ecg", label: "Record ECG", Icon: Activity }] : []),
 ];
 
 /** Everything that is not a tab lives here. Kept as a plain overlay

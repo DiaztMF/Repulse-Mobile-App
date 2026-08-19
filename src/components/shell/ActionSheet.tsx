@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Moon, Activity, Flag, FlaskConical } from "lucide-react";
+import { Moon, Flag, FlaskConical } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 const ACTIONS = [
@@ -9,12 +9,6 @@ const ACTIONS = [
     label: "Start sleep",
     note: "Skip the sunset and begin monitoring now",
     Icon: Moon,
-  },
-  {
-    to: "/ecg",
-    label: "Record ECG",
-    note: "30 seconds, needs a finger on the contact",
-    Icon: Activity,
   },
   {
     to: "/tonight",

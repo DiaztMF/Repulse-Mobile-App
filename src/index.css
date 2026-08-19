@@ -75,7 +75,7 @@ body {
 
 /* Seamless scroll: the strip holds two identical runs, so shifting by
    half its width lands exactly where it started. */
-@keyframes ecg-scroll {
+@keyframes pulse-scroll {
   from {
     transform: translateX(0);
   }
@@ -84,8 +84,8 @@ body {
   }
 }
 
-.ecg-scroll {
-  animation: ecg-scroll 12s linear infinite;
+.pulse-scroll {
+  animation: pulse-scroll 12s linear infinite;
 }
 
 /* Native scroll-snap carousels shouldn't show a bar. */

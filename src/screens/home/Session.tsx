@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Check } from "lucide-react";
-import { EcgTrace } from "@/components/home/EcgTrace";
+import { PulseTrace } from "@/components/home/PulseTrace";
 import { SampleBadge } from "@/components/shell/SampleBadge";
 import { useLastNight } from "@/data/store";
 
@@ -96,7 +96,7 @@ export function Session() {
           <p className="label mt-1 text-[var(--color-ash)]">bpm</p>
         </div>
         <div className="mb-2 min-w-0 flex-1">
-          <EcgTrace />
+          <PulseTrace />
         </div>
       </div>
 

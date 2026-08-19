@@ -1,6 +1,13 @@
-/** One PQRST cycle. Repeated and scrolled rather than redrawn, so the
- *  motion costs a single transform. */
-const BEAT = "M0 20 L10 20 Q13 15 16 20 L21 20 L24 20 L26 7 L29 33 L32 20 L41 20 Q47 13 53 20 L60 20";
+/** One pulse cycle as a MAX30102 actually sees it: a steep systolic
+ *  upstroke, a rounded peak, the dicrotic notch where the aortic valve
+ *  shuts, then a slow decay. Repeated and scrolled rather than redrawn,
+ *  so the motion costs a single transform.
+ *
+ *  Deliberately not PQRST. There is no AD8232 in the band — the shape of
+ *  an electrocardiogram drawn from an optical sensor would be a
+ *  measurement this hardware cannot make, presented as one it did. */
+const BEAT =
+  "M0 34 L6 34 C8 26 10 10 13 6 C16 3 18 10 20 16 C21 19 22 20 23 20 C25 17 27 15 29 17 C31 19 33 24 36 28 C40 33 44 34 48 34 L60 34";
 const W = 60;
 const COUNT = 24;
 
@@ -10,7 +17,7 @@ const COUNT = 24;
  * everything else stays still. This one earns it: it moves because the
  * body it represents is moving.
  */
-export function EcgTrace({ height = 44 }: { height?: number }) {
+export function PulseTrace({ height = 44 }: { height?: number }) {
   return (
     <div className="relative overflow-hidden" style={{ height }}>
       <svg
@@ -18,7 +25,7 @@ export function EcgTrace({ height = 44 }: { height?: number }) {
         height={height}
         preserveAspectRatio="none"
         fill="none"
-        className="ecg-scroll absolute left-0 top-0"
+        className="pulse-scroll absolute left-0 top-0"
         style={{ width: `${W * COUNT * 2}px` }}
         aria-hidden
       >
