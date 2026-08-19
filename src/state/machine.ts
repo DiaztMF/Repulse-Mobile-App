@@ -40,7 +40,17 @@ export type Intervention = "white_noise" | "aroma" | "light";
 export type VerificationRow = {
   timestamp: string;
   trigger: { movement_g: number; hr: number; baseline_hr: number };
-  room_state: { temp_c: number; rh: number; lux: number; db: number };
+  /** Null where nothing measured it. The bedside can be missing entirely, or
+   *  present with no DHT wired, and lux and dB come from other chips again —
+   *  so any of the four can be absent on its own. Recording a zero instead
+   *  would put a fabricated room condition in the one table §7.1 exists to
+   *  make trustworthy. */
+  room_state: {
+    temp_c: number | null;
+    rh: number | null;
+    lux: number | null;
+    db: number | null;
+  };
   intervention: { type: Intervention; volume?: number; track?: number } | null;
   settle_time_s: number | null;
   result: "berhasil" | "gagal" | null;

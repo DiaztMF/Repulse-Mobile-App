@@ -92,6 +92,15 @@ assert.equal(room.db, 48);
 // Negative temperatures are int16, not uint16.
 assert.equal(decodeRoom(u8(...le16(-15 & 0xffff), ...le16(500), ...le32(0), 30), at).tempC, -1.5);
 
+// No DHT on the bedside means its initialisers go on the air unchanged, and
+// 0.0 °C reads as a cold night rather than as a missing sensor. 0% RH is the
+// impossible half of the pair, so it is the one that condemns both.
+const noDht = decodeRoom(u8(...le16(0), ...le16(0), ...le32(180), 42), at);
+assert.equal(noDht.humidityPct, null);
+assert.equal(noDht.tempC, null, "one sensor, one verdict");
+assert.equal(noDht.lux, 1.8, "the BH1750 is a different chip and keeps reporting");
+assert.equal(noDht.db, 42);
+
 // --- §4.2 snore, §4.4 ack ------------------------------------------------
 
 assert.deepEqual(decodeSnore(u8(1, 63), at), { at, flagged: true, intensity: 63 });

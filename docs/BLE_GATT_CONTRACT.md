@@ -1,11 +1,13 @@
 # RePulse — Kontrak BLE GATT
 
-**Versi:** 2.3 · 19 Agustus 2026
+**Versi:** 2.4 · 19 Agustus 2026
 **Untuk:** pengembang firmware smartband dan bedside
 **Balasan diminta pada:** formulir di Bagian 7
 
 Dokumen ini mendefinisikan seluruh permukaan BLE antara aplikasi Android dan kedua perangkat. Aplikasi sudah dibangun di atas kontrak ini, jadi perubahan bentuk payload berarti perubahan kode di sisi aplikasi.
 
+> **Perubahan dari 2.3:** `rh_pct_x10 = 0` pada `0001` bedside berarti sensor suhu/kelembapan tidak menjawab — `temp_c_x10` ikut diabaikan, karena keduanya dari sensor yang sama. Tidak ada byte, UUID, atau tipe yang berubah.
+>
 > **Perubahan dari 2.2:** `000A` menjadi opsional. Rangkaian final tidak memakai AD8232 — denyut dibaca MAX30102 lewat `0001`. Tidak ada byte, UUID, atau enum yang berubah; karakteristiknya tetap ada di kontrak untuk perangkat yang memasangnya.
 
 Delapan uji di Bagian 6 sekarang sudah ada sebagai layar di dalam aplikasi, bukan tabel yang dibaca sekali. Saat verifikasi bersama, aplikasi yang mengirim perintahnya dan mencatat hasilnya.
@@ -287,6 +289,8 @@ Panjang paket 182 byte, pas di MTU 185. Pada 250 Hz: 500 byte/dtk ≈ 2,8 notifi
 | 8 | `uint8` | `db` | desibel, dibulatkan |
 
 Lux dikali 100 karena ambang gelap optimal adalah `< 3 lux` dan pembacaan nyata bisa `0,4 lux`. Integer polos akan membulatkannya jadi 0 dan membuat seluruh verifikasi kegelapan tidak berarti. `uint32` supaya pembacaan siang tidak meluap.
+
+**`rh_pct_x10 = 0` berarti tidak terukur.** Kamar tidur tidak bisa berada di kelembapan relatif 0%, jadi nol adalah penanda bahwa DHT tidak menjawab — dan karena suhu berasal dari sensor yang sama, `temp_c_x10` ikut diabaikan. Ini idiom yang sama dengan SpO2 = 0 di §3.2: aplikasi menggambar garis, bukan angka. Tanpa penanda ini, bedside tanpa DHT mengudarakan nilai awalnya sendiri — 0,0 °C dan 0% — yang bentuknya persis seperti pengukuran.
 
 Lux dibaca sepanjang malam meski lampu sudah mati — itu dasar penandaan gelap optimal dan pencatatan polusi cahaya. **Sensor harus BH1750**, bukan LDR: LDR hanya memberi nilai relatif, sedangkan seluruh ambang memerlukan satuan lux sungguhan.
 

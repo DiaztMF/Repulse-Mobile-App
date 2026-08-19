@@ -70,8 +70,9 @@ export type BandStatus = {
 /** §4.1 `0001` on the bedside service. */
 export type Room = {
   at: number;
-  tempC: number;
-  humidityPct: number;
+  /** Both null when the bedside has no DHT answering — see `decodeRoom`. */
+  tempC: number | null;
+  humidityPct: number | null;
   lux: number;
   db: number;
 };

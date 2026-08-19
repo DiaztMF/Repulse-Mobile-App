@@ -252,9 +252,12 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
         movementG: motionMg / 1000,
         hr: vitals.bpm,
         baselineHr: TUNING.baselineBpm,
-        room: room
-          ? { temp_c: room.tempC, rh: room.humidityPct, lux: room.lux, db: room.db }
-          : { temp_c: 0, rh: 0, lux: 0, db: 0 },
+        room: {
+          temp_c: room?.tempC ?? null,
+          rh: room?.humidityPct ?? null,
+          lux: room?.lux ?? null,
+          db: room?.db ?? null,
+        },
       });
       return;
     }

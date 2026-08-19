@@ -110,10 +110,17 @@ export function decodeBandStatus(b: Uint8Array, at: number): BandStatus {
 /** §4.1 bedside `0001`. Every fraction is a scaled integer here. */
 export function decodeRoom(b: Uint8Array, at: number): Room {
   const v = dv(b);
+  // A bedroom cannot sit at 0% relative humidity. §4.1 carries no marker for
+  // "not measured", so a DHT that never answered leaves the bedside's own
+  // initialisers on the air — 0.0 °C and 0% RH, shaped exactly like a
+  // reading. Both fields come from the one sensor, so the impossible value
+  // condemns the pair rather than just itself.
+  const rh = v.getUint16(2, true);
+  const dht = rh !== 0;
   return {
     at,
-    tempC: v.getInt16(0, true) / 10,
-    humidityPct: v.getUint16(2, true) / 10,
+    tempC: dht ? v.getInt16(0, true) / 10 : null,
+    humidityPct: dht ? rh / 10 : null,
     // ×100, not ×10: optimal darkness is below 3 lux and real readings run
     // to 0.4, so a plain integer would round the whole darkness check into
     // meaninglessness.
