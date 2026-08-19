@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { useAuth } from "@/firebase/auth";
-import { STEPS, readProgress } from "@/firebase/onboarding";
+import { STEPS, onboardedHere, routeFor } from "@/firebase/onboarding";
 
 /** Long enough for the 1100ms draw to finish and be seen. */
 const DRAW_DWELL_MS = 1750;
@@ -45,28 +45,9 @@ export function Splash() {
       return;
     }
     let live = true;
-    void readProgress(user.uid).then((p) => {
+    void routeFor(user.uid).then((to) => {
       if (!live) return;
-      // `start` — nothing recorded — used to land here as null, and null
-      // means the dashboard. That is how a brand-new account skipped the
-      // whole of onboarding and could never get back to it: sign in with
-      // Google, let the native chooser restart the activity, and the app
-      // comes back up here rather than at the screen that was about to be
-      // navigated to. Splash then waves them through, and because they are
-      // signed in from then on they never see the sign-in screen that would
-      // have sent them to setup. The permissions are never granted, and the
-      // first night fails in silence.
-      //
-      // It leans the way SignIn leans, and for the same reason: walking a
-      // finished account through setup once costs some taps, while waving a
-      // new one through costs every permission the night depends on. An
-      // account that finishes writes `done` and is never asked again.
-      //
-      // `unknown` still lands on the dashboard. That is a read that failed
-      // for somebody already inside, which is not evidence of anything.
-      const next = p.at === "step" ? p.route : p.at === "start" ? STEPS[0] : null;
-      console.log(`[splash] progress "${p.at}" → ${next ?? "/tonight"}`);
-      setResume(next);
+      setResume(to);
       setAsked(true);
     });
     return () => {
@@ -79,10 +60,15 @@ export function Splash() {
   useEffect(() => {
     if (!settled) return;
 
-    // On the cap, `resume` may not have arrived. Sending a signed-in user
-    // into the app is the right way to lose that race: they can still
-    // reach any step, whereas holding the splash gets them nowhere.
-    const to = user ? (resume ?? "/tonight") : "/sign-in";
+    // On the cap, `resume` may not have arrived — the Firestore read is
+    // the slow half and this is the two-second deadline for it. But
+    // whether this phone has been set up needs no network at all, so the
+    // race is lost towards setup rather than towards the dashboard. A
+    // finished phone still goes straight in; an unfinished one is no
+    // longer waved past on a slow morning.
+    const to = user
+      ? (resume ?? (onboardedHere() ? "/tonight" : STEPS[0]))
+      : "/sign-in";
 
     // Fades first, then leaves. `replace` so back never returns here.
     const go = setTimeout(() => navigate(to, { replace: true }), 500);

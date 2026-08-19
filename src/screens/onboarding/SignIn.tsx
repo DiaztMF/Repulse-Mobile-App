@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { COPY } from "@/lib/copy";
 import { useAuth } from "@/firebase/auth";
-import { readProgress } from "@/firebase/onboarding";
+import { routeFor } from "@/firebase/onboarding";
 
 /** Only decides whether the button may light up. Firebase does the
  *  real verification. */
@@ -112,35 +112,10 @@ export function SignIn() {
   };
 
   /**
-   * Where an authenticated user belongs. Signing out and back in used to
-   * drop everyone at the first onboarding step, so a finished account was
-   * marched through setup again every time.
-   *
-   * `start` means nothing was recorded, which here means the account has
-   * not been through setup — there is nowhere to send them but the
-   * beginning.
-   *
-   * `unknown` leans the same way, and that is the whole point of it being
-   * a separate answer. Someone who has just signed in and cannot be looked
-   * up is far more likely to be new than finished, and the two mistakes are
-   * not the same size: sending a finished user through setup again costs
-   * them some taps, while waving a new one through costs every permission
-   * the night depends on. The splash leans the other way, because by then
-   * they are already inside.
+   * Where an authenticated user belongs. Decided in `onboarding.ts`,
+   * because the splash asks the same question and the two answering it
+   * separately is how a new account fell between them.
    */
-  const destination = async (uid: string) => {
-    if (!uid) {
-      console.log("[auth] no uid — nothing to look up, sending to setup");
-      return "/permissions";
-    }
-    const p = await readProgress(uid);
-    const to = p.at === "step" ? p.route : p.at === "done" ? "/tonight" : "/permissions";
-    // Logged because every wrong landing so far has been unanswerable from
-    // the outside: the screen you end up on cannot tell you which of the
-    // four answers put you there.
-    console.log(`[auth] progress "${p.at}" → ${to}`);
-    return to;
-  };
 
   const run = async (fn: () => Promise<string | void>) => {
     setBusy(true);
@@ -150,7 +125,7 @@ export function SignIn() {
       const res = await fn();
       const uid = typeof res === "string" ? res : "";
       console.log("[auth] signed in, uid present:", Boolean(uid));
-      navigate(await destination(uid), { replace: true });
+      navigate(await routeFor(uid), { replace: true });
     } catch (e) {
       console.error("[auth]", e);
       setMessage(explain(codeOf(e), e));

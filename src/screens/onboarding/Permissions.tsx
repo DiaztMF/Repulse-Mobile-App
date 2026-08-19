@@ -1,6 +1,10 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Check } from "lucide-react";
+import { Capacitor } from "@capacitor/core";
+import { ForegroundService } from "@capawesome-team/capacitor-android-foreground-service";
+import { BatteryOptimization } from "@capawesome-team/capacitor-android-battery-optimization";
+import { RepulseMonitor } from "repulse-monitor";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
@@ -36,16 +40,96 @@ const PERMISSIONS: Permission[] = [
 ];
 
 /**
+ * What each row actually asks Android, and how it reads the answer back.
+ *
+ * Split from the copy above because these are the load-bearing half: for
+ * most of this project the screen kept its own `granted` map and ticked it
+ * on tap, so it showed three green checks on a phone that had granted
+ * nothing. A permissions screen that cannot be wrong is not a permissions
+ * screen, it is a picture of one.
+ *
+ * Battery optimisation is not a runtime permission and has no dialog to
+ * await — it opens Settings and the person may come back having done
+ * nothing, or having done it minutes later. So nothing here trusts what a
+ * request returned; every answer is read back from the system.
+ */
+const ASK: Record<string, { check: () => Promise<boolean>; request: () => Promise<unknown> }> = {
+  notifications: {
+    check: async () => (await ForegroundService.checkPermissions()).display === "granted",
+    request: () => ForegroundService.requestPermissions(),
+  },
+  bluetooth: {
+    check: async () => (await RepulseMonitor.checkPermissions()).nearby === "granted",
+    request: () => RepulseMonitor.requestPermissions(),
+  },
+  battery: {
+    // Inverted on purpose: the system answers "is optimisation on", and
+    // what this screen needs is "are we exempt".
+    check: async () => !(await BatteryOptimization.isBatteryOptimizationEnabled()).enabled,
+    request: () => BatteryOptimization.requestIgnoreBatteryOptimization(),
+  },
+};
+
+/**
  * O3 — System permissions. Requested one at a time, never in a burst:
  * a stack of dialogs with no explanation is how people learn to tap
  * "deny" reflexively.
+ *
+ * In a browser there is no Android to ask, and the whole flow still has to
+ * be walkable there — so off-device the buttons tick as they always did,
+ * and say so.
  */
 export function Permissions() {
   const navigate = useNavigate();
+  const native = Capacitor.isNativePlatform();
   const [granted, setGranted] = useState<Record<string, boolean>>({});
+  const [busy, setBusy] = useState<string | null>(null);
 
-  // TODO: wire to the Capacitor permission plugins.
-  const grant = (id: string) => setGranted((g) => ({ ...g, [id]: true }));
+  const refresh = useCallback(async () => {
+    if (!native) return;
+    const rows = await Promise.all(
+      PERMISSIONS.map(async (p) => {
+        try {
+          return [p.id, await ASK[p.id]!.check()] as const;
+        } catch (e) {
+          // A plugin that cannot answer is not a grant. Saying "allowed"
+          // here is the same lie the old screen told, arrived at politely.
+          console.error(`[permissions] ${p.id} unreadable`, e);
+          return [p.id, false] as const;
+        }
+      }),
+    );
+    setGranted(Object.fromEntries(rows));
+  }, [native]);
+
+  // Read on arrival, and again whenever the app comes back to the front.
+  // The battery row leaves for Settings and returns with no result of its
+  // own, so this is the only way its answer ever arrives.
+  useEffect(() => {
+    void refresh();
+    const onShow = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    document.addEventListener("visibilitychange", onShow);
+    return () => document.removeEventListener("visibilitychange", onShow);
+  }, [refresh]);
+
+  const grant = async (id: string) => {
+    if (!native) {
+      setGranted((g) => ({ ...g, [id]: true }));
+      return;
+    }
+    setBusy(id);
+    try {
+      await ASK[id]!.request();
+    } catch (e) {
+      // A refusal is an answer, not a crash. The row simply stays open.
+      console.error(`[permissions] ${id} refused`, e);
+    } finally {
+      setBusy(null);
+      await refresh();
+    }
+  };
 
   const done = PERMISSIONS.filter((p) => granted[p.id]).length;
   const all = done === PERMISSIONS.length;
@@ -64,6 +148,15 @@ export function Permissions() {
       <p className="mt-3 text-[var(--color-ash)]">
         Without the permissions below, monitoring stops on its own once the screen goes dark.
       </p>
+
+      {/* §12's rule applied to permissions: a browser has none of these to
+          grant, and a screen showing three green checks there would be
+          claiming a phone is ready when no phone is involved. */}
+      {!native && (
+        <p className="label mt-3 text-[var(--color-ash-dim)]">
+          Browser preview — nothing here is really granted
+        </p>
+      )}
 
       <div className="mt-8 space-y-3">
         {PERMISSIONS.map((p) => {
@@ -111,10 +204,11 @@ export function Permissions() {
                   <Button
                     variant="secondary"
                     register="system"
+                    disabled={busy === p.id}
                     className="h-9 w-auto px-5 text-[length:var(--text-label)]"
-                    onClick={() => grant(p.id)}
+                    onClick={() => void grant(p.id)}
                   >
-                    {p.action}
+                    {busy === p.id ? "Asking…" : p.action}
                   </Button>
                 )}
               </div>

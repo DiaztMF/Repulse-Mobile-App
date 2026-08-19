@@ -1,4 +1,4 @@
-import { registerPlugin } from "@capacitor/core";
+import { registerPlugin, type PermissionState } from "@capacitor/core";
 
 /**
  * The native half of the answer M0 forced.
@@ -44,6 +44,19 @@ export interface RepulseMonitorPlugin {
 
   /** Stands the alert down without dismissing the service. */
   clearAlert(): Promise<void>;
+
+  /**
+   * Nearby devices — BLUETOOTH_CONNECT and BLUETOOTH_SCAN, declared as one
+   * alias because Android asks for them in one dialog and there is no
+   * useful state where the app holds one and not the other.
+   *
+   * Provided by Capacitor's own Plugin base class from the `permissions`
+   * array on the Kotlin side; there is no method here to implement. `start`
+   * asks for these itself, but O3 has to be able to ask before anything is
+   * running, and to show the truth rather than a checkbox somebody ticked.
+   */
+  checkPermissions(): Promise<{ nearby: PermissionState }>;
+  requestPermissions(): Promise<{ nearby: PermissionState }>;
 }
 
 export const RepulseMonitor = registerPlugin<RepulseMonitorPlugin>("RepulseMonitor");

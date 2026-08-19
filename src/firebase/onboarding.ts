@@ -22,6 +22,36 @@ export const STEPS = [
 /** Written when O10 is dismissed. Anything not in STEPS means finished. */
 export const FINISHED = "done";
 
+/**
+ * Onboarding is finished *per device*, and this is the half that knows it.
+ *
+ * Everything setup produces lives on the phone: the Android permission
+ * grants, the battery-optimisation exemption, and the emergency contacts,
+ * which `lib/sos.ts` keeps in localStorage. Uninstalling wipes all three
+ * while Firestore goes on saying the account is finished — so an account
+ * marked done, opened on a new phone, was waved past the one screen that
+ * grants the permissions the night depends on and past the screen that
+ * saves the number the SOS message is sent to. It reached the dashboard
+ * with no permissions and nobody to call, and said nothing.
+ *
+ * localStorage is the right home precisely because uninstalling clears it.
+ * The Firestore record still answers "how far did this account get", which
+ * is what resuming needs; this answers "is this phone set up", which is
+ * what letting someone in needs.
+ */
+const DEVICE_KEY = "repulse.onboarded";
+
+export const onboardedHere = () => {
+  try {
+    return localStorage.getItem(DEVICE_KEY) === "1";
+  } catch {
+    // Private mode, or a WebView with storage disabled. Treating that as
+    // "not set up" costs a walk through setup; treating it as set up costs
+    // the permissions.
+    return false;
+  }
+};
+
 const ref = (uid: string) => doc(db!, "users", uid);
 
 /**
@@ -90,10 +120,38 @@ export async function reached(uid: string, route: string) {
 }
 
 export async function finish(uid: string) {
+  // First, and outside the Firestore guard: this is the record that
+  // decides whether this phone is set up, and it has to be written even
+  // when there is no project to write the other one to.
+  try {
+    localStorage.setItem(DEVICE_KEY, "1");
+  } catch {
+    // Then every launch walks setup again. Annoying, and still the safe
+    // way to be wrong.
+  }
   if (!db) return;
   try {
     await setDoc(ref(uid), { onboarding: FINISHED }, { merge: true });
   } catch {
     // As above.
   }
+}
+
+/**
+ * Where an account belongs on *this* phone. The one place that decides,
+ * because it used to be two: the splash and the sign-in screen disagreed
+ * about what "nothing recorded" meant, and a new account fell through the
+ * gap between them into the dashboard.
+ *
+ * The device flag is the authority on whether setup can be skipped. The
+ * Firestore record only says where to resume, which is a different
+ * question and the one it can actually answer.
+ */
+export async function routeFor(uid: string): Promise<string> {
+  if (onboardedHere()) return "/tonight";
+  if (!uid) return STEPS[0];
+  const p = await readProgress(uid);
+  const to = p.at === "step" ? p.route : STEPS[0];
+  console.log(`[onboarding] cloud "${p.at}", not set up on this device → ${to}`);
+  return to;
 }
