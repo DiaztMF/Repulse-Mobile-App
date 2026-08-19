@@ -1,5 +1,6 @@
 import type {
   Actuator,
+  BleEvent,
   BandCommand,
   BandConfig,
   BandStatus,
@@ -296,3 +297,46 @@ export function encodeBandConfig(c: BandConfig): Uint8Array {
 
 export const flushStart = () => utf8({ cmd: "flush_start" });
 export const flushAck = (lastSeq: number) => utf8({ cmd: "flush_ack", last_seq: lastSeq });
+
+/**
+ * §3.9 buffer entries are not `BleEvent`s. This is the translation, and
+ * the timestamps stay the band's own: PRD §11 forbids an offline event
+ * from arriving as though it had just happened.
+ */
+export function replay(entries: BufferEntry[]): BleEvent[] {
+  const out: BleEvent[] = [];
+  for (const e of entries) {
+    const at = e.epochS * 1000;
+    switch (e.type) {
+      case "anomaly":
+        out.push({ kind: "escalation", data: { at, stage: 1, reason: e.reason } });
+        break;
+      case "stage":
+        out.push({
+          kind: "escalation",
+          data: { at, stage: Math.min(4, e.stage) as 0 | 1 | 2 | 3 | 4, reason: e.reason },
+        });
+        break;
+      case "sos":
+        out.push({ kind: "sos", data: { at } });
+        break;
+      case "vitals":
+        // The buffer format carries no rr interval, and inventing one puts
+        // a made-up number into a chart that reads as measured. Zero is
+        // the absence, and every reader of rrMs already treats it so.
+        out.push({
+          kind: "vitals",
+          data: { at, bpm: e.bpm, rrMs: 0, worn: true, signalQuality: 0 },
+        });
+        out.push({ kind: "motion", data: { at, levelMg: e.levelMg } });
+        if (e.spo2Pct > 0)
+          out.push({ kind: "oxygen", data: { at, spo2Pct: e.spo2Pct, position: "unknown" } });
+        break;
+      case "link":
+        out.push({ kind: "link", device: "band", state: e.connected ? "connected" : "lost" });
+        break;
+    }
+  }
+  return out;
+}
+

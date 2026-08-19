@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useMonitor } from "@/state/monitor";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { GOOD, holdGate } from "@/lib/fitGate";
@@ -52,6 +53,13 @@ export function Calibration() {
   const [stable, setStable] = useState(false);
   const [left, setLeft] = useState(DURATION_S);
 
+  const { vitals, links } = useMonitor();
+  const attached = links.band === "connected";
+  // Read on a timer rather than rendered from, so a sample arriving every
+  // second does not re-run the interval that is measuring the hold.
+  const quality$ = useRef<number | null>(null);
+  quality$.current = vitals ? vitals.signalQuality : null;
+
   // One timer owns both the sample and the hold check.
   //
   // The first version kept the hold in its own effect keyed on `quality`.
@@ -60,15 +68,25 @@ export function Calibration() {
   // never elapse and the gate was impossible to pass. Tracking the start
   // in a local rather than across effects removes the race entirely.
   //
-  // TODO: read quality from the band status byte.
+  // §3.1 puts signal quality in the low nibble of the vitals status byte,
+  // and that is what this reads when there is a band to read it from. The
+  // ramp below is only for a phone with no band attached — without it the
+  // gate can never open, and the whole flow has to stay walkable on
+  // synthetic data.
+  //
+  // This matters more than a fit indicator usually would: §3.1 says every
+  // personal threshold for the next fortnight is measured against the
+  // baseline recorded here, and a loose band produces a baseline made of
+  // rubbish that then defines what counts as an anomaly.
   useEffect(() => {
     if (stage !== "fit") return;
     const t0 = Date.now();
     let goodSince: number | null = null;
 
     const id = setInterval(() => {
+      const live = attached ? quality$.current : null;
       const ramp = Math.min(GOOD + 3, (Date.now() - t0) / 450);
-      const q = Math.max(0, Math.round(ramp + (Math.random() * 2 - 1)));
+      const q = live ?? Math.max(0, Math.round(ramp + (Math.random() * 2 - 1)));
       setQuality(q);
 
       const next = holdGate(q, goodSince, Date.now());
@@ -77,7 +95,8 @@ export function Calibration() {
     }, 250);
 
     return () => clearInterval(id);
-  }, [stage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, attached]);
 
   useEffect(() => {
     if (stage !== "running") return;

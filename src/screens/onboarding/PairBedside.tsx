@@ -4,6 +4,7 @@ import { Check } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { DeviceArt } from "@/components/ui/DeviceArt";
+import { useMonitor } from "@/state/monitor";
 
 type Stage = "searching" | "connected";
 
@@ -26,23 +27,24 @@ const CAUSES = [
  */
 export function PairBedside() {
   const navigate = useNavigate();
-  const [stage, setStage] = useState<Stage>("searching");
+  const { connect, links } = useMonitor();
   const [slow, setSlow] = useState(false);
 
-  // TODO: replace with a real BLE scan and connect.
+  // The band's screen started the radio; this makes the page work when it
+  // is reached on its own, from a resumed setup. Scanning twice is not a
+  // second scan — the transport is already looking.
   useEffect(() => {
-    if (stage !== "searching") return;
-    const found = setTimeout(() => setStage("connected"), 2600);
-    return () => clearTimeout(found);
-  }, [stage]);
+    void connect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Real threshold is 30s; shortened here so the state is reachable
-  // while building.
+  // §6: the causes are offered once looking has stopped being reassuring.
   useEffect(() => {
-    const t = setTimeout(() => setSlow(true), 8000);
+    const t = setTimeout(() => setSlow(true), 30_000);
     return () => clearTimeout(t);
   }, []);
 
+  const stage: Stage = links.bedside === "connected" ? "connected" : "searching";
   const searching = stage === "searching";
 
   return (

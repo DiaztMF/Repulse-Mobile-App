@@ -267,3 +267,35 @@ by trying. Its instructions change to match wherever that turned out to be.
 Verified on an Oppo CPH2819, ColorOS 15.0.2, Android 15. Every other vendor
 in that table is still best-known wording, not something anyone has watched
 work.
+
+## The radio
+
+`src/ble/live.ts` is the real transport. It is deliberately thin, because
+everything it does is untestable without hardware: finding devices, staying
+attached, and putting bytes in the right order. What the bytes *mean* lives
+in `codec.ts`, checked against the contract's own worked examples by
+`npm run check:codec`, which needs no device at all.
+
+The split is the plan for integration day. When something disagrees with
+the firmware, a failing assertion names the characteristic and the field;
+what is left in `live.ts` is small enough to read in one sitting.
+
+Scanning filters on service UUID and never on name — §2 says a device whose
+advertisement omits the UUID is one this app will never find, and that is
+the contract the firmware is held to. The band's advertisement is read on
+every sighting, connected or not, because §2.1's whole purpose is to keep
+reporting the escalation stage after the connection has failed.
+
+`ACCESS_FINE_LOCATION` is capped at `maxSdkVersion="30"` in the plugin
+manifest. The BLE plugin declares it unbounded for the old scanning path;
+from Android 12 we hold `BLUETOOTH_SCAN` with `neverForLocation` instead,
+and an app asking for both is contradicting itself in the permission list
+of a product that watches people sleep.
+
+The transport is installed by `connect()` on the pairing screens, and after
+the first success the phone reconnects on its own at every launch — a band
+that has to be re-paired each evening is a band nobody wears by the third
+night. `play()` in the test panel swaps a mock back in, which is what turns
+the SAMPLE DATA badge on: `synthetic` is `transport instanceof
+MockTransport`, so the badge cannot disagree with what is actually feeding
+the screens.

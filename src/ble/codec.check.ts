@@ -27,6 +27,7 @@ import {
   decodeVitals,
   encodeActuator,
   encodeBandCommand,
+  replay,
 } from "./codec.ts";
 
 const at = 1_700_000_000_000;
@@ -174,5 +175,34 @@ const sync = JSON.parse(
   new TextDecoder().decode(encodeBandCommand({ cmd: "sync_time", epochS: 1_786_512_000 })),
 );
 assert.deepEqual(sync, { cmd: "sync_time", epoch_s: 1_786_512_000 });
+
+// --- §3.9 replay ----------------------------------------------------------
+//
+// The band's own timestamps have to survive into the timeline. PRD §11
+// forbids an offline event from arriving as though it had just happened,
+// and receipt times would stack a whole night into one second.
+const replayed = replay([
+  { epochS: 1_786_512_000, type: "stage", stage: 3, reason: "irregular" },
+  { epochS: 1_786_512_060, type: "vitals", bpm: 58, spo2Pct: 95, levelMg: 300 },
+  { epochS: 1_786_512_120, type: "sos" },
+]);
+assert.equal(replayed[0]!.kind, "escalation");
+assert.equal(replayed[0]!.data.at, 1_786_512_000_000, "the band's clock, not ours");
+assert.equal(replayed.filter((e) => e.kind === "vitals").length, 1);
+assert.equal(replayed.filter((e) => e.kind === "motion").length, 1, "one sample carries both");
+assert.equal(replayed.at(-1)!.kind, "sos");
+
+// A stage above the enum would widen the union and reach the actuator
+// matrix as a phase nothing handles.
+assert.equal(replay([{ epochS: 1, type: "stage", stage: 9, reason: "none" }])[0]!.data.stage, 4);
+
+// spo2 of 0 is "not valid" in §3.2, and a zero on an oxygen chart reads as
+// a person who stopped breathing.
+assert.equal(
+  replay([{ epochS: 1, type: "vitals", bpm: 60, spo2Pct: 0, levelMg: 0 }]).some(
+    (e) => e.kind === "oxygen",
+  ),
+  false,
+);
 
 console.log("ok — every characteristic decodes to the contract's own worked examples");

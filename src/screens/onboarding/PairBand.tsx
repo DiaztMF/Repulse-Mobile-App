@@ -1,54 +1,71 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Check, ChevronRight } from "lucide-react";
+import { Check } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { DeviceArt } from "@/components/ui/DeviceArt";
+import { useMonitor } from "@/state/monitor";
 
-type Stage = "searching" | "choosing" | "connecting" | "connected";
-
-const SERIAL = "4C0521039";
+type Stage = "searching" | "connecting" | "connected" | "no-radio";
 
 /**
- * O6 — Pair the band. Four stages in one screen rather than four routes:
- * the user is doing one thing, and a back button between stages would
- * offer to un-search.
+ * O6 — Pair the band. The stages are the radio's own link state, not a
+ * script: an earlier version ran on two timers and a hard-coded serial, so
+ * it reported a band connected on a phone with Bluetooth switched off.
+ *
+ * There is no "choose a device" step because there is nothing to choose
+ * between. §2 has the app scan by service UUID, so the only things that
+ * can answer are RePulse bands, and the first one to answer is the one on
+ * the wrist. A list of one is a question with no question in it.
  */
 export function PairBand() {
   const navigate = useNavigate();
-  const [stage, setStage] = useState<Stage>("searching");
+  const { connect, links } = useMonitor();
+  const [radio, setRadio] = useState<boolean | null>(null);
 
-  // TODO: replace with a real BLE scan and connect.
+  // Started once, on arrival. The transport keeps scanning until it finds
+  // something, so re-running this would only restart the search that is
+  // already going.
   useEffect(() => {
-    if (stage === "searching") {
-      const t = setTimeout(() => setStage("choosing"), 2200);
-      return () => clearTimeout(t);
-    }
-    if (stage === "connecting") {
-      const t = setTimeout(() => setStage("connected"), 1600);
-      return () => clearTimeout(t);
-    }
-  }, [stage]);
+    let live = true;
+    void connect().then((ok) => {
+      if (live) setRadio(ok);
+    });
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const stage: Stage =
+    radio === false
+      ? "no-radio"
+      : links.band === "connected"
+        ? "connected"
+        : links.band === "lost"
+          ? "connecting"
+          : "searching";
 
   const TITLE: Record<Stage, string> = {
     searching: "Searching for band…",
-    choosing: "Choose a device",
-    connecting: "Connecting",
+    connecting: "Reconnecting",
     connected: "Band connected",
+    "no-radio": "No Bluetooth",
   };
 
   const ART: Record<Stage, string> = {
     searching: "Band with its indicator light on",
-    choosing: "Underside of the band, serial number visible",
     connecting: "Phone and band reaching for each other",
     connected: "",
+    "no-radio": "Band with its indicator light on",
   };
 
   const SUB: Record<Stage, string> = {
     searching: "Make sure the band is switched on and within reach.",
-    choosing: "Confirm the serial number printed on the underside of the band.",
-    connecting: `Pairing with RePulse Band ${SERIAL}`,
-    connected: "Battery 87% · strong signal",
+    connecting: "The band answered and then went quiet. Still trying.",
+    connected: "Paired. It will reconnect on its own from now on.",
+    "no-radio":
+      "Switch Bluetooth on and come back. Nothing can be found until it is.",
   };
 
   return (
@@ -82,29 +99,12 @@ export function PairBand() {
             <span className="flex size-20 items-center justify-center rounded-full bg-[var(--color-pulse)]">
               <Check className="size-10 text-[var(--color-base)]" strokeWidth={2.5} />
             </span>
-            <p className="num mt-6 text-[length:var(--text-card)]">
-              RePulse Band {SERIAL}
-            </p>
+            <p className="num mt-6 text-[length:var(--text-card)]">RePulse Band</p>
           </div>
         ) : (
-          <DeviceArt
-            caption={ART[stage]}
-            annotate={stage === "choosing" ? "Serial number" : undefined}
-          />
+          <DeviceArt caption={ART[stage]} />
         )}
       </div>
-
-      {stage === "choosing" && (
-        <button
-          onClick={() => setStage("connecting")}
-          className="mt-8 flex w-full items-center justify-between rounded-[var(--radius-control)] bg-[var(--color-ivory)]/[0.06] px-5 py-4 text-left"
-        >
-          <span className="num text-[length:var(--text-body)]">
-            RePulse Band {SERIAL}
-          </span>
-          <ChevronRight className="size-5 text-[var(--color-ash)]" strokeWidth={1.5} />
-        </button>
-      )}
 
       <div className="flex-1" />
 

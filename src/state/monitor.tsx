@@ -12,6 +12,7 @@ import { Capacitor } from "@capacitor/core";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { RepulseMonitor } from "repulse-monitor";
 import { MockTransport, type Scenario } from "@/ble/mock";
+import { LiveTransport } from "@/ble/live";
 import { useAuth } from "@/firebase/auth";
 import { fetchInterventions, saveVerification } from "@/firebase/nights";
 import type {
@@ -98,7 +99,21 @@ export type Monitor = {
   listen: (fn: (e: BleEvent) => void) => () => void;
   play: (s: Scenario) => Promise<void>;
   stop: () => Promise<void>;
+  /**
+   * Swaps the mock out for the radio and begins scanning. Resolves false
+   * where there is no radio — a browser — so the pairing screens can say
+   * so rather than searching for something that can never arrive.
+   *
+   * Once it has succeeded the phone remembers, and every later launch
+   * connects on its own: a band that has to be re-paired each evening is
+   * a band nobody wears by the third night.
+   */
+  connect: () => Promise<boolean>;
 };
+
+/** Set once the radio has found something. Device-local, like everything
+ *  else pairing produces. */
+const PAIRED_KEY = "repulse.paired";
 
 const Ctx = createContext<Monitor | null>(null);
 
@@ -142,6 +157,27 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
   /** A session is running. Dims the interface, and is what the native
    *  service's lifetime follows. */
   const isNight = phase === "MONITORING" || phase === "COMFORT" || phase === "WIND_DOWN";
+
+  /**
+   * A phone that has paired once reconnects on its own from then on.
+   * Deliberately not awaited and deliberately quiet: a band that is out of
+   * range at breakfast is not an error, it is a band on a bedside table,
+   * and the link state already says so on every screen that cares.
+   */
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    try {
+      if (localStorage.getItem(PAIRED_KEY) !== "1") return;
+    } catch {
+      return;
+    }
+    const live = new LiveTransport();
+    setTransport(live);
+    void live.start().catch((e) => console.error("[ble] reconnect failed", e));
+    return () => {
+      void live.stop();
+    };
+  }, []);
 
   // --- events in ---------------------------------------------------------
 
@@ -366,6 +402,28 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
       send: async (a) => transport?.send(a),
       command: async (c) => transport?.command(c),
       listen: (fn) => transport?.on(fn) ?? (() => {}),
+      connect: async () => {
+        if (!Capacitor.isNativePlatform()) return false;
+        await transport?.stop();
+        const live = new LiveTransport();
+        setTransport(live);
+        try {
+          await live.start();
+          try {
+            localStorage.setItem(PAIRED_KEY, "1");
+          } catch {
+            // Then it scans again from the pairing screen next time.
+          }
+          return true;
+        } catch (e) {
+          // Bluetooth off, permission withdrawn, or a stack that will not
+          // initialise. The screens have to be able to say which of those
+          // it was, so it travels rather than being swallowed here.
+          console.error("[ble] radio would not start", e);
+          setTransport(null);
+          return false;
+        }
+      },
       play: async (s: Scenario) => {
         await transport?.stop();
         const next = new MockTransport(s);
