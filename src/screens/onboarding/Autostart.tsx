@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
+import { Capacitor } from "@capacitor/core";
+import { RepulseMonitor } from "repulse-monitor";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/Button";
 
@@ -16,11 +18,20 @@ const VENDORS: Record<string, { label: string; toggles: string[] }> = {
   oppo: { label: "Oppo", toggles: ["Auto-launch", "Allow background activity"] },
   vivo: { label: "Vivo", toggles: ["Auto-start", "High background power"] },
   realme: { label: "Realme", toggles: ["Auto-launch", "Allow background activity"] },
+  oneplus: { label: "OnePlus", toggles: ["Auto-launch", "Allow background activity"] },
   huawei: { label: "Huawei", toggles: ["Auto-launch", "Manage manually"] },
+  honor: { label: "Honor", toggles: ["Auto-launch", "Manage manually"] },
+  samsung: { label: "Samsung", toggles: ["Allow background activity"] },
 };
 
-// TODO: read from Capacitor Device.getInfo().
-const MANUFACTURER = "xiaomi";
+/**
+ * A phone whose settings screen we can open but whose toggle names we do
+ * not know. Naming the wrong toggle is worse than naming none — an
+ * instruction that does not match what is on the screen teaches people to
+ * distrust the rest of the setup — so this names none and describes the
+ * outcome instead.
+ */
+const UNKNOWN = { label: "", toggles: [] as string[] };
 
 /**
  * O4 — Vendor autostart. The number one cause of silent failure on
@@ -34,20 +45,48 @@ const MANUFACTURER = "xiaomi";
 export function Autostart() {
   const navigate = useNavigate();
   const [opened, setOpened] = useState(false);
+  const [vendor, setVendor] = useState<{ label: string; toggles: string[] } | null>(null);
 
-  const vendor = VENDORS[MANUFACTURER.toLowerCase()];
-
-  // Stock devices don't need this. Skip rather than show a step that
-  // does nothing.
+  // Asked of the phone, not inferred from a name. The manufacturer only
+  // chooses the wording; whether this screen appears at all is decided by
+  // whether one of the vendor activities actually resolves here. A stock
+  // phone resolves none and is skipped, which is what should have
+  // happened before instead of showing an Oppo owner a Xiaomi button.
   useEffect(() => {
-    if (!vendor) navigate("/setup-guide", { replace: true });
-  }, [vendor, navigate]);
+    let live = true;
+    const decide = async () => {
+      if (!Capacitor.isNativePlatform()) return null;
+      try {
+        const { manufacturer, available } = await RepulseMonitor.autostart();
+        if (!available) return null;
+        return VENDORS[manufacturer.toLowerCase()] ?? UNKNOWN;
+      } catch (e) {
+        // Skipping costs a step that may have been needed. Showing the
+        // wrong vendor's instructions costs the trust that carries the
+        // rest of setup.
+        console.error("[autostart] unavailable", e);
+        return null;
+      }
+    };
+    void decide().then((v) => {
+      if (!live) return;
+      if (!v) navigate("/setup-guide", { replace: true });
+      else setVendor(v);
+    });
+    return () => {
+      live = false;
+    };
+  }, [navigate]);
 
   if (!vendor) return null;
 
-  const openSettings = () => {
-    // TODO: intent-launcher to the vendor's autostart activity.
-    setOpened(true);
+  const openSettings = async () => {
+    try {
+      const { opened: did } = await RepulseMonitor.openAutostart();
+      setOpened(did);
+    } catch (e) {
+      console.error("[autostart] could not open settings", e);
+    }
   };
 
   return (
@@ -60,8 +99,9 @@ export function Autostart() {
       </h1>
 
       <p className="mt-4 text-[var(--color-ash)]">
-        Your phone is made by {vendor.label}. {vendor.label} shuts down apps
-        running in the background — including the one watching your sleep.
+        {vendor.label
+          ? `Your phone is made by ${vendor.label}. ${vendor.label} shuts down apps running in the background — including the one watching your sleep.`
+          : "Your phone shuts down apps running in the background — including the one watching your sleep."}
       </p>
       <p className="mt-3 text-[var(--color-ash)]">
         Without this, monitoring can stop in the middle of the night with no
@@ -72,14 +112,16 @@ export function Autostart() {
         size="lg"
         register="system"
         className="mt-8"
-        onClick={openSettings}
+        onClick={() => void openSettings()}
       >
-        Open {vendor.label} settings
+        {vendor.label ? `Open ${vendor.label} settings` : "Open settings"}
         <ChevronRight className="size-4" strokeWidth={2} />
       </Button>
 
       <p className="mt-8 text-[var(--color-ash)]">
-        On the screen that opens, find RePulse and turn on:
+        {vendor.toggles.length
+          ? "On the screen that opens, find RePulse and turn on:"
+          : "On the screen that opens, find RePulse and allow it to keep running in the background."}
       </p>
       <ul className="mt-3 space-y-2">
         {vendor.toggles.map((t) => (

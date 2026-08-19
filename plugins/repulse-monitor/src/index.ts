@@ -57,6 +57,24 @@ export interface RepulseMonitorPlugin {
    */
   checkPermissions(): Promise<{ nearby: PermissionState }>;
   requestPermissions(): Promise<{ nearby: PermissionState }>;
+
+  /**
+   * O4. `available` means one of the known vendor autostart screens
+   * actually resolves on this phone — asked of the package manager, not
+   * guessed from `manufacturer`, because the activity names move between
+   * OS versions and a manufacturer table said "Xiaomi" on an Oppo for as
+   * long as it existed.
+   *
+   * `manufacturer` is only for the wording; it decides nothing.
+   */
+  autostart(): Promise<{ manufacturer: string; available: boolean }>;
+
+  /**
+   * Opens that screen, or the app's own settings page when there is none.
+   * `opened` is what actually happened, and the screen gates its "I have
+   * turned it on" button on it.
+   */
+  openAutostart(): Promise<{ opened: boolean; vendor: boolean }>;
 }
 
 export const RepulseMonitor = registerPlugin<RepulseMonitorPlugin>("RepulseMonitor");
