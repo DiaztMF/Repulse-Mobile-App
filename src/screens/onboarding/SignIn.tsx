@@ -129,10 +129,17 @@ export function SignIn() {
    * they are already inside.
    */
   const destination = async (uid: string) => {
-    if (!uid) return "/permissions";
+    if (!uid) {
+      console.log("[auth] no uid — nothing to look up, sending to setup");
+      return "/permissions";
+    }
     const p = await readProgress(uid);
-    if (p.at === "step") return p.route;
-    return p.at === "done" ? "/tonight" : "/permissions";
+    const to = p.at === "step" ? p.route : p.at === "done" ? "/tonight" : "/permissions";
+    // Logged because every wrong landing so far has been unanswerable from
+    // the outside: the screen you end up on cannot tell you which of the
+    // four answers put you there.
+    console.log(`[auth] progress "${p.at}" → ${to}`);
+    return to;
   };
 
   const run = async (fn: () => Promise<string | void>) => {
@@ -142,6 +149,7 @@ export function SignIn() {
       // `replace` so Android back does not return a signed-in user here.
       const res = await fn();
       const uid = typeof res === "string" ? res : "";
+      console.log("[auth] signed in, uid present:", Boolean(uid));
       navigate(await destination(uid), { replace: true });
     } catch (e) {
       console.error("[auth]", e);

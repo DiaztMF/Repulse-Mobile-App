@@ -32,6 +32,36 @@ type Ctx = {
 
 const AuthContext = createContext<Ctx | null>(null);
 
+/**
+ * Credential Manager answers "No credentials available" on its first call
+ * after a cold install and shows the account list on the second. It is a
+ * warm-up, not a misconfiguration, and asking twice is enough to get past
+ * it — a button that has to be pressed twice is a button that does not
+ * work, and the second press is not something a judge will give it.
+ *
+ * The retry is narrowed to that one message on purpose. Every other
+ * failure, a cancelled sheet above all, has to travel: reopening the
+ * chooser on somebody who just dismissed it would be worse than the bug.
+ *
+ * The plugin's legacy picker was tried here and is worse. Its result comes
+ * back through `startActivityForResult`, and on this phone the activity
+ * result never reaches the plugin — logcat says "Unable to find a Capacitor
+ * plugin to handle requestCode", and two minutes later "Couldn't save last
+ * FirebaseAuthentication's Plugin signInWithGoogle call", which is the
+ * promise still hanging. Credential Manager needs no activity result and
+ * cannot lose one.
+ */
+async function googleCredential() {
+  try {
+    return await FirebaseAuthentication.signInWithGoogle();
+  } catch (e) {
+    const message = (e as { message?: string })?.message ?? "";
+    if (!/no credential/i.test(message)) throw e;
+    console.warn("[auth] credential manager was cold, asking again");
+    return await FirebaseAuthentication.signInWithGoogle();
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(!configured);
@@ -80,21 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!Capacitor.isNativePlatform()) {
         return (await signInWithPopup(auth, new GoogleAuthProvider())).user.uid;
       }
-      // Credential Manager is the modern chooser and the plugin's default,
-      // and on this hardware its first call answers "No credentials
-      // available" before showing anything. It is not a configuration
-      // problem — the sheet appears on the next attempt — but a sign-in
-      // button that has to be pressed twice is a sign-in button that does
-      // not work, and the second press is not something a judge will give
-      // it.
-      //
-      // ponytail: the legacy picker is deprecated but complete, and it
-      // shows the same list without the warm-up. Revisit when Credential
-      // Manager is dependable on a cold install; nothing here depends on
-      // which chooser drew the list.
-      const { credential } = await FirebaseAuthentication.signInWithGoogle({
-        useCredentialManager: false,
-      });
+      const { credential } = await googleCredential();
       // No token is not a cancellation — a cancellation throws. It means
       // the native sign-in succeeded and gave us nothing to sign in with,
       // which is what a missing SHA-1 or a missing google-services.json

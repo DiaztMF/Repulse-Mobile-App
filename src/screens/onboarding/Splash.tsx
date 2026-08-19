@@ -64,7 +64,9 @@ export function Splash() {
       //
       // `unknown` still lands on the dashboard. That is a read that failed
       // for somebody already inside, which is not evidence of anything.
-      setResume(p.at === "step" ? p.route : p.at === "start" ? STEPS[0] : null);
+      const next = p.at === "step" ? p.route : p.at === "start" ? STEPS[0] : null;
+      console.log(`[splash] progress "${p.at}" → ${next ?? "/tonight"}`);
+      setResume(next);
       setAsked(true);
     });
     return () => {
