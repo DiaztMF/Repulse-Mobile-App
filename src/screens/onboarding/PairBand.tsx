@@ -108,7 +108,17 @@ export function PairBand() {
 
       <div className="flex-1" />
 
-      {(stage === "connected" || stage === "no-radio") && (
+      {/* The way out is offered while searching too, and that is the whole
+          point of it. It used to appear only for `no-radio` — Bluetooth off
+          or permission refused — which left the one case that actually
+          strands somebody with no exit at all: a healthy radio scanning for
+          a band that is switched off, on a bench, or not built yet. The
+          screen searched forever and setup could not be finished, because
+          the drawer does not exist until onboarding is done.
+
+          A band nobody can find is a reason to carry on without one, not a
+          reason to trap the person holding the phone. */}
+      {stage !== "connecting" && (
         <Button
           size="lg"
           register={stage === "connected" ? "system" : undefined}
