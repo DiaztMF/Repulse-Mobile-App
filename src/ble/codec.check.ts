@@ -179,6 +179,16 @@ assert.equal(raw.aroma.duration_s, 60, "the conformance path sends what it says 
 const off = JSON.parse(new TextDecoder().decode(encodeActuator({ kind: "aroma", seconds: 0 }, 1)));
 assert.equal(off.aroma.on, false);
 
+// §4.4 fade_s. The night keeps the ramp; the test panel needs it gone, and
+// the default has to survive that being possible.
+const fade = JSON.parse(new TextDecoder().decode(encodeActuator({ kind: "noise", level: 2 }, 3)));
+assert.equal(fade.white_noise.fade_s, 30, "a night ramps up over half a minute");
+const bench = JSON.parse(
+  new TextDecoder().decode(encodeActuator({ kind: "noise", level: 3, fadeS: 0 }, 4)),
+);
+assert.equal(bench.white_noise.fade_s, 0, "calibration hears the step it just asked for");
+assert.equal(bench.white_noise.volume, 3, "and at the level it asked for");
+
 const flash = JSON.parse(
   new TextDecoder().decode(encodeActuator({ kind: "light", mode: "white-flash" }, 2)),
 );

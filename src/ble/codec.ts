@@ -305,7 +305,7 @@ export function encodeActuator(
     case "noise":
       return utf8({
         command_id: commandId,
-        white_noise: { on: a.level > 0, volume: a.level, track: 2, fade_s: 30 },
+        white_noise: { on: a.level > 0, volume: a.level, track: 2, fade_s: a.fadeS ?? 30 },
       });
     case "light": {
       const light =

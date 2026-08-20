@@ -116,7 +116,11 @@ export type BleEvent =
 
 /** §4.3 `0003` on the bedside. The only commands that exist. */
 export type Actuator =
-  | { kind: "noise"; level: 0 | 1 | 2 | 3 }
+  /** `fadeS` overrides §4.4's thirty-second ramp. The night wants the
+   *  ramp — sound arriving at full volume wakes the person it was sent to
+   *  settle. Calibration wants none of it, because a volume step that
+   *  takes half a minute to be heard cannot be judged by ear. */
+  | { kind: "noise"; level: 0 | 1 | 2 | 3; fadeS?: number }
   | { kind: "light"; mode: "off" | "sunset" | "amber-dim" | "white-flash" }
   /** §5.3 caps this at 20-30s per event. The app enforces it and so does
    *  the bedside firmware — independently, because one of them will be

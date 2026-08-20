@@ -35,7 +35,11 @@ type Row = {
   key: string;
   label: string;
   note: string;
-  act: (on: boolean) => Promise<void>;
+  /** Positions the button cycles through, counting off. Two unless a
+   *  row has something to calibrate — white noise has four, because
+   *  "is it loud enough" cannot be answered at one fixed volume. */
+  steps?: number;
+  act: (step: number) => Promise<void>;
   momentary?: boolean;
 };
 
@@ -48,7 +52,7 @@ export function TestPanel() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const monitor = useMonitor();
-  const [on, setOn] = useState<Record<string, boolean>>({});
+  const [on, setOn] = useState<Record<string, number>>({});
   const [aromaAllowed, setAromaAllowed] = useState(false);
   const [dataMsg, setDataMsg] = useState<string | null>(null);
   const [gateMsg, setGateMsg] = useState<string | null>(null);
@@ -121,26 +125,29 @@ export function TestPanel() {
     {
       key: "noise",
       label: "White noise",
-      note: "track 2, volume 2, 30s fade",
-      act: (on) => monitor.send({ kind: "noise", level: on ? 2 : 0 }),
+      note: "tap to step 0 → 3 · volume 0, 10, 20, 30 · no fade",
+      steps: 4,
+      // No ramp here on purpose: a step you cannot hear for thirty
+      // seconds is a step nobody can calibrate against.
+      act: (n) => monitor.send({ kind: "noise", level: n as 0 | 1 | 2 | 3, fadeS: 0 }),
     },
     {
       key: "light",
       label: "Amber light",
       note: "2200K, 10% brightness",
-      act: (on) => monitor.send({ kind: "light", mode: on ? "amber-dim" : "off" }),
+      act: (n) => monitor.send({ kind: "light", mode: n ? "amber-dim" : "off" }),
     },
     {
       key: "aroma",
       label: "Aroma",
       note: "25s, capped at 30s in firmware",
-      act: (on) => monitor.send({ kind: "aroma", seconds: on ? 25 : 0 }),
+      act: (n) => monitor.send({ kind: "aroma", seconds: n ? 25 : 0 }),
     },
     {
       key: "siren",
       label: "Siren",
       note: "emergency polarity",
-      act: (on) => monitor.send({ kind: "siren", on }),
+      act: (n) => monitor.send({ kind: "siren", on: n > 0 }),
     },
   ];
 
@@ -162,10 +169,10 @@ export function TestPanel() {
   ];
 
   const toggle = async (a: Row) => {
-    const next = !on[a.key];
+    const next = ((on[a.key] ?? 0) + 1) % (a.steps ?? 2);
     try {
       await a.act(next);
-      setOn((s) => ({ ...s, [a.key]: a.momentary ? false : next }));
+      setOn((s) => ({ ...s, [a.key]: a.momentary ? 0 : next }));
       setActMsg(null);
     } catch (e) {
       setActMsg(`${a.label}: ${e instanceof Error ? e.message : String(e)}`);
@@ -194,7 +201,7 @@ export function TestPanel() {
           on[a.key] ? "text-[var(--color-pulse)]" : "text-[var(--color-ash-dim)]",
         )}
       >
-        {on[a.key] ? "On" : "Off"}
+        {!on[a.key] ? "Off" : (a.steps ?? 2) > 2 ? `Level ${on[a.key]}` : "On"}
       </span>
     </button>
   );
@@ -220,7 +227,7 @@ export function TestPanel() {
         {/* The only live view of the bedside's own sensors anywhere in the
             app — every other place the room appears is reading a stored
             night, so a sensor that had stopped reporting looked exactly
-            like a night not yet recorded. §4.1 sends this once a minute:
+            like a night not yet recorded. §4.1 sends this every five seconds:
             a number that has not moved for 30 seconds is not a dead one.
             A dash for temperature means no DHT is answering. */}
         <h2 className="label mt-8 text-[var(--color-ash)]">Bedside sensors</h2>
@@ -241,7 +248,7 @@ export function TestPanel() {
             </div>
             <p className="mt-3 text-[length:var(--text-meta)] text-[var(--color-ash)]">
               Last packet <span className="num">{Math.round((now - monitor.room.at) / 1000)}</span>s
-              ago · every 10s · snoring{" "}
+              ago · every 5s · snoring{" "}
               {snoring == null ? "not reported" : snoring ? "yes" : "no"}
             </p>
           </>

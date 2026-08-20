@@ -1,6 +1,6 @@
 # RePulse — Kontrak BLE GATT
 
-**Versi:** 2.6 · 20 Agustus 2026
+**Versi:** 2.7 · 20 Agustus 2026
 **Untuk:** pengembang firmware smartband dan bedside
 **Balasan diminta pada:** formulir di Bagian 7
 
@@ -280,7 +280,7 @@ Panjang paket 182 byte, pas di MTU 185. Pada 250 Hz: 500 byte/dtk ≈ 2,8 notifi
 
 | UUID | Data | Tipe | Frekuensi |
 |---|---|---|---|
-| `0001` | Sensor kamar | Notify | tiap 10 dtk (lihat catatan) |
+| `0001` | Sensor kamar | Notify | tiap 5 dtk (lihat catatan) |
 | `0002` | Flag pola dengkuran | Notify | saat terdeteksi |
 | `0003` | Kontrol aktuator | Write | saat diperlukan |
 | `0004` | Konfirmasi perintah selesai | **Indicate** | saat terjadi |
@@ -294,7 +294,7 @@ Panjang paket 182 byte, pas di MTU 185. Pada 250 Hz: 500 byte/dtk ≈ 2,8 notifi
 | 4–7 | `uint32` | `lux_x100` | lux × 100. 0,4 → `40` |
 | 8 | `uint8` | `db` | desibel, dibulatkan |
 
-Angka frekuensi di tabel adalah **batas bawah kesegaran**, bukan batas atas laju. Bedside dicolok ke listrik, jadi seluruh paket dikirim tiap 10 detik: satu menit membuat sensor mustahil diperiksa di meja — tangan menutup BH1750, layar tidak berubah, dan sensor sehat disimpulkan mati. Suhu dan RH tetap dibaca dari DHT tiap 5 menit; yang lebih rapat adalah pengirimannya, bukan pembacaannya.
+Angka frekuensi di tabel adalah **batas bawah kesegaran**, bukan batas atas laju. Bedside dicolok ke listrik, jadi seluruh paket dikirim tiap 5 detik: satu menit membuat sensor mustahil diperiksa di meja — tangan menutup BH1750, layar tidak berubah, dan sensor sehat disimpulkan mati. Suhu dan RH tetap dibaca dari DHT tiap 5 menit; yang lebih rapat adalah pengirimannya, bukan pembacaannya.
 
 Lux dikali 100 karena ambang gelap optimal adalah `< 3 lux` dan pembacaan nyata bisa `0,4 lux`. Integer polos akan membulatkannya jadi 0 dan membuat seluruh verifikasi kegelapan tidak berarti. `uint32` supaya pembacaan siang tidak meluap.
 
@@ -326,6 +326,8 @@ JSON UTF-8. Field yang tidak disertakan berarti biarkan apa adanya.
 ```
 
 `light.mode` — `sunset` · `sunrise` · `amber` · `alert` · `off`
+
+`white_noise.fade_s` — detik untuk merayap dari volume saat ini ke volume yang diminta, dan berlaku ke dua arah: menyalakan merayap naik dari senyap, mematikan merayap turun lalu baru menghentikan trek. Ini bukan hiasan — white noise dikirim justru ketika seseorang mulai terlelap, dan bunyi yang muncul penuh seketika membangunkan orang yang hendak ditenangkannya. **`fade_s = 0` berarti seketika**, dan itulah yang dipakai Panel Uji: langkah volume yang baru terdengar setengah menit kemudian tidak bisa dinilai dengan telinga.
 
 **Batas keselamatan wajib ditegakkan firmware, bukan hanya aplikasi:**
 
