@@ -487,9 +487,22 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
       listen: (fn) => transport?.on(fn) ?? (() => {}),
       connect: async () => {
         if (!Capacitor.isNativePlatform()) return false;
-        await transport?.stop();
-        const live = new LiveTransport();
-        setTransport(live);
+        /* A radio that is already up is left alone.
+         *
+         * This used to tear the transport down and build a new one every
+         * time, and three screens ask for it on mount — so every visit to
+         * the conformance screen dropped the link and rebuilt it a second
+         * later, re-bonding and re-subscribing to every characteristic.
+         * From the bedside it read as a disconnect/connect pair per
+         * navigation, which looked like a firmware fault and was not one.
+         *
+         * `start()` is idempotent, so a transport that exists but never
+         * came up still gets its chance here. */
+        const live = transport instanceof LiveTransport ? transport : new LiveTransport();
+        if (live !== transport) {
+          await transport?.stop();
+          setTransport(live);
+        }
         try {
           await live.start();
           try {

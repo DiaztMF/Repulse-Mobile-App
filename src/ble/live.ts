@@ -240,6 +240,16 @@ export class LiveTransport implements BleTransport {
     } catch (e) {
       console.error(`[ble] ${device} would not attach`, e);
       delete this.id[device];
+      /* The link is open by this point — `connect` is the first thing
+       * `attach` does, and only what follows it can fail. Leaving it open
+       * wedges both ends: the device reports an attached app that is
+       * listening to nothing and stops advertising, so the retry never
+       * sees it again, and its serial log flatly contradicts the phone. */
+      try {
+        await BleClient.disconnect(r.device.deviceId);
+      } catch {
+        // Already gone, which is the state we wanted anyway.
+      }
       this.link(device, "lost");
     }
   }

@@ -270,9 +270,15 @@ export function Conformance() {
           </p>
         )}
 
+        {/* Named states, not a single sentence. "No device connected yet"
+            covers a radio that never started, one still searching, and one
+            that attached and fell off — three different faults with three
+            different fixes, and hours went into telling them apart from
+            the outside. `idle` on both is a transport that was never
+            handed the radio. */}
         {!synthetic && !ready && (
           <p className="mt-4 text-[length:var(--text-meta)] text-[var(--color-ash)]">
-            No device connected yet.
+            No device connected yet — band {links.band}, bedside {links.bedside}.
           </p>
         )}
 
