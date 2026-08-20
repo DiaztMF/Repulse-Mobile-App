@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -21,19 +21,23 @@ const SCENARIOS: [Scenario, string][] = [
   ["dropout-flush", "Dropout, then buffer flush"],
 ];
 
-type Actuator = { key: string; label: string; note: string };
-
-const BEDSIDE: Actuator[] = [
-  { key: "noise", label: "White noise", note: "track 2, volume 4" },
-  { key: "light", label: "Amber light", note: "2200K, 30 lux" },
-  { key: "aroma", label: "Aroma", note: "25s, capped in firmware" },
-  { key: "siren", label: "Siren", note: "emergency polarity" },
-];
-
-const BAND: Actuator[] = [
-  { key: "soft", label: "Soft vibration", note: "stage 2 pattern" },
-  { key: "hard", label: "Hard vibration", note: "stage 3 pattern" },
-];
+/**
+ * `act` is the entire point of a row, and it was missing.
+ *
+ * These six buttons flipped a label to "On" and sent nothing — `toggle`
+ * only ever wrote to local state. A panel whose stated job is "drives each
+ * actuator directly" was wired to no actuator at all, which is the worst
+ * kind of test tool: one that reports success without doing anything.
+ *
+ * `momentary` is for a vibration, which has no "off" to return to.
+ */
+type Row = {
+  key: string;
+  label: string;
+  note: string;
+  act: (on: boolean) => Promise<void>;
+  momentary?: boolean;
+};
 
 /**
  * D4 — Test panel. The only way to demonstrate the escalation ladder
@@ -51,6 +55,24 @@ export function TestPanel() {
   const [verdict, setVerdict] = useState<m0.Verdict | null>(null);
   const [checking, setChecking] = useState(m0.startedAt() !== null);
   const [nativeMsg, setNativeMsg] = useState<string | null>(null);
+  const [actMsg, setActMsg] = useState<string | null>(null);
+  /* Age, not just the reading. A number that is not moving and a radio
+   * that stopped delivering look identical on screen, and telling them
+   * apart by staring harder is not possible — the whole afternoon went
+   * into a log line that had exactly this problem. */
+  const [now, setNow] = useState(Date.now());
+  const [snoring, setSnoring] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const listen = monitor.listen;
+  useEffect(
+    () => listen((e) => e.kind === "snore" && setSnoring(e.data.flagged)),
+    [listen],
+  );
 
   const minutes = (ms: number) => `${Math.round(ms / 60000)} min`;
 
@@ -90,12 +112,70 @@ export function TestPanel() {
     }
   };
 
-  const toggle = (k: string) => setOn((s) => ({ ...s, [k]: !s[k] }));
+  /* The notes say what is actually sent, not what somebody hoped was
+   * sent. "volume 4" and "30 lux" were both wrong against `encodeActuator`
+   * — the levels only go to 3, and the amber preset carries brightness,
+   * never lux. A test panel that misdescribes its own command turns a
+   * firmware bug and a copy bug into the same symptom. */
+  const BEDSIDE: Row[] = [
+    {
+      key: "noise",
+      label: "White noise",
+      note: "track 2, volume 2, 30s fade",
+      act: (on) => monitor.send({ kind: "noise", level: on ? 2 : 0 }),
+    },
+    {
+      key: "light",
+      label: "Amber light",
+      note: "2200K, 10% brightness",
+      act: (on) => monitor.send({ kind: "light", mode: on ? "amber-dim" : "off" }),
+    },
+    {
+      key: "aroma",
+      label: "Aroma",
+      note: "25s, capped at 30s in firmware",
+      act: (on) => monitor.send({ kind: "aroma", seconds: on ? 25 : 0 }),
+    },
+    {
+      key: "siren",
+      label: "Siren",
+      note: "emergency polarity",
+      act: (on) => monitor.send({ kind: "siren", on }),
+    },
+  ];
 
-  const Item = ({ a, disabled }: { a: Actuator; disabled?: boolean }) => (
+  const BAND: Row[] = [
+    {
+      key: "soft",
+      label: "Soft vibration",
+      note: "stage 2 pattern, 800ms",
+      momentary: true,
+      act: () => monitor.command({ cmd: "vibrate", pattern: "soft", durationMs: 800 }),
+    },
+    {
+      key: "hard",
+      label: "Hard vibration",
+      note: "stage 3 pattern, 2s",
+      momentary: true,
+      act: () => monitor.command({ cmd: "vibrate", pattern: "hard", durationMs: 2000 }),
+    },
+  ];
+
+  const toggle = async (a: Row) => {
+    const next = !on[a.key];
+    try {
+      await a.act(next);
+      setOn((s) => ({ ...s, [a.key]: a.momentary ? false : next }));
+      setActMsg(null);
+    } catch (e) {
+      setActMsg(`${a.label}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+
+  const Item = ({ a, disabled }: { a: Row; disabled?: boolean }) => (
     <button
       disabled={disabled}
-      onClick={() => toggle(a.key)}
+      onClick={() => void toggle(a)}
       className={cn(
         "flex w-full items-center justify-between gap-4 rounded-[var(--radius-control)] px-4 py-4 text-left",
         on[a.key] ? "bg-[var(--color-raised)]" : "bg-[var(--color-surface)]",
@@ -129,6 +209,48 @@ export function TestPanel() {
           here is recorded as a real event.
         </p>
 
+        {/* Without this the panel is silent about the one thing that
+            decides whether any button below can work: a command sent to a
+            transport that is not connected resolves quietly, so an
+            unplugged bedside and a broken actuator look identical. */}
+        <p className="label mt-4 text-[var(--color-ash)]">
+          bedside {monitor.links.bedside} · band {monitor.links.band}
+        </p>
+
+        {/* The only live view of the bedside's own sensors anywhere in the
+            app — every other place the room appears is reading a stored
+            night, so a sensor that had stopped reporting looked exactly
+            like a night not yet recorded. §4.1 sends this once a minute:
+            a number that has not moved for 30 seconds is not a dead one.
+            A dash for temperature means no DHT is answering. */}
+        <h2 className="label mt-8 text-[var(--color-ash)]">Bedside sensors</h2>
+        {monitor.room ? (
+          <>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              {[
+                ["BH1750", `${monitor.room.lux} lx`],
+                ["INMP441", `${monitor.room.db} dB`],
+                ["DHT11 temp", monitor.room.tempC != null ? `${monitor.room.tempC} °C` : "—"],
+                ["DHT11 RH", monitor.room.humidityPct != null ? `${monitor.room.humidityPct} %` : "—"],
+              ].map(([k, v]) => (
+                <div key={k} className="rounded-[var(--radius-control)] bg-[var(--color-surface)] p-4">
+                  <p className="num text-[length:var(--text-title)]">{v}</p>
+                  <p className="label mt-1 text-[var(--color-ash)]">{k}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 text-[length:var(--text-meta)] text-[var(--color-ash)]">
+              Last packet <span className="num">{Math.round((now - monitor.room.at) / 1000)}</span>s
+              ago · every 10s · snoring{" "}
+              {snoring == null ? "not reported" : snoring ? "yes" : "no"}
+            </p>
+          </>
+        ) : (
+          <p className="mt-2 text-[length:var(--text-meta)] text-[var(--color-ash)]">
+            Nothing reported yet.
+          </p>
+        )}
+
         <h2 className="label mt-8 text-[var(--color-ash)]">Bedside unit</h2>
         <div className="mt-3 space-y-2">
           {BEDSIDE.map((a) => (
@@ -149,6 +271,12 @@ export function TestPanel() {
             Allow aroma during this demo
           </span>
         </label>
+
+        {actMsg && (
+          <p className="mt-3 text-[length:var(--text-meta)] text-[var(--color-band-poor)]">
+            {actMsg}
+          </p>
+        )}
 
         <h2 className="label mt-8 text-[var(--color-ash)]">Band</h2>
         <div className="mt-3 space-y-2">
