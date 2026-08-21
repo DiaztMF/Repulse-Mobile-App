@@ -252,7 +252,7 @@ export function Conformance() {
 
   return (
     <div className="pb-8">
-      <PageHeader title="GATT conformance" showMenu right={`${passed}/${TESTS.length}`} />
+      <PageHeader sample={false} title="GATT conformance" showMenu right={`${passed}/${TESTS.length}`} />
 
       <div className="px-5">
         <p className="text-[var(--color-ash)]">

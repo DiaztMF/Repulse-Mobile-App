@@ -1,3 +1,7 @@
+/* Relative, with the extension: node's type stripper runs the check files
+ * and cannot resolve Vite's `@` alias for a value import. Same reason
+ * night.ts reaches for ../lib/screening.ts. */
+import { DEFAULT_NOISE_LEVEL, type NoiseLevel } from "../lib/noise.ts";
 import type { Actuator } from "@/ble/transport";
 
 /**
@@ -262,7 +266,13 @@ export function reduce(m: Machine, i: Input): Machine {
  * be woken. So at the top of the ladder every actuator does the opposite
  * of its day job.
  */
-export function actuatorsFor(phase: Phase): Actuator[] {
+export function actuatorsFor(
+  phase: Phase,
+  /* Only COMFORT honours it. SOS_SENT stays at 3 whatever the sleeper
+   * prefers — that row exists to wake a household, and a volume nobody
+   * remembers setting is not allowed to quieten it. */
+  comfortNoise: NoiseLevel = DEFAULT_NOISE_LEVEL,
+): Actuator[] {
   switch (phase) {
     case "ALERT":
       return [
@@ -282,7 +292,7 @@ export function actuatorsFor(phase: Phase): Actuator[] {
       // it on during COMFORT defeats the intervention it belongs to —
       // this row is not a typo, it is the finding.
       return [
-        { kind: "noise", level: 2 },
+        { kind: "noise", level: comfortNoise },
         { kind: "aroma", seconds: 25 },
         { kind: "light", mode: "off" },
       ];

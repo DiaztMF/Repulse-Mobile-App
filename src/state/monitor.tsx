@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { Capacitor } from "@capacitor/core";
+import { readNoiseLevel } from "@/lib/noise";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { RepulseMonitor } from "repulse-monitor";
 import { MockTransport, type Scenario } from "@/ble/mock";
@@ -337,7 +338,7 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
     );
     const command =
       pick === "white_noise"
-        ? ({ kind: "noise", level: 2 } as const)
+        ? ({ kind: "noise", level: readNoiseLevel() } as const)
         : pick === "aroma"
           ? ({ kind: "aroma", seconds: 25 } as const)
           : ({ kind: "light", mode: "off" } as const);
@@ -345,7 +346,7 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
     dispatch({
       t: "chose",
       intervention: pick,
-      ...(pick === "white_noise" ? { volume: 2, track: 2 } : {}),
+      ...(pick === "white_noise" ? { volume: readNoiseLevel(), track: 2 } : {}),
     });
   }, [transport, phase, machine.comfort, scores]);
 
@@ -460,7 +461,7 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
     // Rule 3 lives entirely in `actuatorsFor`. Sending the whole set on
     // every phase change rather than diffing means the bedside can never
     // be left holding a command from the state before an emergency.
-    for (const a of actuatorsFor(phase)) void transport.send(a);
+    for (const a of actuatorsFor(phase, readNoiseLevel())) void transport.send(a);
   }, [transport, phase]);
 
   // --- controls ----------------------------------------------------------

@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/shell/PageHeader";
 import { useTheme } from "@/state/theme";
 import { COPY } from "@/lib/copy";
 import { cn } from "@/lib/cn";
+import { readNoiseLevel, writeNoiseLevel, type NoiseLevel } from "@/lib/noise";
 
 /** Rendered as a plain row, not a button. Editing thresholds needs the
  *  firmware config write, so a tappable row here would promise something
@@ -73,6 +74,53 @@ function Toggle({
   );
 }
 
+/** Three taps, not a slider. The band underneath only has four volume
+ *  steps and one of them is silence, so a slider would invent a precision
+ *  the hardware does not have and leave people hunting for a level that
+ *  does not exist. */
+function Level({
+  label,
+  note,
+  value,
+  onChange,
+}: {
+  label: string;
+  note?: string;
+  value: NoiseLevel;
+  onChange: (v: NoiseLevel) => void;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 py-4">
+      <span className="min-w-0">
+        <span className="block">{label}</span>
+        {note && (
+          <span className="mt-0.5 block text-[length:var(--text-meta)] text-[var(--color-ash)]">
+            {note}
+          </span>
+        )}
+      </span>
+      <span className="flex shrink-0 gap-2">
+        {([1, 2, 3] as const).map((n) => (
+          <button
+            key={n}
+            onClick={() => onChange(n)}
+            aria-label={`Level ${n}`}
+            aria-pressed={value === n}
+            className={cn(
+              "num size-10 rounded-full transition-colors",
+              value === n
+                ? "bg-[var(--color-raised)] text-[var(--color-pulse)]"
+                : "bg-[var(--color-surface)] text-[var(--color-ash-dim)]",
+            )}
+          >
+            {n}
+          </button>
+        ))}
+      </span>
+    </div>
+  );
+}
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="mt-8">
@@ -90,6 +138,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export function SettingsScreen() {
   const [monitorOnly, setMonitorOnly] = useState(false);
   const { theme, setTheme } = useTheme();
+  const [noise, setNoise] = useState<NoiseLevel>(readNoiseLevel);
 
   return (
     <div className="pb-8">
@@ -109,6 +158,18 @@ export function SettingsScreen() {
           <Row label="Wake window" value="06:00–06:30" />
           <Row label="Sunset starts" value="21:40" note="20 minutes before bed" />
           <Row label="Sunset duration" value="25 min" note="exponential dimming" />
+          {/* The one intervention setting that is genuinely personal: the
+              level that settles one person keeps the next one awake. Every
+              other row here is a threshold the firmware owns. */}
+          <Level
+            label="White noise volume"
+            note="Used when the room is restless. An alert always sounds at full volume."
+            value={noise}
+            onChange={(v) => {
+              setNoise(v);
+              writeNoiseLevel(v);
+            }}
+          />
         </Section>
 
         <Section title="Detection thresholds">

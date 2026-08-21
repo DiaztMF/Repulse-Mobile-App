@@ -89,6 +89,15 @@ assert.ok(
 );
 
 // §5.3 caps aroma at 20-30s per event.
+// The sleeper picks the comfort volume; the emergency row does not care
+// what they picked. A preference that could quieten an ALERT would be a
+// setting nobody remembers making, silencing the one thing meant to wake
+// a household.
+const quiet = actuatorsFor("COMFORT", 1).find((x) => x.kind === "noise");
+assert.equal(quiet && quiet.kind === "noise" && quiet.level, 1, "comfort follows the preference");
+const loud = actuatorsFor("SOS_SENT", 1).find((x) => x.kind === "noise");
+assert.equal(loud && loud.kind === "noise" && loud.level, 3, "SOS stays at full volume");
+
 const aroma = actuatorsFor("COMFORT").find((a) => a.kind === "aroma");
 assert.ok(aroma && aroma.kind === "aroma" && aroma.seconds > 0 && aroma.seconds <= 30);
 

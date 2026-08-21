@@ -208,7 +208,7 @@ export function TestPanel() {
 
   return (
     <div className="pb-8">
-      <PageHeader title="Test panel" showMenu />
+      <PageHeader sample={false} title="Test panel" showMenu />
 
       <div className="px-5">
         <p className="text-[var(--color-ash)]">

@@ -11,11 +11,19 @@ export function PageHeader({
   right,
   onBack,
   showMenu,
+  sample = true,
 }: {
   title: string;
   right?: ReactNode;
   onBack?: () => void;
   showMenu?: boolean;
+  /* §12 wants the badge wherever invented numbers are on screen, and the
+   * default keeps it. The exemption is for screens that show only live
+   * device state — conformance, the test panel, devices — where every
+   * figure comes off the air and the badge contradicts what it labels.
+   * It was read as "this screen is running on sample data" for most of an
+   * evening while the bedside sat connected two feet away. */
+  sample?: boolean;
 }) {
   const navigate = useNavigate();
   const { openDrawer } = useDrawer();
@@ -47,7 +55,7 @@ export function PageHeader({
           )}
         </div>
       </header>
-      <SampleBadge />
+      {sample && <SampleBadge />}
     </div>
   );
 }
