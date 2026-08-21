@@ -106,7 +106,7 @@ export function PairBedside() {
       {searching && radio === false && (
         <p className="mt-8 text-[var(--color-ash)]">
           Bluetooth is off, so nothing can be found. Switch it on and come
-          back — or carry on, and the app will run on sample data until a
+          back, or carry on, and the app will run on sample data until a
           bedside unit is paired.
         </p>
       )}

@@ -169,7 +169,7 @@ export function Conformance() {
         });
         setNotes((s) => ({
           ...s,
-          2: "Press and hold the band's button now — start straight away, the reaction time counts against this one.",
+          2: "Press and hold the band's button now. Start straight away, the reaction time counts against this one.",
         }));
         break;
       }
@@ -195,7 +195,7 @@ export function Conformance() {
             e.status === "refused" ? "pass" : "fail",
             e.status === "refused"
               ? "Refused with status 2, as required"
-              : `Answered "${e.status}" — the limit was not enforced`,
+              : `Answered "${e.status}", the limit was not enforced`,
           );
         });
         await send({ kind: "aroma", seconds: 60 }, { unclamped: true });
@@ -278,7 +278,7 @@ export function Conformance() {
             handed the radio. */}
         {!synthetic && !ready && (
           <p className="mt-4 text-[length:var(--text-meta)] text-[var(--color-ash)]">
-            No device connected yet — band {links.band}, bedside {links.bedside}.
+            No device connected yet. Band {links.band}, bedside {links.bedside}.
           </p>
         )}
 
@@ -372,10 +372,10 @@ export function Conformance() {
           onClick={() => {
             const lines = TESTS.map(
               (t) =>
-                `${String(t.n).padStart(2, "0")}  ${(verdicts[t.n] ?? "not run").toUpperCase().padEnd(7)}  ${t.title}${notes[t.n] ? ` — ${notes[t.n]}` : ""}`,
+                `${String(t.n).padStart(2, "0")}  ${(verdicts[t.n] ?? "not run").toUpperCase().padEnd(7)}  ${t.title}${notes[t.n] ? `: ${notes[t.n]}` : ""}`,
             );
             void navigator.clipboard.writeText(
-              [`RePulse GATT conformance — ${new Date().toISOString()}`, ...lines].join("\n"),
+              [`RePulse GATT conformance, ${new Date().toISOString()}`, ...lines].join("\n"),
             );
           }}
         >

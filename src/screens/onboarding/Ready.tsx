@@ -37,7 +37,7 @@ export function Ready() {
     { title: "Your resting pulse", detail: "62 bpm" },
     {
       title: "Emergency contact",
-      detail: contact ?? "None saved — add one before tonight",
+      detail: contact ?? "None saved, add one before tonight",
       ok: contact !== null,
     },
   ];

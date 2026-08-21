@@ -16,8 +16,8 @@ import { RepulseMonitor } from "repulse-monitor";
 const SCENARIOS: [Scenario, string][] = [
   ["normal", "Play a normal night"],
   ["restless", "Play a restless spell"],
-  ["anomaly-recovers", "Anomaly — the body answers"],
-  ["anomaly-sos", "Anomaly — no response, to SOS"],
+  ["anomaly-recovers", "Anomaly, the body answers"],
+  ["anomaly-sos", "Anomaly with no response, to SOS"],
   ["dropout-flush", "Dropout, then buffer flush"],
 ];
 
@@ -323,14 +323,14 @@ export function TestPanel() {
             while holding it. */}
         <h2 className="label mt-8 text-[var(--color-ash)]">Lock-screen alert</h2>
         <p className="mt-2 text-[length:var(--text-meta)] text-[var(--color-ash)]">
-          Raises the native alert in 10 seconds. Lock the phone and wait —
+          Raises the native alert in 10 seconds. Lock the phone and wait.
           the screen has to wake by itself, over the lock screen.
         </p>
         <Button
           variant="secondary"
           className="mt-4"
           onClick={() => {
-            setNativeMsg("Lock the phone now — 10 seconds.");
+            setNativeMsg("Lock the phone now. Ten seconds.");
             window.setTimeout(() => {
               void RepulseMonitor.raiseAlert({ stage: 3 })
                 .then(() => setNativeMsg("Alert raised."))
@@ -469,7 +469,7 @@ export function TestPanel() {
                         minute: "2-digit",
                       })}
                     </span>{" "}
-                    — silent for {Math.round(b.gapMs / 1000)}s
+                    silent for {Math.round(b.gapMs / 1000)}s
                   </li>
                 ))}
                 {verdict.breaks.length > 8 && (

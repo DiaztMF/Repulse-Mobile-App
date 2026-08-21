@@ -147,7 +147,7 @@ export function Vital() {
         onDate={setDate}
         value={String(n.counts.restless)}
         unit="restless spells"
-        caption="Movement is what cancels an alert — the band watches for it before anything is sent."
+        caption="Movement is what cancels an alert. The band watches for it before anything is sent."
         chart={
           <Sparkline
             values={s.map((x) => x.movement)}

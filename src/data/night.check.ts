@@ -24,7 +24,7 @@ const room = (lux: number): BleEvent => ({
 
 /** Walks the recorder forward one second at a time, which is roughly what
  *  the band does and is the only way the millisecond ledgers mean
- *  anything. Room readings arrive once a minute, per §4.1. */
+ *  anything. Room readings arrive every five seconds, per §4.1. */
 function run(r: NightRecorder, minutes: number, at: number, each: (sec: number) => BleEvent[]) {
   const seconds = minutes * 60;
   for (let s = 0; s < seconds; s++) {

@@ -99,7 +99,7 @@ export function messageBody(opts: {
   lines.push(
     opts.position
       ? `Location: ${mapsUrl(opts.position)}`
-      : "Location unavailable — please call.",
+      : "Location unavailable, please call.",
   );
   lines.push("Sent from RePulse. Not a medical device.");
   return lines.join("\n");

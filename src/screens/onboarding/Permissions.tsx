@@ -154,7 +154,7 @@ export function Permissions() {
           claiming a phone is ready when no phone is involved. */}
       {!native && (
         <p className="label mt-3 text-[var(--color-ash-dim)]">
-          Browser preview — nothing here is really granted
+          Browser preview, nothing here is really granted
         </p>
       )}
 
@@ -237,7 +237,7 @@ export function Permissions() {
           onClick={() => navigate("/permissions/autostart")}
           className="label mt-5 self-center text-[var(--color-ash)]"
         >
-          Skip for now — this is risky
+          Skip for now, this is risky
         </button>
       )}
       </div>

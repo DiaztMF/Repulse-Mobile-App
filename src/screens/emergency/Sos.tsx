@@ -104,7 +104,7 @@ export function Sos() {
 
           {locating && (
             <p className="mt-3 text-center text-[length:var(--text-meta)] text-[var(--color-ash)]">
-              Still getting your location — you can send without it.
+              Still getting your location. You can send without it.
             </p>
           )}
 
@@ -129,7 +129,7 @@ export function Sos() {
         <>
           <p className="mt-8 text-center text-[var(--color-ash)]">
             Nobody can be reached from here. Add a contact in the menu, then
-            come back — this screen has nothing to send until you do.
+            come back. This screen has nothing to send until you do.
           </p>
           <div className="flex-1" />
           <button
@@ -148,7 +148,7 @@ export function Sos() {
         onClick={standDown}
         className="label mt-4 h-14 w-full rounded-[var(--radius-pill)] border border-[var(--color-ivory)] text-[var(--color-ivory)]"
       >
-        Cancel — I am okay
+        Cancel, I am okay
       </button>
 
       {/* Only while the readings behind the message are synthetic. A judge

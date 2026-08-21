@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/Button";
 const DEVICE = {
   band: {
     name: "band",
-    first: "Check the band is charged and switched on — its light should be visible",
+    first: "Check the band is charged and switched on. Its light should be visible",
   },
   bedside: {
     name: "bedside unit",
@@ -26,11 +26,11 @@ export function PairTrouble() {
   const d = DEVICE[device ?? "band"] ?? DEVICE.band;
 
   const steps = [
-    "Grant location permission — without it Android returns an empty scan and shows no error",
+    "Grant location permission. Without it Android returns an empty scan and shows no error",
     d.first,
     "Check Bluetooth is on",
     "Hold the phone within arm's reach",
-    "Turn Wi-Fi off — 2.4 GHz Wi-Fi and Bluetooth share the same band",
+    "Turn Wi-Fi off. 2.4 GHz Wi-Fi and Bluetooth share the same band",
   ];
 
   // The strip above the sheet is the screen it covers, not a colour of its

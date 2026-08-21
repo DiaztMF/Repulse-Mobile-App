@@ -66,7 +66,7 @@ export function KitchenSink() {
         ))}
         <Wordmark strokeWidth={6} className="block h-auto w-[118px]" />
         <p className="text-[var(--color-ash)]">
-          Header size — stroke raised to 6 so it stays above one pixel.
+          Header size, stroke raised to 6 so it stays above one pixel.
         </p>
       </section>
 
@@ -77,7 +77,7 @@ export function KitchenSink() {
         </Button>
         <Button variant="secondary">I have a device</Button>
         <Button variant="inverse">View full timeline</Button>
-        <Button variant="ghost">Skip — I understand the risk</Button>
+        <Button variant="ghost">Skip, I understand the risk</Button>
         <Button disabled>Disabled until input is valid</Button>
         <Button variant="sos" register="system">
           Send SOS
@@ -133,7 +133,7 @@ export function KitchenSink() {
           </p>
           <p className="label mt-1 text-[var(--color-ash)]">average bpm</p>
           <p className="mt-3 text-[var(--color-ash)]">
-            Your Resting Pulse is 61 — down 1 from last week.
+            Your Resting Pulse is 61, down 1 from last week.
           </p>
         </Card>
 

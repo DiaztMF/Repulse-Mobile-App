@@ -159,7 +159,7 @@ export function Home() {
               </div>
             </>
           ) : (
-            <Empty>No pulse recorded — the band was not worn.</Empty>
+            <Empty>No pulse recorded. The band was not worn.</Empty>
           )}
         </Card>
 

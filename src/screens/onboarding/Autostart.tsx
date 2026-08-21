@@ -31,7 +31,7 @@ const VENDORS: Record<string, Vendor> = {
   oppo: {
     label: "Oppo",
     toggles: ["Auto-launch", "Allow background activity"],
-    manual: "Open Battery usage on the page that opened, then choose Allow background activity. The one it starts on — Smart mode, the recommended one — is the setting that stops monitoring at night.",
+    manual: "Open Battery usage on the page that opened, then choose Allow background activity. The one it starts on, Smart mode, the recommended one, is the setting that stops monitoring at night.",
   },
   vivo: {
     label: "Vivo",
@@ -125,7 +125,7 @@ export function Autostart() {
 
       <p className="mt-4 text-[var(--color-ash)]">
         Your phone is made by {vendor.label}. {vendor.label} shuts down apps
-        running in the background — including the one watching your sleep.
+        running in the background, including the one watching your sleep.
       </p>
       <p className="mt-3 text-[var(--color-ash)]">
         Without this, monitoring can stop in the middle of the night with no
@@ -185,7 +185,7 @@ export function Autostart() {
         onClick={() => navigate("/setup-guide")}
         className="label mt-6 self-center text-[var(--color-ash)]"
       >
-        Skip — I understand the risk
+        Skip, I understand the risk
       </button>
       </div>
     </div>
