@@ -134,7 +134,7 @@ export function Autostart() {
 
   return (
     <div className="bg-setup flex min-h-screen flex-col pb-8">
-      <PageHeader title="Autostart" />
+      <PageHeader sample={false} title="Autostart" />
 
       <div className="flex flex-1 flex-col px-6">
         <h1 className="mt-8 text-[length:var(--text-title)] font-medium leading-snug">

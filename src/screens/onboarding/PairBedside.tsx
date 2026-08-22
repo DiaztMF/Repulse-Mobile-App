@@ -61,6 +61,7 @@ export function PairBedside() {
   return (
     <div className="bg-setup flex min-h-screen flex-col pb-8">
       <PageHeader
+        sample={false}
         title="Pair the bedside unit"
         right={
           searching ? (

@@ -137,6 +137,7 @@ export function Permissions() {
   return (
     <div className="bg-setup flex min-h-screen flex-col pb-8">
       <PageHeader
+        sample={false}
         title="Permissions needed"
         right={`${done}/${PERMISSIONS.length}`}
       />

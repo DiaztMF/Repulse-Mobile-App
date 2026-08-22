@@ -23,11 +23,18 @@ export function PageHeader({
    *  the badge falls back to the store-wide flag. */
   night?: Night;
   /* §12 wants the badge wherever invented numbers are on screen, and the
-   * default keeps it. The exemption is for screens that show only live
-   * device state — conformance, the test panel, devices — where every
-   * figure comes off the air and the badge contradicts what it labels.
-   * It was read as "this screen is running on sample data" for most of an
-   * evening while the bedside sat connected two feet away. */
+   * default keeps it.
+   *
+   * The exemption is one rule, not a list: a screen earns it when nothing
+   * on it comes from the night history. That covers live device state —
+   * conformance, the test panel, devices, both pairing screens,
+   * permissions, calibration — and it equally covers the screens showing
+   * the person their own settings and their own emergency contacts, which
+   * are typed in by hand and never seeded.
+   *
+   * Those last two were badged for months. "SAMPLE DATA" over a phone
+   * number somebody entered themselves does not qualify a reading, it
+   * just makes the label mean nothing everywhere else it appears. */
   sample?: boolean;
 }) {
   const navigate = useNavigate();

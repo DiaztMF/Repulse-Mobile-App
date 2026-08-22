@@ -93,7 +93,7 @@ export function Contacts() {
 
   return (
     <div className="bg-setup flex min-h-screen flex-col pb-8">
-      <PageHeader title="Emergency contacts" showMenu={!isOnboarding} />
+      <PageHeader sample={false} title="Emergency contacts" showMenu={!isOnboarding} />
 
       <div className="flex flex-1 flex-col px-6">
         <h1 className="mt-8 text-[length:var(--text-title)] font-medium leading-snug">

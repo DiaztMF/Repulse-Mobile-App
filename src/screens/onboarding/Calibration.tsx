@@ -170,7 +170,7 @@ export function Calibration() {
 
   return (
     <div className="bg-setup flex min-h-screen flex-col pb-8">
-      {stage !== "running" && <PageHeader title="Calibration" />}
+      {stage !== "running" && <PageHeader sample={false} title="Calibration" />}
 
       <div className="flex flex-1 flex-col px-6">
 

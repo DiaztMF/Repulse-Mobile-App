@@ -142,7 +142,7 @@ export function SettingsScreen() {
 
   return (
     <div className="pb-8">
-      <PageHeader title="Settings" showMenu />
+      <PageHeader sample={false} title="Settings" showMenu />
 
       <div className="px-5">
         <Section title="Appearance">

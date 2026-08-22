@@ -81,6 +81,7 @@ export function PairBand() {
   return (
     <div className="bg-setup flex min-h-screen flex-col pb-8">
       <PageHeader
+        sample={false}
         title="Pair your band"
         right={
           stage !== "connected" ? (
