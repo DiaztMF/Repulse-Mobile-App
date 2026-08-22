@@ -40,6 +40,7 @@ export function Vital() {
     }));
     return (
       <VitalLayout
+        night={n}
         title="Sleep Score"
         date={n.date}
         onDate={setDate}
@@ -64,6 +65,7 @@ export function Vital() {
     ];
     return (
       <VitalLayout
+        night={n}
         title="Pulse"
         date={n.date}
         onDate={setDate}
@@ -105,6 +107,7 @@ export function Vital() {
     ];
     return (
       <VitalLayout
+        night={n}
         title="Breathing"
         date={n.date}
         onDate={setDate}
@@ -143,6 +146,7 @@ export function Vital() {
     const pos = n.positions;
     return (
       <VitalLayout
+        night={n}
         title="Movement & position"
         date={n.date}
         onDate={setDate}
@@ -174,6 +178,7 @@ export function Vital() {
   const polluted = n.light.pollutionMin > 25;
   return (
     <VitalLayout
+        night={n}
       title="Room"
       date={n.date}
       onDate={setDate}

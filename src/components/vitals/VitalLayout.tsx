@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { ChevronLeft, ChevronRight, Info } from "lucide-react";
+import type { Night } from "@/data/mock";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { useStore } from "@/data/store";
 import { cn } from "@/lib/cn";
@@ -141,6 +142,7 @@ export function VitalLayout({
   metrics,
   children,
   footnote,
+  night,
 }: {
   title: string;
   date: string;
@@ -152,11 +154,15 @@ export function VitalLayout({
   metrics?: KeyMetric[];
   children?: ReactNode;
   footnote?: ReactNode;
+  /** So the badge answers about the night on screen, not about whether
+   *  any seeded row exists anywhere in the account. */
+  night?: Night;
 }) {
   return (
     <div className="pb-4">
       <PageHeader
         title={title}
+        night={night}
         right={<Info className="size-5 text-[var(--color-ash)]" strokeWidth={1.5} />}
       />
 

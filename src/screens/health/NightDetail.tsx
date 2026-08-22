@@ -27,6 +27,7 @@ export function NightDetail() {
   return (
     <div className="pb-4">
       <PageHeader
+        night={n}
         title={new Date(n.date + "T12:00:00").toLocaleDateString("en-GB", {
           weekday: "long",
           day: "numeric",

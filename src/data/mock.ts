@@ -251,6 +251,18 @@ export const nightByDate = (date: string) => NIGHTS.find((n) => n.date === date)
  * every night — the same reason Firestore keeps it in a subcollection.
  */
 /**
+ * Whether a night was invented rather than measured.
+ *
+ * Two sources count: the local fortnight, and a fortnight the seeder
+ * pushed into Firestore, which carries the stamp so it keeps admitting
+ * what it is after a round trip. A night the band recorded matches
+ * neither — and `saveNight` writes whole documents precisely so a
+ * measured night overwriting a seeded one drops the stamp with it.
+ */
+export const isSynthetic = (night: Night) =>
+  night.seeded === true || NIGHTS.includes(night);
+
+/**
  * Per-minute samples for a night — and only ever for a synthetic one.
  *
  * This used to take a `date` and look the night up in NIGHTS. The
@@ -267,8 +279,7 @@ export const nightByDate = (date: string) => NIGHTS.find((n) => n.date === date)
  * subcollection described in firebase/nights.ts exists.
  */
 export function seriesFor(night: Night) {
-  const synthetic = night.seeded === true || NIGHTS.includes(night);
-  if (!synthetic || !night.sleep.durationMin) return [];
+  if (!isSynthetic(night) || !night.sleep.durationMin) return [];
   const r = rng(night.date.split("-").reduce((a, p) => a + Number(p), 0));
   const n = Math.round(night.sleep.durationMin);
   return Array.from({ length: n }, (_, i) => {

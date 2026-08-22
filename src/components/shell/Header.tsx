@@ -1,9 +1,20 @@
 import { Menu, Share, Zap } from "lucide-react";
 import { cn } from "@/lib/cn";
+import type { Device, Link } from "@/ble/transport";
+import type { Night } from "@/data/mock";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { SampleBadge } from "./SampleBadge";
 
 export type DeviceState = "both" | "one" | "none" | "charging";
+
+/** One derivation for every header that draws the ring. Home worked this
+ *  out for itself and Health simply said "both" forever — a status light
+ *  that is always green is worse than no status light, because it is the
+ *  one thing on the screen somebody would trust at a glance. */
+export function deviceStateFrom(links: Record<Device, Link>): DeviceState {
+  const up = [links.band, links.bedside].filter((l) => l === "connected").length;
+  return up === 2 ? "both" : up === 1 ? "one" : "none";
+}
 
 /** Four states in one 24px mark, so status reads without opening anything. */
 function DeviceRing({ state }: { state: DeviceState }) {
@@ -35,6 +46,7 @@ export function Header({
   onMenu,
   onDevices,
   onShare,
+  night,
 }: {
   /** Tab roots that are not Home name themselves instead of repeating
    *  the wordmark on every tab. */
@@ -46,6 +58,8 @@ export function Header({
   onDevices?: () => void;
   /** Absent when the night has nothing worth sending. */
   onShare?: () => void;
+  /** The night the screen beneath is showing, when it shows one. */
+  night?: Night;
 }) {
   return (
     // Grid, not flex-between: the wordmark centers on the screen rather
@@ -91,7 +105,7 @@ export function Header({
         </div>
       </header>
 
-      <SampleBadge />
+      <SampleBadge night={night} />
     </div>
   );
 }

@@ -5,7 +5,7 @@
  *  failure mode worth catching early.
  */
 import assert from "node:assert/strict";
-import { NIGHTS, INTERVENTIONS, seriesFor, nightByDate } from "./mock.ts";
+import { NIGHTS, INTERVENTIONS, isSynthetic, seriesFor, nightByDate } from "./mock.ts";
 import { screeningFlag } from "../lib/screening.ts";
 
 assert.equal(NIGHTS.length, 14, "fortnight");
@@ -37,6 +37,15 @@ for (const n of NIGHTS) {
 // date-keyed lookup handed it that stranger's curve, unbadged, and
 // exported it as if a sensor had produced it.
 const measured = { ...NIGHTS[1]!, seeded: false };
+
+// The badge asks the same question the chart does. A seeded night keeps
+// admitting what it is after a round trip through Firestore; a night the
+// band recorded over that same date does not, because saveNight writes
+// whole documents and the stamp goes with the rest of the old row.
+assert.ok(isSynthetic(NIGHTS[1]!), "local fortnight is synthetic");
+assert.ok(isSynthetic({ ...NIGHTS[1]!, seeded: true }), "a seeded round trip stays synthetic");
+assert.equal(isSynthetic(measured), false, "a measured night is not badged as sample");
+
 assert.equal(seriesFor(measured).length, 0, "measured night gets no invented series");
 assert.ok(seriesFor(NIGHTS[1]!).length > 0, "synthetic night still draws");
 

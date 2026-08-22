@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { ChevronLeft, Menu } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import type { Night } from "@/data/mock";
 import { useDrawer } from "./AppShell";
 import { SampleBadge } from "./SampleBadge";
 
@@ -12,11 +13,15 @@ export function PageHeader({
   onBack,
   showMenu,
   sample = true,
+  night,
 }: {
   title: string;
   right?: ReactNode;
   onBack?: () => void;
   showMenu?: boolean;
+  /** The one night this screen is about, when it is about one. Without it
+   *  the badge falls back to the store-wide flag. */
+  night?: Night;
   /* §12 wants the badge wherever invented numbers are on screen, and the
    * default keeps it. The exemption is for screens that show only live
    * device state — conformance, the test panel, devices — where every
@@ -55,7 +60,7 @@ export function PageHeader({
           )}
         </div>
       </header>
-      {sample && <SampleBadge />}
+      {sample && <SampleBadge night={night} />}
     </div>
   );
 }

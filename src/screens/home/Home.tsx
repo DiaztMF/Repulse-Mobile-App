@@ -4,7 +4,7 @@ import { HeartPulse, Wind, Home as HomeIcon, Moon, X } from "lucide-react";
 import { Card, Empty } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Sparkline } from "@/components/ui/Sparkline";
-import { Header, type DeviceState } from "@/components/shell/Header";
+import { Header, deviceStateFrom } from "@/components/shell/Header";
 import { useDrawer } from "@/components/shell/AppShell";
 import { ScoreChips } from "@/components/home/ScoreChips";
 import { Timeline } from "@/components/home/Timeline";
@@ -53,11 +53,7 @@ export function Home() {
   const showSunsetBanner =
     !dismissed && minutesNow >= sunsetMin - 15 && minutesNow < sunsetMin + 25;
 
-  /* The ring said "both" no matter what was attached. A status light that
-   * is always green is worse than no status light: it is the one thing on
-   * this screen somebody would trust at a glance. */
-  const up = [links.band, links.bedside].filter((l) => l === "connected").length;
-  const devices: DeviceState = up === 2 ? "both" : up === 1 ? "one" : "none";
+  const devices = deviceStateFrom(links);
 
   /* Sharing an unscored night would send somebody a row of dashes, so the
    * button is absent until there is a score to talk about. */
@@ -76,6 +72,7 @@ export function Home() {
   return (
     <div className="pb-4">
       <Header
+        night={night}
         devices={devices}
         onMenu={openDrawer}
         onDevices={() => navigate("/devices")}
