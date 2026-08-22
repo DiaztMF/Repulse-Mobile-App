@@ -12,16 +12,32 @@ function bucket(values: number[], count: number) {
   });
 }
 
+/** Trimmed to the shortest reading that is still true: 62, 4.5, 0.3. */
+const fmt = (v: number) =>
+  Math.abs(v) >= 10 || Number.isInteger(v) ? String(Math.round(v)) : v.toFixed(1);
+
 export function Sparkline({
   values: raw,
   color = "var(--color-pulse)",
   height = 40,
   points = 72,
+  unit,
 }: {
   values: number[];
   color?: string;
   height?: number;
   points?: number;
+  /** Naming the unit turns the trace into a chart: the range appears down
+   *  the side and the night appears along the bottom.
+   *
+   *  Without it the line is drawn bare, which is right on a card where
+   *  the shape is the whole message. On a screen someone opens to read a
+   *  number it is not: the y range is fitted to the data, so a two-bpm
+   *  wobble and a forty-bpm swing draw the identical mountain. A reader
+   *  cannot tell those apart, and nothing else on the screen tells them.
+   *  Leaving the axis off does not make the chart modest, it makes it
+   *  unreadable. */
+  unit?: string;
 }) {
   /* Nothing to draw is a state worth naming. This returned null, which
    * left a silent gap exactly where a chart belongs — and a reader who
@@ -52,7 +68,7 @@ export function Sparkline({
     })
     .join(" ");
 
-  return (
+  const trace = (
     <svg
       viewBox={`0 0 ${W} ${height}`}
       className="w-full"
@@ -63,5 +79,33 @@ export function Sparkline({
     >
       <path d={d} stroke={color} strokeWidth={1.5} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
     </svg>
+  );
+
+  if (!unit) return trace;
+
+  return (
+    <figure
+      role="img"
+      aria-label={`${fmt(min)} to ${fmt(max)} ${unit}, across the night`}
+    >
+      <div className="flex gap-3">
+        {/* Beside the trace rather than over it: a label on top of the
+            line hides the very shape it is describing. */}
+        <div
+          className="label flex shrink-0 flex-col justify-between text-right text-[var(--color-ash-dim)]"
+          style={{ height }}
+        >
+          <span>{fmt(max)}</span>
+          <span>{fmt(min)}</span>
+        </div>
+        <div className="min-w-0 flex-1">{trace}</div>
+      </div>
+
+      <figcaption className="label mt-2 flex justify-between text-[var(--color-ash-dim)]">
+        <span>Asleep</span>
+        <span>{unit}</span>
+        <span>Awake</span>
+      </figcaption>
+    </figure>
   );
 }

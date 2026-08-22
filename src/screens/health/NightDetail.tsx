@@ -51,7 +51,7 @@ export function NightDetail() {
 
             <section className="mt-10">
               <h2 className="text-[length:var(--text-card)] font-medium">Pulse</h2>
-              <Sparkline values={s.map((x) => x.bpm)} height={80} />
+              <Sparkline values={s.map((x) => x.bpm)} height={80} unit="bpm" />
               <h2 className="mt-8 text-[length:var(--text-card)] font-medium">
                 Room temperature
               </h2>
@@ -62,6 +62,7 @@ export function NightDetail() {
                 values={s.map((x) => x.tempC)}
                 color={METRIC_COLOR.room}
                 height={60}
+                unit="°C"
               />
             </section>
 

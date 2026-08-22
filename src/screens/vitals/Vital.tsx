@@ -70,7 +70,7 @@ export function Vital() {
         value={String(n.heart.avg)}
         unit="average bpm"
         caption={`Lowest ${n.heart.min}, highest ${n.heart.max}.`}
-        chart={<Sparkline values={s.map((x) => x.bpm)} height={90} />}
+        chart={<Sparkline values={s.map((x) => x.bpm)} height={90} unit="bpm" />}
         metrics={metrics}
       >
         <RowList
@@ -119,6 +119,7 @@ export function Vital() {
             values={s.map((x) => x.spo2Delta)}
             color={METRIC_COLOR.breath}
             height={90}
+            unit="% from baseline"
           />
         }
         metrics={metrics}
@@ -153,6 +154,7 @@ export function Vital() {
             values={s.map((x) => x.movement)}
             color={METRIC_COLOR.sleep}
             height={90}
+            unit="mg of movement"
           />
         }
       >
@@ -183,7 +185,7 @@ export function Vital() {
           : `Dark enough for ${formatDuration(n.light.darkOptimalMin)}.`
       }
       chart={
-        <Sparkline values={s.map((x) => x.lux)} color={METRIC_COLOR.room} height={90} />
+        <Sparkline values={s.map((x) => x.lux)} color={METRIC_COLOR.room} height={90} unit="lux" />
       }
       metrics={[
         { label: "Humidity", value: `${n.room.rh}%` },
