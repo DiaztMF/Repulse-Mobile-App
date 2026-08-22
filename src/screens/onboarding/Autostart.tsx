@@ -20,10 +20,28 @@ import { Button } from "@/components/ui/Button";
 type Vendor = { label: string; toggles: string[]; manual: string };
 
 const VENDORS: Record<string, Vendor> = {
+  /* MIUI and HyperOS need two things the other vendors do not, and both
+   * are off by default.
+   *
+   * Autostart and battery alone keep the night recording, but they do not
+   * let the alert reach the person: raising a screen over a locked phone
+   * is gated behind "Display pop-up windows while running in background",
+   * which sits in the app's own permission page rather than in the
+   * autostart list. Without it the ladder escalates, the service is
+   * running, and nothing appears — the exact silent failure the escalation
+   * exists to prevent.
+   *
+   * The padlock in Recents is the one MIUI habit that survives everything
+   * else, and it costs one gesture. */
   xiaomi: {
     label: "Xiaomi",
-    toggles: ["Autostart", "No battery restrictions"],
-    manual: "Open Battery saver and choose No restrictions. Autostart lives in Settings, under Apps, Permissions, Autostart.",
+    toggles: [
+      "Autostart",
+      "No battery restrictions",
+      "Display pop-up windows while running in background",
+    ],
+    manual:
+      "Open Battery saver and choose No restrictions. Autostart lives in Settings, under Apps, Permissions, Autostart. In the same permissions page, turn on Display pop-up windows while running in background, or the alert cannot wake a locked phone. Then open Recents, swipe down on the RePulse card and tap the padlock.",
   },
   // The only entry below verified against a real phone: an Oppo CPH2819 on
   // ColorOS 15. The others are the best known wording and should be

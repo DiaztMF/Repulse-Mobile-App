@@ -27,6 +27,14 @@ export function PairTrouble() {
 
   const steps = [
     "Grant location permission. Without it Android returns an empty scan and shows no error",
+    // Granting the permission and switching the service on are two
+    // different acts, and only the first one the app can ask for. Android
+    // 12 still gates scan results behind the system Location toggle
+    // unless a scan declares it never derives location, and Xiaomi
+    // enforces that harder than most. A phone with the permission granted
+    // and the toggle off scans forever and finds nothing, which reads as
+    // a dead band rather than a switched-off setting.
+    "Switch Location on in the phone's own settings, not just the permission. An empty scan looks the same either way",
     d.first,
     "Check Bluetooth is on",
     "Hold the phone within arm's reach",
