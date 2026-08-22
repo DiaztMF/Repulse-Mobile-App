@@ -27,6 +27,7 @@ import type {
   BleTransport,
   Device,
   Link,
+  Oxygen,
   Room,
   Vitals,
 } from "@/ble/transport";
@@ -85,6 +86,8 @@ export type Monitor = {
   links: Record<Device, Link>;
   vitals: Vitals | null;
   room: Room | null;
+  /** §3.2, live. Null until the band reports a valid reading. */
+  oxygen: Oxygen | null;
   motionMg: number;
   /** §3.6. Null until the band has reported once — which is not the same
    *  as a band with a flat battery, and D2 has to be able to say which. */
@@ -92,6 +95,8 @@ export type Monitor = {
   /** True while a sleep session is running, which is what dims the whole
    *  interface. Owned here so the rule cannot drift into screens. */
   isNight: boolean;
+  /** Epoch ms the running session started, or null. */
+  sessionAt: number | null;
   /** Running on synthetic events rather than a band. Every screen that
    *  shows a number has to be able to say so — DESIGN §12. */
   synthetic: boolean;
@@ -104,6 +109,8 @@ export type Monitor = {
   /** Straight through to the devices. The conformance screen needs to
    *  drive each characteristic on its own, outside the state machine. */
   send: (a: Actuator, opts?: { unclamped?: boolean }) => Promise<void>;
+  /** Drops one device and lets the scan find it again. */
+  release: (device: Device) => Promise<void>;
   command: (c: BandCommand) => Promise<void>;
   configure: (c: BandConfig) => Promise<void>;
   /** Raw event tap, for measuring how long something takes to arrive. */
@@ -149,6 +156,10 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
   const [transport, setTransport] = useState<BleTransport | null>(null);
   const [vitals, setVitals] = useState<Vitals | null>(null);
   const [room, setRoom] = useState<Room | null>(null);
+  const [oxygen, setOxygen] = useState<Oxygen | null>(null);
+  /** When the running session began. Null between sessions — the Tonight
+   *  screen printed "Monitoring · 3h 44m" from a constant without it. */
+  const [sessionAt, setSessionAt] = useState<number | null>(null);
   const [motionMg, setMotionMg] = useState(0);
   const [bandStatus, setBandStatus] = useState<BandStatus | null>(null);
   const [links, setLinks] = useState<Record<Device, Link>>({
@@ -216,6 +227,22 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
           break;
         case "link":
           setLinks((l) => ({ ...l, [e.device]: e.state }));
+          /* A reading has to die with its device. Nothing here was ever
+           * cleared, so a band that dropped at 02:00 left its last pulse
+           * and SpO2 on the screen until morning, drawn exactly like a
+           * live one — and `messageBody` would have put that hours-old
+           * bpm inside an SOS. The screens already draw a dash for null;
+           * they were simply never given one. */
+          if (e.state !== "connected") {
+            if (e.device === "band") {
+              setVitals(null);
+              setOxygen(null);
+              setBandStatus(null);
+              setMotionMg(0);
+            } else {
+              setRoom(null);
+            }
+          }
           dispatch({ t: "link", device: e.device, up: e.state === "connected" });
           break;
         case "escalation":
@@ -231,6 +258,13 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
         // §3.6. Battery, charge state, and the band's own clock — the last
         // of which is a silent failure mode: a drifted clock corrupts
         // settle times without ever looking wrong on a screen.
+        case "oxygen":
+          /* Held so a screen can show it live. The night recorder keeps its
+           * own copy for scoring; this one is only ever what is on the air
+           * right now. Zero on the wire means "not valid", never zero
+           * percent, so a zero must not replace a good reading. */
+          if (e.data.spo2Pct > 0) setOxygen(e.data);
+          break;
         case "band-status":
           setBandStatus(e.data);
           break;
@@ -475,13 +509,24 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
       links,
       vitals,
       room,
+      oxygen,
       motionMg,
       bandStatus,
       isNight,
+      sessionAt,
       synthetic: transport instanceof MockTransport,
-      startSleep: () => send({ t: "start-sleep", at: Date.now() }),
-      endSession: () => send({ t: "session-end", at: Date.now(), reason: "wake" }),
+      startSleep: () => {
+        setSessionAt(Date.now());
+        send({ t: "start-sleep", at: Date.now() });
+      },
+      endSession: () => {
+        setSessionAt(null);
+        send({ t: "session-end", at: Date.now(), reason: "wake" });
+      },
       standDown: () => send({ t: "stage", at: Date.now(), stage: 0 }),
+      release: async (device) => {
+        await transport?.release(device);
+      },
       send: async (a, opts) => transport?.send(a, opts),
       command: async (c) => transport?.command(c),
       configure: async (c) => transport?.configure(c),
@@ -534,7 +579,25 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
         send({ t: "session-end", at: Date.now(), reason: "wake" });
       },
     };
-  }, [phase, machine.stage, machine.rows, links, vitals, room, motionMg, bandStatus, transport]);
+    // `oxygen` and `sessionAt` were missing here. Nothing else changes at
+    // the moment an SpO2 notification lands, so the memo returned the old
+    // object, React saw an unchanged context value, and no consumer ever
+    // re-rendered: the band reported saturation all night and the screens
+    // showed the first reading forever.
+  }, [
+    phase,
+    machine.stage,
+    machine.rows,
+    links,
+    vitals,
+    room,
+    oxygen,
+    motionMg,
+    bandStatus,
+    isNight,
+    sessionAt,
+    transport,
+  ]);
 
   // The night flag rides on <html> so every colour token steps down
   // together instead of being patched screen by screen.

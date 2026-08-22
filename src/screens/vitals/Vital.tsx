@@ -27,7 +27,7 @@ export function Vital() {
   if (!metric || !KEYS.includes(metric)) return <Navigate to="/vitals/pulse" replace />;
 
   const n = nights.find((x) => x.date === date) ?? nights[0]!;
-  const s = seriesFor(n.date);
+  const s = seriesFor(n);
   const total = n.sleep.durationMin || 1;
 
   if (metric === "sleep") {

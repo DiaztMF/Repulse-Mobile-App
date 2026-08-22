@@ -154,6 +154,11 @@ export interface BleTransport {
   start(): Promise<void>;
   stop(): Promise<void>;
 
+  /** Drops one device without stopping the radio, and lets the scan find
+   *  it again. §D2's control needs this: a band that is misbehaving has to
+   *  be droppable without ending the session for the bedside too. */
+  release(device: Device): Promise<void>;
+
   /** Returns an unsubscribe. */
   on(listener: (e: BleEvent) => void): () => void;
 

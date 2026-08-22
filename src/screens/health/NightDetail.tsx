@@ -20,7 +20,7 @@ export function NightDetail() {
   const n = useNight(date);
   if (!n) return <Navigate to="/health" replace />;
 
-  const s = seriesFor(n.date);
+  const s = seriesFor(n);
   const band = n.score !== null ? bandOfScore(n.score) : null;
   const polluted = n.light.pollutionMin > 25;
 

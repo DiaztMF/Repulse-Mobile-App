@@ -223,7 +223,15 @@ export class NightRecorder {
         // An unworn band reports neither pulse nor stillness, and folding
         // its zeroes in would drag the whole night's average down.
         if (!e.data.worn) break;
-        this.bpm.push(e.data.bpm);
+        /* Zero is "no beat found", not "a pulse of zero".
+         *
+         * §3.1 has no marker for a missing reading, and the status byte
+         * carrying `worn` only travels attached to a sample — so a band on a
+         * wrist that found no beat this interval still has to send one, and
+         * it sends zeroes. Averaging those in walks the resting pulse down
+         * towards a figure no living wrist produces, and §3.1 measures every
+         * personal threshold for the next fortnight against it. */
+        if (e.data.bpm > 0) this.bpm.push(e.data.bpm);
         if (e.data.rrMs > 0) this.rr.push(e.data.rrMs);
         this.winVitals.push(e.data);
         this.sampled(at);

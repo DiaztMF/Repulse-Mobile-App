@@ -258,6 +258,54 @@ export function TestPanel() {
           </p>
         )}
 
+        {/* The band's side of the same idea. Everything here comes off the
+            wrist right now, and none of it appears anywhere else in the app
+            until a night has been recorded and scored — so a band that is
+            connected but measuring nothing was, until this block, entirely
+            invisible.
+
+            `worn` leads because it gates the rest: §3.1 sends no pulse from
+            a band on a table, and a wrist reading zero looks identical to a
+            band nobody put on. Quality is the number to watch while getting
+            the strap right. */}
+        <h2 className="label mt-8 text-[var(--color-ash)]">Band sensors</h2>
+        {monitor.vitals ? (
+          <>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              {[
+                ["MAX30102 pulse", monitor.vitals.bpm > 0 ? `${monitor.vitals.bpm} bpm` : "—"],
+                ["Interval", monitor.vitals.rrMs > 0 ? `${monitor.vitals.rrMs} ms` : "—"],
+                ["SpO₂", monitor.oxygen ? `${monitor.oxygen.spo2Pct} %` : "—"],
+                ["MPU6050 motion", `${monitor.motionMg} mg`],
+                ["Worn", monitor.vitals.worn ? "yes" : "no"],
+                ["Signal quality", `${monitor.vitals.signalQuality} / 15`],
+              ].map(([k, v]) => (
+                <div key={k} className="rounded-[var(--radius-control)] bg-[var(--color-surface)] p-4">
+                  <p className="num text-[length:var(--text-title)]">{v}</p>
+                  <p className="label mt-1 text-[var(--color-ash)]">{k}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 text-[length:var(--text-meta)] text-[var(--color-ash)]">
+              Last packet <span className="num">{Math.round((now - monitor.vitals.at) / 1000)}</span>s
+              ago · position {monitor.oxygen?.position ?? "unknown"} · battery{" "}
+              {monitor.bandStatus?.percent != null
+                ? `${monitor.bandStatus.percent}%`
+                : "no divider fitted"}
+            </p>
+            {!monitor.vitals.worn && (
+              <p className="mt-2 text-[length:var(--text-meta)] text-[var(--color-breath)]">
+                Not worn, so no pulse is being sent. Press the sensor flat against the
+                wrist until Worn reads yes.
+              </p>
+            )}
+          </>
+        ) : (
+          <p className="mt-2 text-[length:var(--text-meta)] text-[var(--color-ash)]">
+            Nothing reported yet.
+          </p>
+        )}
+
         <h2 className="label mt-8 text-[var(--color-ash)]">Bedside unit</h2>
         <div className="mt-3 space-y-2">
           {BEDSIDE.map((a) => (

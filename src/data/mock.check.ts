@@ -15,7 +15,7 @@ assert.equal(new Set(dates).size, 14, "dates unique");
 assert.deepEqual(dates, [...dates].sort().reverse(), "newest first");
 
 // Determinism: screenshots and rehearsed demos depend on this.
-assert.deepEqual(seriesFor(dates[1]!), seriesFor(dates[1]!), "series stable");
+assert.deepEqual(seriesFor(NIGHTS[1]!), seriesFor(NIGHTS[1]!), "series stable");
 assert.equal(NIGHTS[0]!.score, nightByDate(dates[0]!)!.score, "lookup matches");
 
 // Demo states that must stay reachable.
@@ -28,8 +28,17 @@ assert.ok(
 
 // Series length tracks the summary rather than drifting from it.
 for (const n of NIGHTS) {
-  assert.equal(seriesFor(n.date).length, n.sleep.durationMin, `series ${n.date}`);
+  assert.equal(seriesFor(n).length, n.sleep.durationMin, `series ${n.date}`);
 }
+
+// A measured night is never given an invented series. The synthetic
+// fortnight always ends today, so a night the band recorded tonight
+// carries a date that a synthetic night also carries — and the old
+// date-keyed lookup handed it that stranger's curve, unbadged, and
+// exported it as if a sensor had produced it.
+const measured = { ...NIGHTS[1]!, seeded: false };
+assert.equal(seriesFor(measured).length, 0, "measured night gets no invented series");
+assert.ok(seriesFor(NIGHTS[1]!).length > 0, "synthetic night still draws");
 
 // Sleep stages must add up, or the hypnogram lies.
 for (const n of NIGHTS) {

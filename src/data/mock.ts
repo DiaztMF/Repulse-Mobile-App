@@ -250,10 +250,26 @@ export const nightByDate = (date: string) => NIGHTS.find((n) => n.date === date)
  * Per-minute series, generated on demand rather than held in memory for
  * every night — the same reason Firestore keeps it in a subcollection.
  */
-export function seriesFor(date: string) {
-  const night = nightByDate(date);
-  if (!night || !night.sleep.durationMin) return [];
-  const r = rng(date.split("-").reduce((a, p) => a + Number(p), 0));
+/**
+ * Per-minute samples for a night — and only ever for a synthetic one.
+ *
+ * This used to take a `date` and look the night up in NIGHTS. The
+ * synthetic fortnight is anchored so it always ends today, so a night the
+ * band actually recorded tonight carried today's date, matched a
+ * synthetic night, and was drawn with a curve invented from that
+ * stranger's numbers. No sample badge appeared, because the store knew
+ * perfectly well the night itself was measured — and `Export` wrote those
+ * invented minutes into the file the user hands to a doctor.
+ *
+ * Taking the night itself rather than its date means it can no longer
+ * resolve to a different one, and the synthetic test excludes a measured
+ * night outright. A real night gets nothing here until the `series`
+ * subcollection described in firebase/nights.ts exists.
+ */
+export function seriesFor(night: Night) {
+  const synthetic = night.seeded === true || NIGHTS.includes(night);
+  if (!synthetic || !night.sleep.durationMin) return [];
+  const r = rng(night.date.split("-").reduce((a, p) => a + Number(p), 0));
   const n = Math.round(night.sleep.durationMin);
   return Array.from({ length: n }, (_, i) => {
     const phase = i / n;

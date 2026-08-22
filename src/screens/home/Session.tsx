@@ -4,15 +4,20 @@ import { Check } from "lucide-react";
 import { PulseTrace } from "@/components/home/PulseTrace";
 import { SampleBadge } from "@/components/shell/SampleBadge";
 import { useLastNight } from "@/data/store";
+import { useMonitor } from "@/state/monitor";
 
 type State = "monitoring" | "wind_down" | "comfort" | "wake_window" | "offline";
 
 /** Same frame throughout; only the status line and the card change. A
  *  different layout per state would make a half-asleep user re-read the
  *  screen every time. */
+/* No durations baked in. "Monitoring · 3h 44m" and "Dimming · 18 min
+ * left" were constants, so the screen reported the same elapsed time all
+ * night whatever had happened. The elapsed figure is appended below from
+ * the session's real start. */
 const STATUS: Record<State, string> = {
-  monitoring: "Monitoring · 3h 44m",
-  wind_down: "Dimming · 18 min left",
+  monitoring: "Monitoring",
+  wind_down: "Dimming",
   comfort: "Settling · white noise",
   wake_window: "Waiting for light sleep",
   offline: "Band disconnected",
@@ -26,7 +31,13 @@ const DIM = 0.85;
 export function Session() {
   const navigate = useNavigate();
   const night = useLastNight();
+  const monitor = useMonitor();
   const [state] = useState<State>("monitoring");
+  /* The clock, the pulse and the room were all written into the file:
+   * 02:14, 58 bpm, an intervention at 01:20. This is the screen somebody
+   * watches while the band is on their wrist, and it was the one screen in
+   * the app showing nothing that had ever been measured. */
+  const [clock, setClock] = useState(() => new Date());
   const [dim, setDim] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const press = useRef<number | undefined>(undefined);
@@ -61,7 +72,23 @@ export function Session() {
     };
   }, []);
 
+  useEffect(() => {
+    const id = window.setInterval(() => setClock(new Date()), 10_000);
+    return () => window.clearInterval(id);
+  }, []);
+
   const latest = night.events.find((e) => e.type === "comfort");
+
+  /* Live if anything is arriving off the air. Below, every figure prefers
+   * the measurement and falls back to the stored night, so the badge has
+   * to follow the same rule — §12 wants it wherever invented numbers are,
+   * and nowhere else. */
+  const live = monitor.vitals != null || monitor.room != null;
+
+  const sinceMin = monitor.sessionAt ? Math.floor((clock.getTime() - monitor.sessionAt) / 60_000) : null;
+  const elapsed =
+    sinceMin == null ? null : sinceMin < 60 ? `${sinceMin}m` : `${Math.floor(sinceMin / 60)}h ${sinceMin % 60}m`;
+  const bpm = monitor.vitals?.worn && monitor.vitals.bpm > 0 ? monitor.vitals.bpm : null;
 
   return (
     <div className="relative min-h-screen bg-[var(--color-base)] px-5 pb-8">
@@ -69,7 +96,7 @@ export function Session() {
           the two headers that normally do it are gone here, and DESIGN §12
           requires it on every screen while the mock layer is on. It is the
           screen showing the most invented numbers in the app. */}
-      <SampleBadge />
+      {!live && <SampleBadge />}
 
       {/* Long-press the clock for the test panel. Invisible to a normal
           user, always reachable during a demo — the tab bar is gone and
@@ -82,17 +109,22 @@ export function Session() {
         onPointerLeave={() => window.clearTimeout(press.current)}
         className="num block py-4 pt-[calc(env(safe-area-inset-top)+1rem)] text-[length:var(--text-card)] text-[var(--color-ash)]"
       >
-        02:14
+        {clock.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
       </button>
 
-      <p className="label mt-6 text-[var(--color-ivory)]">{STATUS[state]}</p>
+      <p className="label mt-6 text-[var(--color-ivory)]">
+        {monitor.links.band === "connected" ? STATUS[state] : STATUS.offline}
+        {elapsed && ` · ${elapsed}`}
+      </p>
 
       {/* Left-aligned number with the trace flowing right, the way a
           bedside monitor reads. A ring here would be the template
           answer and the wrong convention. */}
       <div className="mt-8 flex items-end gap-5">
         <div>
-          <p className="num text-[length:var(--text-hero)] leading-none">58</p>
+          <p className="num text-[length:var(--text-hero)] leading-none">
+            {bpm ?? (live ? "—" : night.heart.avg)}
+          </p>
           <p className="label mt-1 text-[var(--color-ash)]">bpm</p>
         </div>
         <div className="mb-2 min-w-0 flex-1">
@@ -101,13 +133,22 @@ export function Session() {
       </div>
 
       <p className="mt-6 text-[var(--color-ash)]">
-        Deep sleep · SpO₂ {night.breathing.spo2DeltaPct}% from baseline
+        {live
+          ? monitor.vitals?.worn === false
+            ? "Band not worn"
+            : `SpO₂ ${monitor.oxygen ? `${monitor.oxygen.spo2Pct}%` : "—"} · movement ${monitor.motionMg} mg`
+          : `Deep sleep · SpO₂ ${night.breathing.spo2DeltaPct}% from baseline`}
       </p>
 
       {latest && (
         <div className="mt-10 rounded-[var(--radius-card)] bg-[var(--color-surface)] p-5">
           <p className="num text-[length:var(--text-meta)] text-[var(--color-ash)]">
-            01:20
+            {latest.at
+              ? new Date(latest.at).toLocaleTimeString("en-GB", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : "—"}
           </p>
           <p className="mt-2">{latest.title}</p>
           {latest.settleSec != null && (
@@ -121,10 +162,16 @@ export function Session() {
 
       <div className="mt-10 flex divide-x divide-[var(--color-ash-dim)]/30">
         {[
-          [`${night.room.tempC}°`, "Temp"],
-          [`${night.room.rh}%`, "RH"],
-          [`${night.room.lux} lx`, "Light"],
-          [`${night.room.db} dB`, "Noise"],
+          [
+            monitor.room?.tempC != null ? `${monitor.room.tempC}°` : live ? "—" : `${night.room.tempC}°`,
+            "Temp",
+          ],
+          [
+            monitor.room?.humidityPct != null ? `${monitor.room.humidityPct}%` : live ? "—" : `${night.room.rh}%`,
+            "RH",
+          ],
+          [monitor.room ? `${monitor.room.lux} lx` : live ? "—" : `${night.room.lux} lx`, "Light"],
+          [monitor.room ? `${monitor.room.db} dB` : live ? "—" : `${night.room.db} dB`, "Noise"],
         ].map(([v, l], i) => (
           <div key={l} className={i ? "px-3 last:pr-0" : "pr-3"}>
             <p className="num whitespace-nowrap text-[length:var(--text-body)]">{v}</p>

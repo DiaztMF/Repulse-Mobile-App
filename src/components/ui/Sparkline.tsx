@@ -23,7 +23,20 @@ export function Sparkline({
   height?: number;
   points?: number;
 }) {
-  if (raw.length < 2) return null;
+  /* Nothing to draw is a state worth naming. This returned null, which
+   * left a silent gap exactly where a chart belongs — and a reader who
+   * cannot tell "no data" from "a chart that failed to load" will assume
+   * the second. A measured night has no per-minute series yet, so this
+   * is now the normal case, not an edge one. */
+  if (raw.length < 2) {
+    return (
+      <div className="grid place-items-center" style={{ height }}>
+        <p className="label text-[var(--color-ash)]">
+          No minute-by-minute data for this night
+        </p>
+      </div>
+    );
+  }
 
   const values = bucket(raw, points);
   const W = 300;

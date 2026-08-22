@@ -8,15 +8,29 @@ function DeviceCard({
   name,
   serial,
   fields,
+  connected,
+  onDisconnect,
 }: {
   name: string;
   serial: string;
   fields: Field[];
+  connected: boolean;
+  onDisconnect: () => void;
 }) {
   return (
     <section className="rounded-[var(--radius-card)] bg-[var(--color-surface)] p-5">
       <div className="flex items-center gap-3">
-        <span className="size-2 rounded-full bg-[var(--color-pulse)]" />
+        {/* Lit only when it is actually attached. It was pinned to the
+            live colour, so this screen — the one built to catch silent
+            failures — showed a healthy green dot beside a device that was
+            not there. */}
+        <span
+          className={
+            connected
+              ? "size-2 rounded-full bg-[var(--color-pulse)]"
+              : "size-2 rounded-full border border-[var(--color-ash-dim)]"
+          }
+        />
         <h2 className="text-[length:var(--text-card)] font-medium">{name}</h2>
       </div>
       <p className="num mt-1 text-[length:var(--text-meta)] text-[var(--color-ash)]">
@@ -40,17 +54,19 @@ function DeviceCard({
       </dl>
 
       <div className="mt-6 flex items-center gap-4">
-        {/* Disconnecting is a BLE operation. Until that layer exists the
-            control says so instead of failing quietly. */}
+        {/* It now does what it says. The comment here used to read "until
+            that layer exists" — the layer exists, and a permanently
+            disabled control is its own kind of lie. */}
         <Button
           variant="secondary"
-          disabled
+          disabled={!connected}
+          onClick={onDisconnect}
           className="h-9 w-auto px-4 text-[length:var(--text-label)]"
         >
           Disconnect
         </Button>
         <span className="text-[length:var(--text-meta)] text-[var(--color-ash)]">
-          Needs the Bluetooth link
+          {connected ? "Reconnects on its own" : "Not connected"}
         </span>
       </div>
     </section>
@@ -63,7 +79,7 @@ function DeviceCard({
  * corrupts settle times without ever looking wrong.
  */
 export function Devices() {
-  const { links, vitals, bandStatus } = useMonitor();
+  const { links, vitals, bandStatus, release } = useMonitor();
 
   // A dash, never a plausible number. Every row on this screen exists
   // because it is a silent failure mode, and a screen invented to catch
@@ -88,6 +104,8 @@ export function Devices() {
       <div className="space-y-3 px-5">
         <DeviceCard
           name="Band"
+          connected={attached}
+          onDisconnect={() => void release("band")}
           serial={attached ? "RePulse Band" : "Not connected"}
           fields={[
             {
@@ -110,6 +128,8 @@ export function Devices() {
 
         <DeviceCard
           name="Bedside unit"
+          connected={links.bedside === "connected"}
+          onDisconnect={() => void release("bedside")}
           serial={links.bedside === "connected" ? "RePulse Bedside" : "Not connected"}
           fields={[
             { label: "Signal", value: links.bedside },

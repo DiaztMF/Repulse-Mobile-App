@@ -81,7 +81,7 @@ export function Export() {
       parts.verifications = user ? await fetchVerifications(user.uid) : [];
     }
     if (picked.series)
-      parts.series = chosen.map((n) => ({ date: n.date, samples: seriesFor(n.date) }));
+      parts.series = chosen.map((n) => ({ date: n.date, samples: seriesFor(n) }));
 
     const name = `repulse-${chosen.at(-1)?.date ?? "export"}-to-${chosen[0]?.date ?? ""}.${json ? "json" : "csv"}`;
     const body = json ? JSON.stringify(parts, null, 2) : toCsv(parts);

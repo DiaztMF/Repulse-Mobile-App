@@ -4,12 +4,14 @@ import { HeartPulse, Wind, Home as HomeIcon, Moon, X } from "lucide-react";
 import { Card, Empty } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Sparkline } from "@/components/ui/Sparkline";
-import { Header } from "@/components/shell/Header";
+import { Header, type DeviceState } from "@/components/shell/Header";
 import { useDrawer } from "@/components/shell/AppShell";
 import { ScoreChips } from "@/components/home/ScoreChips";
 import { Timeline } from "@/components/home/Timeline";
 import { seriesFor, formatDuration, bandOfScore } from "@/data/mock";
 import { useLastNight } from "@/data/store";
+import { useMonitor } from "@/state/monitor";
+import { Share } from "@capacitor/share";
 import { BAND_COLOR, BAND_LABEL, METRIC_COLOR } from "@/lib/metrics";
 
 /**
@@ -34,7 +36,8 @@ export function Home() {
   const navigate = useNavigate();
   const { openDrawer } = useDrawer();
   const night = useLastNight();
-  const series = seriesFor(night.date);
+  const { links } = useMonitor();
+  const series = seriesFor(night);
   const scored = night.score !== null;
   const band = scored ? bandOfScore(night.score!) : "fair";
 
@@ -50,9 +53,34 @@ export function Home() {
   const showSunsetBanner =
     !dismissed && minutesNow >= sunsetMin - 15 && minutesNow < sunsetMin + 25;
 
+  /* The ring said "both" no matter what was attached. A status light that
+   * is always green is worse than no status light: it is the one thing on
+   * this screen somebody would trust at a glance. */
+  const up = [links.band, links.bedside].filter((l) => l === "connected").length;
+  const devices: DeviceState = up === 2 ? "both" : up === 1 ? "one" : "none";
+
+  /* Sharing an unscored night would send somebody a row of dashes, so the
+   * button is absent until there is a score to talk about. */
+  const share = () =>
+    void Share.share({
+      title: "RePulse",
+      text: [
+        `Sleep Score ${night.score} on ${night.date}.`,
+        `${formatDuration(night.sleep.durationMin)} asleep, resting pulse ${night.heart.resting} bpm.`,
+        "Recorded with RePulse. Not a medical device.",
+      ].join(" "),
+    }).catch(() => {
+      // No share sheet on this platform, or the user dismissed it.
+    });
+
   return (
     <div className="pb-4">
-      <Header devices="both" onMenu={openDrawer} onDevices={() => navigate("/devices")} />
+      <Header
+        devices={devices}
+        onMenu={openDrawer}
+        onDevices={() => navigate("/devices")}
+        onShare={scored ? share : undefined}
+      />
 
       <div className="px-5 pt-2">
         <ScoreChips night={night} />

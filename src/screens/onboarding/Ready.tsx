@@ -4,11 +4,12 @@ import { Button } from "@/components/ui/Button";
 import { COPY } from "@/lib/copy";
 import { useAuth } from "@/firebase/auth";
 import { finish } from "@/firebase/onboarding";
+import { useMonitor } from "@/state/monitor";
+import { readBaseline } from "@/lib/baseline";
 
-/** Whatever O9 actually saved. The three rows above this one are still
- *  placeholders waiting on BLE, and a wrong band ID is only embarrassing.
- *  This row is the escalation ladder's last rung: naming someone the user
- *  never entered tells them help will reach a person it will not. */
+/** Whatever O9 actually saved. This row is the escalation ladder's last
+ *  rung: naming someone the user never entered tells them help will reach
+ *  a person it will not. */
 function savedContact(): string | null {
   try {
     const raw = localStorage.getItem("repulse_emergency_contacts");
@@ -30,11 +31,39 @@ export function Ready() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
+  const { links, bandStatus } = useMonitor();
   const contact = savedContact();
+
+  /* Every row here was a placeholder: a band serial nobody owns, 87%, and
+   * a resting pulse of 62 — which is the stand-in constant, printed as
+   * though it had been measured. §3.1 measures every personal threshold
+   * for a fortnight against that figure, so a screen headed "Everything is
+   * ready" claiming it exists when calibration never ran is the worst
+   * place in the app to invent a number. */
+  const baseline = readBaseline();
+  const bandUp = links.band === "connected";
+  const battery = bandStatus?.percent;
+
   const DONE = [
-    { title: "Band", detail: "RePulse Band 4C0521039 · 87%" },
-    { title: "Bedside unit", detail: "RePulse Bedside 2A19 · plugged in" },
-    { title: "Your resting pulse", detail: "62 bpm" },
+    {
+      title: "Band",
+      detail: bandUp
+        ? battery != null
+          ? `Connected · ${battery}%`
+          : "Connected"
+        : "Not connected",
+      ok: bandUp,
+    },
+    {
+      title: "Bedside unit",
+      detail: links.bedside === "connected" ? "Connected" : "Not connected",
+      ok: links.bedside === "connected",
+    },
+    {
+      title: "Your resting pulse",
+      detail: baseline != null ? `${baseline} bpm` : "Not measured yet",
+      ok: baseline != null,
+    },
     {
       title: "Emergency contact",
       detail: contact ?? "None saved, add one before tonight",

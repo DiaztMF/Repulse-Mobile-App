@@ -34,6 +34,7 @@ export function Header({
   unread = false,
   onMenu,
   onDevices,
+  onShare,
 }: {
   /** Tab roots that are not Home name themselves instead of repeating
    *  the wordmark on every tab. */
@@ -43,6 +44,8 @@ export function Header({
   unread?: boolean;
   onMenu?: () => void;
   onDevices?: () => void;
+  /** Absent when the night has nothing worth sending. */
+  onShare?: () => void;
 }) {
   return (
     // Grid, not flex-between: the wordmark centers on the screen rather
@@ -72,18 +75,16 @@ export function Header({
       </div>
 
       <div className="flex items-center gap-4 justify-self-end">
-        <button
-          aria-label="Share"
-          onClick={() =>
-            navigator.share?.({
-              title: "RePulse",
-              text: "My sleep summary from last night.",
-              url: location.href,
-            })
-          }
-        >
-          <Share className="size-5" strokeWidth={1.5} />
-        </button>
+        {/* Only rendered when there is something to send. It used to call
+            `navigator.share?.()`, which is undefined in the Android
+            WebView, so the button did nothing at all and said nothing about
+            it — and what it offered to share was `location.href`, a
+            capacitor:// URL that means nothing to anyone receiving it. */}
+        {onShare && (
+          <button aria-label="Share" onClick={onShare}>
+            <Share className="size-5" strokeWidth={1.5} />
+          </button>
+        )}
         <button onClick={onDevices} aria-label="Devices">
           <DeviceRing state={devices} />
         </button>

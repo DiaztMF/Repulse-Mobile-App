@@ -183,6 +183,21 @@ export class LiveTransport implements BleTransport {
     }, wait);
   }
 
+  async release(device: Device) {
+    const id = this.id[device];
+    if (!id) return;
+    delete this.id[device];
+    try {
+      await BleClient.disconnect(id);
+    } catch {
+      // Already gone, which is the state we were asking for.
+    }
+    this.link(device, "idle");
+    /* Scanning may have stopped once both were attached, and without this
+     * a released device could never be found again. */
+    this.rescan();
+  }
+
   async stop() {
     this.running = false;
     this.scanning = false;
@@ -235,8 +250,28 @@ export class LiveTransport implements BleTransport {
 
     if (this.id[device]) return;
     this.id[device] = r.device.deviceId;
+
+    /* One attach at a time, never two.
+     *
+     * Both devices are found by one scan, and each sighting used to start
+     * its own attach immediately — so the band's service discovery and
+     * subscriptions interleaved with the bedside's. Android's GATT stack
+     * does not hold up under that: the console showed both chains running
+     * together and the band's second subscription coming back
+     * "Characteristic not found" for a characteristic the firmware plainly
+     * registers. A device found second now simply waits its turn.
+     *
+     * The queue is per transport and never rejects, so one device failing
+     * to attach cannot stop the other from trying. */
+    this.attaching = this.attaching.then(() => this.attachOrDrop(device, r.device.deviceId));
+    await this.attaching;
+  }
+
+  private attaching: Promise<void> = Promise.resolve();
+
+  private async attachOrDrop(device: Device, id: string) {
     try {
-      await this.attach(device, r.device.deviceId);
+      await this.attach(device, id);
     } catch (e) {
       console.error(`[ble] ${device} would not attach`, e);
       delete this.id[device];
@@ -246,7 +281,7 @@ export class LiveTransport implements BleTransport {
        * listening to nothing and stops advertising, so the retry never
        * sees it again, and its serial log flatly contradicts the phone. */
       try {
-        await BleClient.disconnect(r.device.deviceId);
+        await BleClient.disconnect(id);
       } catch {
         // Already gone, which is the state we wanted anyway.
       }

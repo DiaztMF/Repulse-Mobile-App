@@ -271,13 +271,38 @@ export function decodeAdvertisement(b: Uint8Array): {
   worn: boolean;
   phoneConnected: boolean;
 } | null {
-  if (b.length < 5) return null;
-  if (dv(b).getUint16(0, true) !== 0xffff) return null;
+  /* Two shapes, because the platform decides which one arrives.
+   *
+   * §2.1 describes the advertisement as it sits on the air: company id at
+   * offset 0-1, then protocol, stage, flags. That is what the bedside reads,
+   * and NimBLE hands it the whole field. A phone does not get it that way.
+   * `@capacitor-community/bluetooth-le` keys manufacturer data BY company id
+   * and the value holds only what follows it — its own documentation says
+   * "key is a company identifier and value is the data" — so the app is
+   * handed three bytes and this decoder rejected every one of them on
+   * `length < 5`.
+   *
+   * That is the whole §2.1 path: the stage a band broadcasts so a phone
+   * which has lost the connection can still see an emergency. It was dead
+   * on the phone and there was no way to notice, because a band that is
+   * connected reports its stage over §3.5 instead — the advertisement only
+   * matters once the link is gone, which is exactly when nobody is looking.
+   *
+   * Both shapes are accepted rather than picking one, since iOS and the web
+   * backend need not agree with Android about this. */
+  const at =
+    b.length >= 5 && dv(b).getUint16(0, true) === 0xffff
+      ? 2
+      : b.length === 3
+        ? 0
+        : -1;
+  if (at < 0) return null;
+  const flags = b[at + 2]!;
   return {
-    protocolVersion: b[2]!,
-    stage: b[3]!,
-    worn: (b[4]! & 0b1000_0000) !== 0,
-    phoneConnected: (b[4]! & 0b0000_0001) !== 0,
+    protocolVersion: b[at]!,
+    stage: b[at + 1]!,
+    worn: (flags & 0b1000_0000) !== 0,
+    phoneConnected: (flags & 0b0000_0001) !== 0,
   };
 }
 

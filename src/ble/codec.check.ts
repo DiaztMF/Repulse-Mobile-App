@@ -159,6 +159,15 @@ assert.equal(adv.worn, true);
 assert.equal(adv.phoneConnected, false, "which is what lets the bedside siren alone");
 assert.equal(decodeAdvertisement(u8(...le16(0x1234), 1, 0, 0)), null, "other vendors ignored");
 
+// What Android actually delivers: the company id became the key, so only
+// the three bytes after it arrive. Rejecting these was the §2.1 path being
+// dead on the phone and nothing on screen able to say so.
+const stripped = decodeAdvertisement(u8(0x01, 2, 0b1000_0001))!;
+assert.equal(stripped.stage, 2, "the stage survives the platform eating the company id");
+assert.equal(stripped.worn, true);
+assert.equal(stripped.phoneConnected, true);
+assert.equal(decodeAdvertisement(u8(0x01, 2)), null, "and a truncated one is still refused");
+
 // --- outbound: the aroma cap --------------------------------------------
 
 const long = JSON.parse(new TextDecoder().decode(encodeActuator({ kind: "aroma", seconds: 60 }, 9)));

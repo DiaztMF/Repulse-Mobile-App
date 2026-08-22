@@ -141,7 +141,8 @@ export function Calibration() {
   // averaging.
   useEffect(() => {
     if (stage !== "running" || !vitals?.worn) return;
-    samples.current.push(vitals.bpm);
+    // Zero means the band found no beat, not that it found none beating.
+    if (vitals.bpm > 0) samples.current.push(vitals.bpm);
   }, [stage, vitals]);
 
   /* The figure, once. §3.1 measures every personal threshold for the next

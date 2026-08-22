@@ -95,6 +95,13 @@ export class MockTransport implements BleTransport {
     this.timer = window.setInterval(() => this.step(), 1000 / this.speed);
   }
 
+  /** Nothing to hang up on, so it only reports the link the caller asked
+   *  to drop. A demo running on the mock still has to see the button do
+   *  what it says. */
+  async release(device: Device) {
+    this.setLink(device, "idle");
+  }
+
   async stop() {
     if (this.timer !== undefined) window.clearInterval(this.timer);
     this.timer = undefined;
