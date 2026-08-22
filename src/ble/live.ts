@@ -298,13 +298,25 @@ export class LiveTransport implements BleTransport {
       this.rescan();
     });
 
-    // §1: bonded, so a reconnect at 3am does not ask anybody to pair.
-    try {
-      if (!(await BleClient.isBonded(id))) await BleClient.createBond(id);
-    } catch (e) {
-      // Some stacks bond implicitly on first encryption instead. Not fatal.
-      console.warn("[ble] bond declined", e);
-    }
+    /* Bonding is deliberately not forced.
+     *
+     * It used to be, for "a reconnect at 3am does not ask anybody to
+     * pair" — but not one characteristic on either device requires
+     * encryption or authentication. All ten are plain NOTIFY, WRITE, READ
+     * and INDICATE. A bond therefore unlocks nothing, and a reconnect
+     * never asks anybody to pair with or without it.
+     *
+     * What it did buy was a loop. Bonding is the most vendor-divergent
+     * corner of the Android stack, and on some builds createBond against
+     * an already-connected LE device tears the link down to re-pair. The
+     * disconnect callback then fires, the link is marked lost, the scan
+     * restarts, the device is found, and isBonded is still false because
+     * the bond never completed — so it bonds again, and drops again. Off,
+     * on, off, on, for as long as the phone is willing.
+     *
+     * Losing the bond costs one thing: Android re-discovers services on
+     * each connect instead of reading its cache. That is slower by
+     * milliseconds and cannot be wrong, which is the better trade. */
 
     // ponytail: no 20-byte fallback. Every write this app makes is small
     // JSON. The only payload needing the full 185 is the ECG stream, which
