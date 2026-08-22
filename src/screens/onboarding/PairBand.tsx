@@ -37,6 +37,16 @@ export function PairBand() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /* A screen whose only remaining content is a tick does not need a
+   * button under it. The pause is there so the confirmation can be read;
+   * without it the tick would flash past and the pairing would look like
+   * it had been skipped. */
+  useEffect(() => {
+    if (links.band !== "connected") return;
+    const t = setTimeout(() => navigate("/pair/bedside"), 1200);
+    return () => clearTimeout(t);
+  }, [links.band, navigate]);
+
   const stage: Stage =
     radio === false
       ? "no-radio"
@@ -118,14 +128,13 @@ export function PairBand() {
 
           A band nobody can find is a reason to carry on without one, not a
           reason to trap the person holding the phone. */}
-      {stage !== "connecting" && (
+      {stage !== "connecting" && stage !== "connected" && (
         <Button
           size="lg"
-          register={stage === "connected" ? "system" : undefined}
-          variant={stage === "connected" ? "primary" : "secondary"}
+          variant="secondary"
           onClick={() => navigate("/pair/bedside")}
         >
-          {stage === "connected" ? "Continue" : "Continue without a band"}
+          Continue without a band
         </Button>
       )}
 

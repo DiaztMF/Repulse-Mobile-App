@@ -137,7 +137,14 @@ export function PairBedside() {
           size="lg"
           register={!searching ? "system" : undefined}
           variant={!searching ? "primary" : "secondary"}
-          onClick={() => navigate("/calibration")}
+          /* Straight to contacts: baseline calibration is three minutes
+             of watching nothing, and monitor.tsx already falls back to
+             TUNING.baselineBpm when no baseline was recorded. Ready says
+             "Not measured yet" rather than inventing a resting rate.
+             /calibration stays in STEPS so an account that stopped there
+             still resumes somewhere real, and the screen is still
+             reachable from the test panel. */
+          onClick={() => navigate("/onboarding/contacts")}
         >
           {!searching ? "Continue" : "Continue without a bedside unit"}
         </Button>
