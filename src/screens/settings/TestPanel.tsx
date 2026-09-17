@@ -10,7 +10,10 @@ import { NIGHTS, INTERVENTIONS } from "@/data/mock";
 import * as m0 from "@/lib/m0";
 import { useMonitor } from "@/state/monitor";
 import type { Scenario } from "@/ble/mock";
+import type { Actuator } from "@/ble/transport";
 import { RepulseMonitor } from "repulse-monitor";
+import { SunsetControls } from "@/components/settings/SunsetControls";
+import { readNoiseTrack, writeNoiseTrack, type NoiseTrack } from "@/lib/noise";
 
 /** The five §11.5 names, in the order a demo would want them. */
 const SCENARIOS: [Scenario, string][] = [
@@ -66,6 +69,7 @@ export function TestPanel() {
    * into a log line that had exactly this problem. */
   const [now, setNow] = useState(Date.now());
   const [snoring, setSnoring] = useState<boolean | null>(null);
+  const [track, setTrack] = useState<NoiseTrack>(readNoiseTrack);
 
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 1000);
@@ -125,7 +129,7 @@ export function TestPanel() {
     {
       key: "noise",
       label: "White noise",
-      note: "tap to step 0 → 3 · volume 0, 10, 20, 30 · no fade",
+      note: `tap to step 0 → 3 · volume 0, 10, 20, 30 · sound ${track} · no fade`,
       steps: 4,
       // No ramp here on purpose: a step you cannot hear for thirty
       // seconds is a step nobody can calibrate against.
@@ -133,8 +137,10 @@ export function TestPanel() {
     },
     {
       key: "light",
-      label: "Amber light",
-      note: "2200K, 10% brightness",
+      // What an anomaly shows, not the bedtime lamp — that is the sunset
+      // below. The old label read as the sleep light.
+      label: "Anomaly light (amber)",
+      note: "stage 1–3 · 2200K, brightness 10",
       act: (n) => monitor.send({ kind: "light", mode: n ? "amber-dim" : "off" }),
     },
     {
@@ -153,6 +159,20 @@ export function TestPanel() {
 
   const BAND: Row[] = [
     {
+      key: "stand-down",
+      label: "Stand down",
+      note: "§3.8 · band back to stage 0, stage 4 included · same as “I'm okay”",
+      momentary: true,
+      act: async () => monitor.standDown(),
+    },
+    {
+      key: "ping",
+      label: "Heartbeat ping",
+      note: "§2.1 · the app sends this every 10s by itself",
+      momentary: true,
+      act: () => monitor.command({ cmd: "ping" }),
+    },
+    {
       key: "soft",
       label: "Soft vibration",
       note: "stage 2 pattern, 800ms",
@@ -167,6 +187,27 @@ export function TestPanel() {
       act: () => monitor.command({ cmd: "vibrate", pattern: "hard", durationMs: 2000 }),
     },
   ];
+
+  /* The firmware only reads the track when noise starts, so a change while
+   * it plays is restarted here — otherwise the button would appear to do
+   * nothing until somebody switched the noise off and on again. */
+  const pickTrack = async (t: NoiseTrack) => {
+    setTrack(t);
+    writeNoiseTrack(t);
+    const level = on.noise ?? 0;
+    if (!level) return;
+    await monitor.send({ kind: "noise", level: 0, fadeS: 0 });
+    await monitor.send({ kind: "noise", level: level as 1 | 2 | 3, fadeS: 0 });
+  };
+
+  const sendLight = async (a: Actuator) => {
+    try {
+      await monitor.send(a);
+      setActMsg(null);
+    } catch (e) {
+      setActMsg(`Lamp: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
 
   const toggle = async (a: Row) => {
     const next = ((on[a.key] ?? 0) + 1) % (a.steps ?? 2);
@@ -221,7 +262,8 @@ export function TestPanel() {
             transport that is not connected resolves quietly, so an
             unplugged bedside and a broken actuator look identical. */}
         <p className="label mt-4 text-[var(--color-ash)]">
-          bedside {monitor.links.bedside} · band {monitor.links.band}
+          bedside {monitor.links.bedside} · band {monitor.links.band} · bluetooth{" "}
+          {monitor.bluetooth == null ? "unknown" : monitor.bluetooth ? "on" : "off"}
         </p>
 
         {/* The only live view of the bedside's own sensors anywhere in the
@@ -313,6 +355,34 @@ export function TestPanel() {
           ))}
         </div>
 
+        <div className="mt-3 flex items-center justify-between gap-4 px-1">
+          <span className="text-[length:var(--text-meta)] text-[var(--color-ash)]">
+            White noise sound · saved as default
+          </span>
+          <span className="flex shrink-0 gap-2">
+            {([1, 2, 3] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() =>
+                  void pickTrack(t).catch((e) =>
+                    setActMsg(`White noise: ${e instanceof Error ? e.message : String(e)}`),
+                  )
+                }
+                aria-label={`Sound ${t}`}
+                aria-pressed={track === t}
+                className={cn(
+                  "num size-9 rounded-full transition-colors",
+                  track === t
+                    ? "bg-[var(--color-raised)] text-[var(--color-pulse)]"
+                    : "bg-[var(--color-surface)] text-[var(--color-ash-dim)]",
+                )}
+              >
+                {t}
+              </button>
+            ))}
+          </span>
+        </div>
+
         {/* Off by default: a diffuser running in a closed room during a
             demo is a real risk for anyone in the audience with asthma. */}
         <label className="mt-3 flex items-center gap-3 px-1">
@@ -326,6 +396,28 @@ export function TestPanel() {
             Allow aroma during this demo
           </span>
         </label>
+
+        {/* §4.3 sunset with the saved colour and brightness — the same
+            controls as Settings, writing the same default. Thirty seconds
+            shows the whole curve down to dark; 25 minutes is the night's. */}
+        <h2 className="label mt-8 text-[var(--color-ash)]">Sunset lamp</h2>
+        <div className="mt-3 rounded-[var(--radius-control)] bg-[var(--color-surface)] px-4">
+          <SunsetControls wire />
+        </div>
+        <div className="mt-3 space-y-2">
+          <Button
+            variant="secondary"
+            onClick={() => void sendLight({ kind: "light", mode: "sunset", rampS: 30 })}
+          >
+            Run sunset · 30 seconds
+          </Button>
+          <Button variant="secondary" onClick={() => void sendLight({ kind: "light", mode: "sunset" })}>
+            Run sunset · 25 minutes
+          </Button>
+          <Button variant="secondary" onClick={() => void sendLight({ kind: "light", mode: "off" })}>
+            Lamp off
+          </Button>
+        </div>
 
         {actMsg && (
           <p className="mt-3 text-[length:var(--text-meta)] text-[var(--color-band-poor)]">
@@ -345,6 +437,29 @@ export function TestPanel() {
             went through the state machine, cancelled whatever was running,
             and flipped every actuator — the same path a real anomaly takes.
             A button that routed to /alert proved none of that. */}
+        {/* The night's own path, not a playback: the same calls the home
+            banner, the action sheet and the session screen make. */}
+        <h2 className="label mt-8 text-[var(--color-ash)]">Night</h2>
+        <p className="mt-2 text-[length:var(--text-meta)] text-[var(--color-ash)]">
+          Wind down only starts from standby. Start sleep switches the lamp
+          off and begins recording; end session saves the night.
+        </p>
+        <p className="label mt-4 text-[var(--color-ash)]">
+          {monitor.phase}
+          {monitor.sessionAt ? " · recording" : ""}
+        </p>
+        <div className="mt-3 space-y-2">
+          <Button variant="secondary" onClick={() => monitor.windDown()}>
+            Wind down
+          </Button>
+          <Button variant="secondary" onClick={() => monitor.startSleep()}>
+            Start sleep
+          </Button>
+          <Button variant="secondary" onClick={() => monitor.endSession()}>
+            End session
+          </Button>
+        </div>
+
         <h2 className="label mt-8 text-[var(--color-ash)]">Escalation</h2>
         <p className="mt-2 text-[length:var(--text-meta)] text-[var(--color-ash)]">
           Plays a synthetic night through the same path a band would use.
