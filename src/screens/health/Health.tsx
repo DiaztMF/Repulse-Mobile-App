@@ -4,6 +4,7 @@ import { Header, deviceStateFrom } from "@/components/shell/Header";
 import { useDrawer } from "@/components/shell/AppShell";
 import { formatDuration, bandOfScore } from "@/data/mock";
 import { useStore } from "@/data/store";
+import { NoNights } from "@/components/ui/NoNights";
 import { useMonitor } from "@/state/monitor";
 import { BAND_COLOR, BAND_LABEL, METRIC_COLOR } from "@/lib/metrics";
 
@@ -24,7 +25,7 @@ export function Health() {
   const navigate = useNavigate();
   const { openDrawer } = useDrawer();
   const { nights: NIGHTS } = useStore();
-  const { links } = useMonitor();
+  const { links, vitals } = useMonitor();
   const nightsWithBreathing = NIGHTS.filter((n) => n.breathing.desatPerHour >= 1);
 
   return (
@@ -32,6 +33,7 @@ export function Health() {
       <Header
         title="Health"
         devices={deviceStateFrom(links)}
+        liveBpm={vitals?.worn && vitals.bpm > 0 ? vitals.bpm : null}
         onMenu={openDrawer}
         onDevices={() => navigate("/devices")}
       />
@@ -77,6 +79,8 @@ export function Health() {
       <h2 className="mt-10 px-5 text-[length:var(--text-card)] font-medium">
         Nights
       </h2>
+
+      {NIGHTS.length === 0 && <NoNights />}
 
       <ul className="mt-4 space-y-3 px-5">
         {NIGHTS.map((n) => {

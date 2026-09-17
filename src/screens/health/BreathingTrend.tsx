@@ -5,6 +5,7 @@ import { METRIC_COLOR, BAND_COLOR } from "@/lib/metrics";
 import { COPY } from "@/lib/copy";
 import { screeningFlag, worstPosition } from "@/lib/screening";
 import { RowList } from "@/components/vitals/VitalLayout";
+import { NoNights } from "@/components/ui/NoNights";
 
 /**
  * S3 — Breathing trend. Reports a pattern across nights, never a
@@ -21,6 +22,18 @@ const POSITION_PHRASE: Record<string, string> = {
 
 export function BreathingTrend() {
   const WEEK = useStore().nights.slice(0, 7);
+
+  /* A trend drawn from no nights is arithmetic on an empty list, and it
+   * only ever had numbers to divide because a new account was handed the
+   * synthetic fortnight. */
+  if (WEEK.length === 0) {
+    return (
+      <div className="pb-8">
+        <PageHeader title="Breathing trend" />
+        <NoNights>A pattern needs several nights. None have been recorded yet.</NoNights>
+      </div>
+    );
+  }
 
   /* The chart's own threshold: a night worth drawing in red. Deliberately
    * lower than the screening bar, because a dip is worth seeing long

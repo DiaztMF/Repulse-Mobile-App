@@ -6,6 +6,7 @@ import { Capacitor } from "@capacitor/core";
 import { Directory, Encoding, Filesystem } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
 import { useStore } from "@/data/store";
+import { NoNights } from "@/components/ui/NoNights";
 import { seriesFor } from "@/data/mock";
 import { useAuth } from "@/firebase/auth";
 import { fetchVerifications } from "@/firebase/nights";
@@ -65,6 +66,16 @@ export function Export() {
 
   const count = RANGES.find((r) => r.key === range)!.nights;
   const mb = PARTS.reduce((a, p) => a + (picked[p.key] ? p.mbPerNight * count : 0), 0);
+
+  // An export of nothing is an empty file with a confident size beside it.
+  if (nights.length === 0) {
+    return (
+      <div className="pb-8">
+        <PageHeader title="Export" showMenu />
+        <NoNights>There is nothing to export yet.</NoNights>
+      </div>
+    );
+  }
 
   /** Built on the device and never sent anywhere. No server touches this,
    *  which is the point: the file is health data. */

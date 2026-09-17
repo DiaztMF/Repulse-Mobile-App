@@ -1,6 +1,7 @@
 import { PageHeader } from "@/components/shell/PageHeader";
 import { formatDuration, bandOfScore } from "@/data/mock";
 import { useLastNight } from "@/data/store";
+import { NoNights } from "@/components/ui/NoNights";
 import { BAND_COLOR, BAND_LABEL } from "@/lib/metrics";
 import { COPY } from "@/lib/copy";
 
@@ -18,6 +19,14 @@ const ALERTS = [
  */
 export function FamilyView() {
   const n = useLastNight();
+  if (!n) {
+    return (
+      <div className="pb-8">
+        <PageHeader title={`Viewing ${WHO}`} />
+        <NoNights>{WHO} has no recorded nights.</NoNights>
+      </div>
+    );
+  }
   const band = n.score !== null ? bandOfScore(n.score) : null;
 
   return (

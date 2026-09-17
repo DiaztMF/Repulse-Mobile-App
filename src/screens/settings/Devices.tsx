@@ -143,9 +143,12 @@ export function Devices() {
 
         <section className="rounded-[var(--radius-card)] bg-[var(--color-surface)] p-5">
           <h2 className="label text-[var(--color-ash)]">Offline buffer</h2>
-          <p className="mt-2">Empty</p>
-          <p className="mt-1 text-[length:var(--text-meta)] text-[var(--color-ash)]">
-            Last rebuilt 11 Aug, 06:12
+          {/* "Empty · last rebuilt 11 Aug, 06:12" was invented, and nothing
+              in the app tracks either figure. §3.9 is what can honestly be
+              said: the rule, not a reading. */}
+          <p className="mt-2 text-[var(--color-ash)]">
+            The band records on its own while the phone is away, and sends it all on the
+            next connection. It erases nothing until this app confirms it arrived.
           </p>
         </section>
 

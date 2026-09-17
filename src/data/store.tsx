@@ -17,12 +17,20 @@ type Store = {
   loading: boolean;
 };
 
-const StoreContext = createContext<Store>({
+/** No project configured: the app still has to be walkable and
+ *  demonstrable, and the badge says every number here was invented. */
+const DEMO: Store = {
   nights: MOCK_NIGHTS,
   interventions: MOCK_INTERVENTIONS,
   sample: true,
   loading: false,
-});
+};
+
+/** Signed in with nothing recorded. Not the same as the demo, and it
+ *  must never borrow the demo's nights — see `NoNights`. */
+const NOTHING: Store = { nights: [], interventions: [], sample: false, loading: false };
+
+const StoreContext = createContext<Store>(DEMO);
 
 /**
  * One place decides where the data comes from. Screens ask for nights and
@@ -36,12 +44,12 @@ const StoreContext = createContext<Store>({
  */
 export function StoreProvider({ children }: { children: ReactNode }) {
   const { user, ready } = useAuth();
-  const [state, setState] = useState<Store>({
-    nights: MOCK_NIGHTS,
-    interventions: MOCK_INTERVENTIONS,
-    sample: true,
-    loading: false,
-  });
+  /* With a project, the first answer comes from Firestore — starting on
+   * the synthetic set would flash fourteen invented nights at a new
+   * account before its own empty answer arrived. */
+  const [state, setState] = useState<Store>(
+    configured ? { ...NOTHING, loading: true } : DEMO,
+  );
 
   useEffect(() => {
     if (!configured || !ready || !user) return;
@@ -51,22 +59,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     Promise.all([fetchNights(user.uid), fetchInterventions(user.uid)])
       .then(([nights, interventions]) => {
         if (!live) return;
-        // An empty account falls back rather than showing a bare app —
-        // the first night has not happened yet.
+        /* An empty account gets an empty app, not the synthetic
+         * fortnight. Handing a new user somebody else's fourteen nights
+         * is not softened by a badge: every screen under it — scores,
+         * trends, what settles them — was about a person who does not
+         * exist. The demo net is the seeder in the test panel, which
+         * writes real rows and stamps them `seeded`. */
         const empty = nights.length === 0;
         setState({
-          nights: empty ? MOCK_NIGHTS : nights,
-          interventions: empty ? MOCK_INTERVENTIONS : interventions,
+          nights,
+          interventions,
           // Synthetic either way it got here: the local set, or the
           // seeded fortnight coming back out of Firestore. The seeder is
           // the demo safety net, and a safety net that quietly drops the
           // label is worse than no net at all.
-          sample: empty || nights.some((n) => n.seeded),
+          // Nothing recorded is not sample data; it is nothing.
+          sample: !empty && nights.some((n) => n.seeded),
           loading: false,
         });
       })
-      .catch(() => {
-        if (live) setState((s) => ({ ...s, sample: true, loading: false }));
+      .catch((e) => {
+        // Unreadable is not "here are fourteen nights". The screens say
+        // nothing has been recorded, which is at least not an invention.
+        console.error("[store] could not read nights", e);
+        if (live) setState(NOTHING);
       });
 
     return () => {
@@ -81,9 +97,10 @@ export function useStore() {
   return useContext(StoreContext);
 }
 
-/** Convenience for the many screens that only need last night. */
+/** Convenience for the many screens that only need last night. Undefined
+ *  until one has been recorded — every caller has to say so. */
 export function useLastNight() {
-  return useStore().nights[0]!;
+  return useStore().nights[0];
 }
 
 export function useNight(date: string | undefined) {

@@ -1,5 +1,6 @@
 import { PageHeader } from "@/components/shell/PageHeader";
 import { useStore } from "@/data/store";
+import { NoNights } from "@/components/ui/NoNights";
 import { BAND_COLOR } from "@/lib/metrics";
 
 /** Below this a rate is noise, so the app refuses to act on it or to
@@ -20,6 +21,18 @@ export function Insights() {
     return rb - ra;
   });
   const best = ranked.find((i) => i.tries >= MIN_TRIES);
+
+  if (INTERVENTIONS.length === 0) {
+    return (
+      <div className="pb-4">
+        <PageHeader title="What helps you settle" />
+        <NoNights>
+          Nothing has been tried yet. This fills in once a restless spell has been
+          settled.
+        </NoNights>
+      </div>
+    );
+  }
 
   return (
     <div className="pb-4">
