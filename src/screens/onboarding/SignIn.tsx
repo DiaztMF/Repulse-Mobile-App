@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { COPY } from "@/lib/copy";
 import { useAuth } from "@/firebase/auth";
+import { configured } from "@/firebase/app";
 import { routeFor } from "@/firebase/onboarding";
 
 /** Only decides whether the button may light up. Firebase does the
@@ -49,6 +50,11 @@ const EXPLAIN: Record<string, Message> = {
     field: "password",
   },
   "auth/network-request-failed": { text: "No connection to Firebase." },
+  "auth/user-not-found": {
+    text: "No account with a password for that address. If you signed up with Google, use the button below.",
+    field: "email",
+  },
+  "auth/missing-email": { text: "Enter your email address.", field: "email" },
   "auth/too-many-requests": {
     text: "Too many attempts. Wait a minute and retry.",
   },
@@ -180,11 +186,26 @@ export function SignIn() {
       emailRef.current?.focus();
       return;
     }
+    /* Without a project there is nobody to send anything, and `reset`
+     * resolves anyway — so this screen used to promise an email that was
+     * never even attempted. */
+    if (!configured) {
+      setMessage({ text: "No Firebase project is configured, so no email can be sent." });
+      return;
+    }
     setBusy(true);
     setMessage(null);
     try {
       await auth.reset(email);
-      setMessage({ text: "Reset link sent. Check your inbox.", ok: true });
+      /* Deliberately not "sent". Firebase's email enumeration protection
+       * answers the same way for an address it has never seen and for a
+       * Google account, which has no password to reset — and both of those
+       * send nothing at all. Saying "sent" leaves somebody refreshing an
+       * inbox that will stay empty. */
+      setMessage({
+        text: "If that address has a password account, the reset link is on its way. A Google account has no password — use the button below.",
+        ok: true,
+      });
     } catch (e) {
       console.error("[auth] reset", e);
       setMessage(explain(codeOf(e), e));
