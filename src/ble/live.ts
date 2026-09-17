@@ -17,6 +17,7 @@ import {
   encodeActuator,
   encodeBandCommand,
   encodeBandConfig,
+  encodePing,
   flushAck,
   flushStart,
   replay,
@@ -78,6 +79,9 @@ const D = {
 /** §2.1. Manufacturer Specific Data rides under company id 0xFFFF. */
 const COMPANY = "65535";
 
+/** §2.1. Three missed beats inside the devices' 30-second window. */
+const HEARTBEAT_MS = 10_000;
+
 const bytes = (v: DataView) => new Uint8Array(v.buffer, v.byteOffset, v.byteLength);
 const view = (u: Uint8Array) => new DataView(u.buffer, u.byteOffset, u.byteLength);
 
@@ -98,8 +102,11 @@ export class LiveTransport implements BleTransport {
   private warned = new Set<Packet>();
 
   private scanning = false;
+  /** The adapter's own switch. Null until it has answered once. */
+  private enabled: boolean | null = null;
   private scanStartedAt = 0;
   private rescanTimer: ReturnType<typeof setTimeout> | null = null;
+  private heartbeat: ReturnType<typeof setInterval> | null = null;
 
   on(listener: (e: BleEvent) => void) {
     this.listeners.add(listener);
@@ -123,12 +130,62 @@ export class LiveTransport implements BleTransport {
 
   async start() {
     if (this.running) return;
+    // Claimed before the first await, so two screens starting at once do
+    // not both ask Android to switch Bluetooth on.
     this.running = true;
-    await BleClient.initialize({ androidNeverForLocation: true });
+    try {
+      await BleClient.initialize({ androidNeverForLocation: true });
+    } catch (e) {
+      // Permission refused. Released so a later attempt can ask again.
+      this.running = false;
+      throw e;
+    }
+    this.heartbeat = setInterval(() => this.beat(), HEARTBEAT_MS);
 
-    this.link("band", "scanning");
-    this.link("bedside", "scanning");
-    await this.scan();
+    /* Bluetooth switched off is a state to wait out, not a failure.
+     *
+     * The plugin starts its scan through a scanner that is null while the
+     * adapter is off, and still answers "Started scanning." So a start with
+     * Bluetooth off left `scanning` true on a scan that never existed, and
+     * switching Bluetooth on afterwards found this transport already
+     * running, already scanning, and doing neither until the app was
+     * killed. A toggle in the middle of the night did the same, silently.
+     * Following the adapter is what makes both recover on their own. */
+    await BleClient.startEnabledNotifications((on) => void this.radio(on));
+    await this.radio(await BleClient.isEnabled());
+    if (this.enabled) return;
+    try {
+      // Android's own "allow RePulse to turn on Bluetooth?" — one tap
+      // instead of a trip to quick settings. The listener above hears the
+      // answer, and a switch flipped by hand later just the same.
+      await BleClient.requestEnable();
+    } catch {
+      // Declined. The screens say Bluetooth is off; there is nothing to add.
+    }
+  }
+
+  /** Every change of the adapter, and its state at start. */
+  private async radio(on: boolean) {
+    if (!this.running || on === this.enabled) return;
+    this.enabled = on;
+    this.emit({ kind: "radio", on });
+
+    if (on) {
+      this.link("band", "scanning");
+      this.link("bedside", "scanning");
+      await this.scan().catch((e) => console.error("[ble] scan failed", e));
+      return;
+    }
+
+    /* Every link died with the adapter. Forgotten here so the first sighting
+     * after it comes back attaches again, and so the next scan is a real
+     * one rather than a guard remembering a scan the OS already ended. */
+    this.scanning = false;
+    if (this.rescanTimer) clearTimeout(this.rescanTimer);
+    this.rescanTimer = null;
+    this.id = {};
+    this.link("band", "idle");
+    this.link("bedside", "idle");
   }
 
   /**
@@ -138,13 +195,19 @@ export class LiveTransport implements BleTransport {
    * firmware is held to.
    */
   private async scan() {
-    if (this.scanning || !this.running) return;
+    if (this.scanning || !this.running || !this.enabled) return;
     this.scanning = true;
     this.scanStartedAt = Date.now();
-    await BleClient.requestLEScan(
-      { services: [BAND_SERVICE, BEDSIDE_SERVICE], allowDuplicates: true },
-      (r) => void this.saw(r),
-    );
+    try {
+      await BleClient.requestLEScan(
+        { services: [BAND_SERVICE, BEDSIDE_SERVICE], allowDuplicates: true },
+        (r) => void this.saw(r),
+      );
+    } catch (e) {
+      // Left true, the guard above would refuse every scan after this one.
+      this.scanning = false;
+      throw e;
+    }
   }
 
   /**
@@ -201,6 +264,14 @@ export class LiveTransport implements BleTransport {
   async stop() {
     this.running = false;
     this.scanning = false;
+    this.enabled = null;
+    if (this.heartbeat) clearInterval(this.heartbeat);
+    this.heartbeat = null;
+    try {
+      await BleClient.stopEnabledNotifications();
+    } catch {
+      // Never started. Nothing to stop.
+    }
     if (this.rescanTimer) clearTimeout(this.rescanTimer);
     this.rescanTimer = null;
     try {
@@ -454,6 +525,30 @@ export class LiveTransport implements BleTransport {
     void this.write(id, BAND_SERVICE, B.buffer, flushAck(this.lastSeq)).catch((e) =>
       console.error("[ble] flush ack failed — the band keeps its buffer, which is the point", e),
     );
+  }
+
+  /**
+   * §2.1: tells both devices this app is alive, not merely connected.
+   *
+   * Android stops this JavaScript once the screen is off, while the native
+   * side keeps every GATT link open and confirms the band's Indicates on
+   * its own. A connection alone therefore proved nothing: the band kept
+   * reporting a phone, the bedside kept deferring to it, and the siren that
+   * could have sounded stayed quiet behind an app that could not hear.
+   *
+   * This interval stops with the JavaScript, and that silence is the
+   * signal — thirty seconds of it hands the siren back to the bedside.
+   * Sent only to a device that has finished attaching, so a beat never
+   * lands in the middle of its subscriptions.
+   */
+  private beat() {
+    if (this.state.band === "connected") {
+      void this.command({ cmd: "ping" }).catch(() => {});
+    }
+    const bedside = this.id.bedside;
+    if (bedside && this.state.bedside === "connected") {
+      void this.write(bedside, BEDSIDE_SERVICE, D.actuator, encodePing()).catch(() => {});
+    }
   }
 
   /** The last real sequence number seen, which is what the ACK names. */

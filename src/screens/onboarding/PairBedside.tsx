@@ -27,7 +27,7 @@ const CAUSES = [
  */
 export function PairBedside() {
   const navigate = useNavigate();
-  const { connect, links } = useMonitor();
+  const { connect, links, bluetooth } = useMonitor();
   const [slow, setSlow] = useState(false);
   /** No radio at all — a browser, or Bluetooth switched off. Distinct from
    *  "searching": one is worth waiting through and the other never ends.
@@ -57,6 +57,8 @@ export function PairBedside() {
 
   const stage: Stage = links.bedside === "connected" ? "connected" : "searching";
   const searching = stage === "searching";
+  // No transport, or the switch is off. The second clears by itself.
+  const off = radio === false || bluetooth === false;
 
   return (
     <div className="bg-setup flex min-h-screen flex-col pb-8">
@@ -104,15 +106,15 @@ export function PairBedside() {
         )}
       </div>
 
-      {searching && radio === false && (
+      {searching && off && (
         <p className="mt-8 text-[var(--color-ash)]">
-          Bluetooth is off, so nothing can be found. Switch it on and come
-          back, or carry on, and the app will run on sample data until a
-          bedside unit is paired.
+          Bluetooth is off, so nothing can be found. Switch it on and
+          searching starts by itself, or carry on, and the app will run on
+          sample data until a bedside unit is paired.
         </p>
       )}
 
-      {searching && radio !== false && slow && (
+      {searching && !off && slow && (
         <div className="mt-8">
           <p className="text-[var(--color-ash)]">
             Still nothing. The usual reasons:
@@ -133,7 +135,7 @@ export function PairBedside() {
 
       <div className="flex-1" />
 
-      {(!searching || radio === false) && (
+      {(!searching || off) && (
         <Button
           size="lg"
           register={!searching ? "system" : undefined}

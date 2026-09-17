@@ -100,6 +100,9 @@ export type BleEvent =
   | { kind: "room"; data: Room }
   | { kind: "snore"; data: Snore }
   | { kind: "link"; device: Device; state: Link }
+  /** The phone's Bluetooth switch. Off is not a lost device — nothing can
+   *  be found until it is back on, and the screens have to say which. */
+  | { kind: "radio"; on: boolean }
   /** §4.4. `refused` is the safety limit saying no — and it has to say so
    *  out loud, because firmware that quietly runs 30s instead of the 60
    *  asked for looks identical from up here. */
@@ -121,7 +124,9 @@ export type Actuator =
    *  settle. Calibration wants none of it, because a volume step that
    *  takes half a minute to be heard cannot be judged by ear. */
   | { kind: "noise"; level: 0 | 1 | 2 | 3; fadeS?: number }
-  | { kind: "light"; mode: "off" | "sunset" | "amber-dim" | "white-flash" }
+  /** `rampS` overrides the sunset's 25 minutes, for the test panel: a curve
+   *  nobody can watch to the end cannot be checked. */
+  | { kind: "light"; mode: "off" | "sunset" | "amber-dim" | "white-flash"; rampS?: number }
   /** §5.3 caps this at 20-30s per event. The app enforces it and so does
    *  the bedside firmware — independently, because one of them will be
    *  wrong eventually. */
@@ -134,7 +139,11 @@ export type BandCommand =
   | { cmd: "sync_time"; epochS: number }
   | { cmd: "record_baseline"; durationS: number }
   | { cmd: "ecg_start"; durationS: number }
-  | { cmd: "ecg_stop" };
+  | { cmd: "ecg_stop" }
+  /** §2.1 heartbeat. The transport sends it; nothing else should. */
+  | { cmd: "ping" }
+  /** Closes the event on the band. The only way off stage 4. */
+  | { cmd: "stand_down" };
 
 /** §3.7 `0005`. Absent fields mean unchanged. */
 export type BandConfig = Partial<{

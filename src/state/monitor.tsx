@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { Capacitor } from "@capacitor/core";
-import { readNoiseLevel } from "@/lib/noise";
+import { readNoiseLevel, readNoiseTrack } from "@/lib/noise";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { RepulseMonitor } from "repulse-monitor";
 import { MockTransport, type Scenario } from "@/ble/mock";
@@ -97,10 +97,19 @@ export type Monitor = {
   isNight: boolean;
   /** Epoch ms the running session started, or null. */
   sessionAt: number | null;
+  /** The phone's Bluetooth switch, live. Null until the radio has started
+   *  and answered — a browser never answers. */
+  bluetooth: boolean | null;
   /** Running on synthetic events rather than a band. Every screen that
    *  shows a number has to be able to say so — DESIGN §12. */
   synthetic: boolean;
   startSleep: () => void;
+  /** §5.1 sunset: the lamp starts at the chosen colour and dims to dark. */
+  windDown: () => void;
+  /** Watches and records, runs no comfort intervention. Emergencies are
+   *  untouched — a test mode that silences the siren is not a test mode. */
+  monitorOnly: boolean;
+  setMonitorOnly: (on: boolean) => void;
   endSession: () => void;
   /** "I am okay", tapped. The band is still the authority — if it reports
    *  the stage again this comes straight back — but the phone in someone's
@@ -133,6 +142,10 @@ export type Monitor = {
  *  else pairing produces. */
 const PAIRED_KEY = "repulse.paired";
 
+/** Device-local, and it has to survive a reload: a night begun in monitor
+ *  only must not start dosing the room because somebody refreshed. */
+const MONITOR_ONLY_KEY = "repulse.monitorOnly";
+
 const Ctx = createContext<Monitor | null>(null);
 
 export function useMonitor(): Monitor {
@@ -162,6 +175,14 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
   const [sessionAt, setSessionAt] = useState<number | null>(null);
   const [motionMg, setMotionMg] = useState(0);
   const [bandStatus, setBandStatus] = useState<BandStatus | null>(null);
+  const [bluetooth, setBluetooth] = useState<boolean | null>(null);
+  const [monitorOnly, setMonitorOnlyState] = useState(() => {
+    try {
+      return localStorage.getItem(MONITOR_ONLY_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
   const [links, setLinks] = useState<Record<Device, Link>>({
     band: "idle",
     bedside: "idle",
@@ -224,6 +245,9 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
           break;
         case "room":
           setRoom(e.data);
+          break;
+        case "radio":
+          setBluetooth(e.on);
           break;
         case "link":
           setLinks((l) => ({ ...l, [e.device]: e.state }));
@@ -359,6 +383,10 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
   // that ever worked does not stay the only thing ever tried.
 
   useEffect(() => {
+    // §D1 monitor only: the spell is still recorded and still scored, and
+    // nothing is sent to settle it. The reducer keeps running so the night
+    // reads the same afterwards.
+    if (monitorOnly) return;
     if (!transport || phase !== "COMFORT" || !machine.comfort) return;
     if (machine.comfort.intervention) return;
     // §5.3 allows one other intervention after a failure, and the reducer
@@ -380,9 +408,9 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
     dispatch({
       t: "chose",
       intervention: pick,
-      ...(pick === "white_noise" ? { volume: readNoiseLevel(), track: 2 } : {}),
+      ...(pick === "white_noise" ? { volume: readNoiseLevel(), track: readNoiseTrack() } : {}),
     });
-  }, [transport, phase, machine.comfort, scores]);
+  }, [transport, phase, machine.comfort, scores, monitorOnly]);
 
   // --- the learning loop, written down -----------------------------------
   //
@@ -495,8 +523,14 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
     // Rule 3 lives entirely in `actuatorsFor`. Sending the whole set on
     // every phase change rather than diffing means the bedside can never
     // be left holding a command from the state before an emergency.
+    /* Monitor only holds back the two phases that exist to act on the
+     * room — the comfort set and the sunset. ALERT and SOS_SENT still go
+     * out, and so does every all-off set, because "no interventions" was
+     * never meant to mean "no siren". */
+    const acting = phase === "COMFORT" || phase === "WIND_DOWN";
+    if (monitorOnly && acting) return;
     for (const a of actuatorsFor(phase, readNoiseLevel())) void transport.send(a);
-  }, [transport, phase]);
+  }, [transport, phase, monitorOnly]);
 
   // --- controls ----------------------------------------------------------
 
@@ -514,8 +548,26 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
       bandStatus,
       isNight,
       sessionAt,
+      bluetooth,
+      monitorOnly,
+      setMonitorOnly: (on: boolean) => {
+        setMonitorOnlyState(on);
+        try {
+          localStorage.setItem(MONITOR_ONLY_KEY, on ? "1" : "0");
+        } catch {
+          // Storage refused. The switch still holds for this run.
+        }
+      },
       synthetic: transport instanceof MockTransport,
+      // `sunset-due` existed in the machine and nothing ever sent it, so the
+      // sunset could not run at all.
+      windDown: () => send({ t: "sunset-due", at: Date.now() }),
       startSleep: () => {
+        /* Only from before the night, which is also the only place the
+         * reducer accepts it (PRIORITY ≥ WIND_DOWN). The elapsed clock here
+         * did not know that, so the session screen opening a second time
+         * would have restarted "Monitoring · 3h" from zero. */
+        if (phase !== "STANDBY" && phase !== "WIND_DOWN") return;
         setSessionAt(Date.now());
         send({ t: "start-sleep", at: Date.now() });
       },
@@ -523,7 +575,14 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
         setSessionAt(null);
         send({ t: "session-end", at: Date.now(), reason: "wake" });
       },
-      standDown: () => send({ t: "stage", at: Date.now(), stage: 0 }),
+      standDown: () => {
+        /* The band hears it too. §3.8's stand_down is the only way off
+         * stage 4: without it the band went on broadcasting an emergency
+         * nobody was having, the bedside sounded it the moment the phone
+         * left the room, and every rescan put the SOS screen back up. */
+        void transport?.command({ cmd: "stand_down" }).catch(() => {});
+        send({ t: "stage", at: Date.now(), stage: 0 });
+      },
       release: async (device) => {
         await transport?.release(device);
       },
@@ -596,6 +655,8 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
     bandStatus,
     isNight,
     sessionAt,
+    bluetooth,
+    monitorOnly,
     transport,
   ]);
 

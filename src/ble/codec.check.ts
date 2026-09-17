@@ -27,6 +27,7 @@ import {
   decodeVitals,
   encodeActuator,
   encodeBandCommand,
+  encodePing,
   readable,
   replay,
 } from "./codec.ts";
@@ -197,6 +198,21 @@ const bench = JSON.parse(
 );
 assert.equal(bench.white_noise.fade_s, 0, "calibration hears the step it just asked for");
 assert.equal(bench.white_noise.volume, 3, "and at the level it asked for");
+// Nothing saved → 0001. Never 4: that file is the siren.
+assert.equal(fade.white_noise.track, 1, "no chosen sound plays the first white noise file");
+
+// §4.3 sunset: the chosen colour and starting brightness travel with it.
+// Nothing saved → the 2200 K amber the firmware drew before it was a setting.
+const dusk = JSON.parse(
+  new TextDecoder().decode(encodeActuator({ kind: "light", mode: "sunset" }, 5)),
+);
+assert.deepEqual(dusk.light.rgb, [255, 146, 5], "default is the old amber");
+assert.equal(dusk.light.brightness, 40, "and starts where it always did");
+assert.equal(dusk.light.ramp_s, 1500);
+const quick = JSON.parse(
+  new TextDecoder().decode(encodeActuator({ kind: "light", mode: "sunset", rampS: 30 }, 6)),
+);
+assert.equal(quick.light.ramp_s, 30, "the test panel can watch the whole curve");
 
 const flash = JSON.parse(
   new TextDecoder().decode(encodeActuator({ kind: "light", mode: "white-flash" }, 2)),
@@ -215,6 +231,13 @@ const sync = JSON.parse(
   new TextDecoder().decode(encodeBandCommand({ cmd: "sync_time", epochS: 1_786_512_000 })),
 );
 assert.deepEqual(sync, { cmd: "sync_time", epoch_s: 1_786_512_000 });
+
+// §2.1 heartbeat and the §3.8 way off stage 4. The firmware matches these
+// strings exactly, so a renamed key would silently hand the siren back.
+const decode = (b: Uint8Array) => JSON.parse(new TextDecoder().decode(b));
+assert.deepEqual(decode(encodeBandCommand({ cmd: "ping" })), { cmd: "ping" });
+assert.deepEqual(decode(encodeBandCommand({ cmd: "stand_down" })), { cmd: "stand_down" });
+assert.deepEqual(decode(encodePing()), { ping: true }, "no command_id, so no 0004 back");
 
 // --- §3.9 replay ----------------------------------------------------------
 //

@@ -20,7 +20,7 @@ type Stage = "searching" | "connecting" | "connected" | "no-radio";
  */
 export function PairBand() {
   const navigate = useNavigate();
-  const { connect, links } = useMonitor();
+  const { connect, links, bluetooth } = useMonitor();
   const [radio, setRadio] = useState<boolean | null>(null);
 
   // Started once, on arrival. The transport keeps scanning until it finds
@@ -48,7 +48,9 @@ export function PairBand() {
   }, [links.band, navigate]);
 
   const stage: Stage =
-    radio === false
+    // `radio` is whether the transport could start at all; `bluetooth` is
+    // the switch, and it flips back to searching on its own.
+    radio === false || bluetooth === false
       ? "no-radio"
       : links.band === "connected"
         ? "connected"
@@ -75,7 +77,7 @@ export function PairBand() {
     connecting: "The band answered and then went quiet. Still trying.",
     connected: "Paired. It will reconnect on its own from now on.",
     "no-radio":
-      "Switch Bluetooth on and come back. The rest of setup still works, and the app will run on sample data until a band is paired.",
+      "Switch Bluetooth on and searching starts by itself. The rest of setup still works, and the app will run on sample data until a band is paired.",
   };
 
   return (
