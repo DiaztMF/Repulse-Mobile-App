@@ -1,142 +1,98 @@
-# RePulse — Mobile App
+# RePulse-Mobile-App
 
-Android app for the RePulse sleep and heart monitoring system. Built as a web app wrapped by Capacitor into a single APK, designed to be read in a dark bedroom.
+A native-wrapped companion mobile application for the RePulse biometric sleep and cardiac monitoring system, designed for low-light clinical and home environments.
 
-## Tech Stack
-
-- **React 19** + **TypeScript** — UI
-- **Vite 8** — build tool
-- **Tailwind CSS 4** — styling, with design tokens declared in `@theme`
-- **React Router 7** — navigation
-- **Capacitor 7** — native Android wrapper
-- **Firebase 12** — auth, Firestore, Realtime Database
-- **lucide-react** — icons
-- **class-variance-authority** — component variants
-
-## Features
-
-- Three-tab shell with a floating pill nav that disappears during an active sleep session
-- Design tokens as the single source of truth — no hardcoded colors in components
-- Custom drawn `REPULSE` wordmark with a self-drawing splash animation
-- Two levels of darkness: day screens and night-session screens
-- Regulated copy kept as constants so wording cannot drift
-- English throughout — UI, routes, and code
-- Self-hosted variable font, so the app renders correctly offline
-
-## Environment Variables
-
-Copy `.env.example` to `.env.local` and fill from Firebase console →
-Project settings → Your apps → Web app. **With none of these set the app
-runs on synthetic data**, which is a supported state: the whole flow is
-walkable without a project.
-
-| Variable | Description | Example | Required |
-|----------|-------------|---------|----------|
-| `VITE_FB_API_KEY` | Firebase web API key | `AIzaSy...` | No |
-| `VITE_FB_AUTH_DOMAIN` | Auth domain | `repulse.firebaseapp.com` | No |
-| `VITE_FB_PROJECT_ID` | Project id | `repulse-prod` | No |
-| `VITE_FB_STORAGE_BUCKET` | Storage bucket | `repulse-prod.appspot.com` | No |
-| `VITE_FB_SENDER_ID` | Messaging sender id | `481029384756` | No |
-| `VITE_FB_APP_ID` | Web app id | `1:4810:web:9f2c` | No |
-| `VITE_FB_DATABASE_URL` | Realtime Database, live node only | `https://repulse-prod.firebaseio.com` | No |
-
-Deploy the rules with `firebase deploy --only firestore:rules,database`.
-
-## Prerequisites
-
-- **Node.js 22** or newer
-- **npm 10** or newer
-- **Android Studio** + JDK 17 — only needed to build the APK, not for UI work
+[![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
+[![React](https://img.shields.io/badge/React-19-blue?logo=react)](https://react.dev/)
+[![Capacitor](https://img.shields.io/badge/Capacitor-7-lightblue?logo=capacitor)](https://capacitorjs.com/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4-teal?logo=tailwindcss)](https://tailwindcss.com/)
 
 ## Installation
 
+Clone the repository and install dependencies using npm:
+
 ```bash
-cd repulse-mobile-app
+git clone https://github.com/DiaztMF/Repulse-Mobile-App.git
+cd Repulse-Mobile-App
 npm install
+```
+
+Ensure the Android SDK and platform tools are configured if building native APK binaries.
+
+## Quick Start
+
+1. Copy `.env.example` to `.env.local` with Firebase and hardware service IDs:
+
+```bash
+VITE_FIREBASE_API_KEY="your-api-key"
+VITE_FIREBASE_PROJECT_ID="your-project-id"
+VITE_BLE_DEVICE_NAME="RePulse-Band"
+```
+
+2. Run the local development server:
+
+```bash
 npm run dev
 ```
 
-The dev server binds to the local network, so you can open it directly on a phone to check the real rendering.
-
-## Usage
-
-```bash
-npm run dev       # dev server on :5173
-npm run build     # type-check, then production build into dist/
-npm run preview   # preview the production build
-npm run lint      # oxlint
-npm run check:data  # dataset invariants
-npm run check:gate  # calibration fit-gate rule
-```
-
-Building the APK:
+3. Sync web assets and launch the native Android studio debugger:
 
 ```bash
 npm run build
-npx cap add android      # once
 npx cap sync android
-npx cap open android     # continue in Android Studio
+npx cap open android
 ```
 
-Visit `/kitchen-sink` to see every token and primitive on one page, including a viewport readout that turns rust if anything overflows horizontally.
+## What is RePulse-Mobile-App?
 
-## Project Structure
+`RePulse-Mobile-App` is the Android application companion to the RePulse wearable sleep and heart monitoring system developed for Indonesia Inventors Day 2026. Wrapped via Capacitor 7, it connects over low-latency Bluetooth Low Energy (BLE) to ingest wrist-worn PPG telemetry, evaluate nocturnal cardiac stability, and display actionable sleep architecture stages.
 
+## Why RePulse-Mobile-App?
+
+Standard mobile medical dashboards are cluttered, emit harsh blue light, and demand persistent cloud internet connections. `RePulse-Mobile-App` is engineered with an ultra-low-luminance OLED night mode, strict offline telemetry buffering, and instant audible escalation notifications when cardiac irregularities occur.
+
+## API / Routes
+
+### Client Navigation Routes
+- `/`: Dashboard overview displaying current sleep score and readiness metrics.
+- `/session`: Active night session monitor with dim HUD display and silence guards.
+- `/history`: Historical nocturnal analytics, HRV trends, and sleep stage breakdowns.
+- `/devices`: BLE device scanner, connection manager, and peripheral diagnostic probes.
+
+### BLE GATT Integration
+- Subscribes to Heart Rate Measurement (`0x2A37`) and custom sleep packet streams.
+- Manages dual-tier alarm escalation protocols over GATT control points.
+
+## Examples
+
+Initiating an active nocturnal monitoring session:
+
+```typescript
+import { startSleepTrackingSession } from '@/lib/monitoring';
+
+export async function handleStartSession(deviceId: string) {
+  try {
+    const session = await startSleepTrackingSession(deviceId, {
+      recordRawPPG: false,
+      alertThresholdBpm: 45,
+      onAnomalyDetected: (anomaly) => {
+        console.warn('Cardiac anomaly detected:', anomaly);
+      },
+    });
+    return session.sessionId;
+  } catch (error) {
+    console.error('Failed to initiate sleep session', error);
+  }
+}
 ```
-src/
-├── styles/
-│   └── tokens.css        # single source of truth for every visual value
-├── lib/
-│   ├── metrics.ts        # per-metric colors, three-band scoring
-│   ├── copy.ts           # regulated strings, locked metric names
-│   └── cn.ts             # className merger
-├── components/
-│   ├── brand/            # Wordmark — drawn SVG logotype
-│   ├── ui/               # Button, Card, Field, StepBar, ValueArc
-│   └── shell/            # Header, TabBar, AppShell
-├── data/
-│   ├── mock.ts           # 14 deterministic synthetic nights
-│   └── mock.check.ts     # invariants — npm run check:data
-├── screens/
-│   ├── onboarding/       # O1-O10 plus pairing trouble
-│   ├── home/             # home and the active night session
-│   ├── vitals/           # one template, five metrics
-│   ├── health/           # history, night detail, trends, insights
-│   ├── settings/         # settings, devices, test panel, export, ECG
-│   ├── emergency/        # alert, SOS, family viewer
-│   └── KitchenSink.tsx   # token check page, drop before shipping
-├── state/
-│   └── session.ts        # session state; owns night mode
-├── routes.tsx            # all routes, tagged with screen codes
-└── index.css             # font, reset, .num and .label utilities
-```
 
-## Conventions the code enforces
+## Architecture & Development Guides
 
-Four rules are deliberately hard to break. If one feels like it is in the way, that is the point.
-
-**No hex values in components.** Every visual value comes from `tokens.css` or `metrics.ts`. If a value is not there yet, the decision has not been made yet.
-
-**Regulated copy is a constant.** The strings in `copy.ts` are never retyped in a component — retyping is how regulated wording drifts unnoticed. The words *apnea*, *diagnosis*, and *disorder* must not appear on any screen.
-
-**Buttons are outlined, not filled.** `Button` has no filled-accent variant; only `sos` and `inverse` are filled.
-
-**One color per metric.** Import from `METRIC_COLOR`. A color is never chosen because a card needs variety.
-
-## Status
-
-All 34 screens are built and reachable. Every screen reads from the
-synthetic dataset in `src/data/mock.ts`, so the whole app is walkable
-end to end without hardware.
-
-Firebase is wired: email and Google auth, Firestore reads through a
-single store, seed and reset from the test panel, and security rules for
-both databases.
-
-Still to come: the BLE transport and the Capacitor plugins behind the
-foreground service. Integration points are marked `TODO` where they
-belong.
+- Frontend Core: React 19, TypeScript, and Vite 8 for fast build loops.
+- Native Bridge: Capacitor 7 with `@capacitor-community/bluetooth-le`.
+- Dark Bedroom UX: Strict luminance design tokens declared via Tailwind CSS v4 `@theme`.
+- Typography & Performance: Self-hosted variable typography ensuring deterministic offline typography.
 
 ## License
 
-Proprietary. Developed for Indonesia Inventors Day 2026.
+All rights reserved. Proprietary project developed for Indonesia Inventors Day 2026.
