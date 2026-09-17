@@ -1,9 +1,18 @@
 import { useState } from "react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { useTheme } from "@/state/theme";
+import { useMonitor } from "@/state/monitor";
 import { COPY } from "@/lib/copy";
 import { cn } from "@/lib/cn";
-import { readNoiseLevel, writeNoiseLevel, type NoiseLevel } from "@/lib/noise";
+import {
+  readNoiseLevel,
+  readNoiseTrack,
+  writeNoiseLevel,
+  writeNoiseTrack,
+  type NoiseLevel,
+  type NoiseTrack,
+} from "@/lib/noise";
+import { SunsetControls } from "@/components/settings/SunsetControls";
 
 /** Rendered as a plain row, not a button. Editing thresholds needs the
  *  firmware config write, so a tappable row here would promise something
@@ -83,11 +92,13 @@ function Level({
   note,
   value,
   onChange,
+  name = "Level",
 }: {
   label: string;
   note?: string;
-  value: NoiseLevel;
-  onChange: (v: NoiseLevel) => void;
+  value: NoiseLevel | NoiseTrack;
+  onChange: (v: 1 | 2 | 3) => void;
+  name?: string;
 }) {
   return (
     <div className="flex items-start justify-between gap-4 py-4">
@@ -104,7 +115,7 @@ function Level({
           <button
             key={n}
             onClick={() => onChange(n)}
-            aria-label={`Level ${n}`}
+            aria-label={`${name} ${n}`}
             aria-pressed={value === n}
             className={cn(
               "num size-10 rounded-full transition-colors",
@@ -136,10 +147,10 @@ function Section({ title, children }: { title: string; children: React.ReactNode
  * the next build.
  */
 export function SettingsScreen() {
-  const [monitorOnly, setMonitorOnly] = useState(false);
+  const { monitorOnly, setMonitorOnly } = useMonitor();
   const { theme, setTheme } = useTheme();
   const [noise, setNoise] = useState<NoiseLevel>(readNoiseLevel);
-
+  const [track, setTrack] = useState<NoiseTrack>(readNoiseTrack);
   return (
     <div className="pb-8">
       <PageHeader sample={false} title="Settings" showMenu />
@@ -158,6 +169,7 @@ export function SettingsScreen() {
           <Row label="Wake window" value="06:00–06:30" />
           <Row label="Sunset starts" value="21:40" note="20 minutes before bed" />
           <Row label="Sunset duration" value="25 min" note="exponential dimming" />
+          <SunsetControls />
           {/* The one intervention setting that is genuinely personal: the
               level that settles one person keeps the next one awake. Every
               other row here is a threshold the firmware owns. */}
@@ -168,6 +180,16 @@ export function SettingsScreen() {
             onChange={(v) => {
               setNoise(v);
               writeNoiseLevel(v);
+            }}
+          />
+          <Level
+            label="White noise sound"
+            note="Which of the three bedside sounds plays. Takes effect the next time white noise starts."
+            name="Sound"
+            value={track}
+            onChange={(v) => {
+              setTrack(v);
+              writeNoiseTrack(v);
             }}
           />
         </Section>
@@ -190,7 +212,7 @@ export function SettingsScreen() {
         <Section title="Testing">
           <Toggle
             label="Monitor only"
-            note="Records everything, runs no interventions. A banner stays on the home screen while this is on."
+            note="Records and scores the night as usual, but sends no white noise, aroma or lamp. Alerts and the siren still work. A banner stays on the home screen while this is on."
             on={monitorOnly}
             onChange={setMonitorOnly}
           />

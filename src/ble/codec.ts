@@ -11,6 +11,8 @@ import type {
   Snore,
   Vitals,
 } from "./transport";
+import { readNoiseTrack } from "../lib/noise.ts";
+import { hexToRgb, readSunset } from "../lib/sunset.ts";
 
 /**
  * Every byte that crosses the air, in one file. `BLE_GATT_CONTRACT.md` §3
@@ -310,6 +312,9 @@ export function decodeAdvertisement(b: Uint8Array): {
 
 const utf8 = (o: unknown) => new TextEncoder().encode(JSON.stringify(o));
 
+/** §4.3 heartbeat. No `command_id`, so the bedside sends no `0004` back. */
+export const encodePing = () => utf8({ ping: true });
+
 /** §4.3 bedside `0003`. `commandId` is echoed back in the confirmation. */
 /**
  * `unclamped` exists for exactly one caller: §6 test 4, which has to hear
@@ -330,14 +335,17 @@ export function encodeActuator(
     case "noise":
       return utf8({
         command_id: commandId,
-        white_noise: { on: a.level > 0, volume: a.level, track: 2, fade_s: a.fadeS ?? 30 },
+        white_noise: { on: a.level > 0, volume: a.level, track: readNoiseTrack(), fade_s: a.fadeS ?? 30 },
       });
     case "light": {
+      // The chosen colour and where the dimming starts. `kelvin` stays so a
+      // bedside still on firmware without `rgb` draws the old amber.
+      const s = readSunset();
       const light =
         a.mode === "off"
           ? { mode: "off" }
           : a.mode === "sunset"
-            ? { mode: "sunset", brightness: 40, kelvin: 2200, ramp_s: 1500 }
+            ? { mode: "sunset", brightness: s.brightness, kelvin: 2200, rgb: hexToRgb(s.color), ramp_s: a.rampS ?? 1500 }
             : a.mode === "amber-dim"
               ? { mode: "amber", brightness: 10, kelvin: 2200, ramp_s: 0 }
               : { mode: "alert", brightness: 100, kelvin: 6500, ramp_s: 0 };

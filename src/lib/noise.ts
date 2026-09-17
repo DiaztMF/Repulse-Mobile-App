@@ -38,3 +38,28 @@ export function writeNoiseLevel(level: NoiseLevel) {
     // level 2 is better than a settings screen that throws.
   }
 }
+
+/** Which of the bedside's microSD files plays: 0001-0003. 0004 is the
+ *  siren and is deliberately not a NoiseTrack — firmware clamps it too. */
+const TRACK_KEY = "repulse.noiseTrack";
+
+export type NoiseTrack = 1 | 2 | 3;
+
+export const DEFAULT_NOISE_TRACK: NoiseTrack = 1;
+
+export function readNoiseTrack(): NoiseTrack {
+  try {
+    const n = Number(localStorage.getItem(TRACK_KEY));
+    return n === 1 || n === 2 || n === 3 ? n : DEFAULT_NOISE_TRACK;
+  } catch {
+    return DEFAULT_NOISE_TRACK;
+  }
+}
+
+export function writeNoiseTrack(track: NoiseTrack) {
+  try {
+    localStorage.setItem(TRACK_KEY, String(track));
+  } catch {
+    // Same as the level: the default track still plays.
+  }
+}
