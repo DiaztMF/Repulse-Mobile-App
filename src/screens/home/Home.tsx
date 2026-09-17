@@ -2,12 +2,14 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { HeartPulse, Wind, Home as HomeIcon, Moon, X } from "lucide-react";
 import { Card, Empty } from "@/components/ui/Card";
+import { NoNights } from "@/components/ui/NoNights";
 import { Button } from "@/components/ui/Button";
 import { Sparkline } from "@/components/ui/Sparkline";
 import { Header, deviceStateFrom } from "@/components/shell/Header";
 import { useDrawer } from "@/components/shell/AppShell";
 import { ScoreChips } from "@/components/home/ScoreChips";
 import { Timeline } from "@/components/home/Timeline";
+import { LiveNow } from "@/components/home/LiveNow";
 import { seriesFor, formatDuration, bandOfScore } from "@/data/mock";
 import { useLastNight } from "@/data/store";
 import { useMonitor } from "@/state/monitor";
@@ -36,10 +38,8 @@ export function Home() {
   const navigate = useNavigate();
   const { openDrawer } = useDrawer();
   const night = useLastNight();
-  const { links } = useMonitor();
-  const series = seriesFor(night);
-  const scored = night.score !== null;
-  const band = scored ? bandOfScore(night.score!) : "fair";
+  const { links, windDown, monitorOnly, vitals } = useMonitor();
+  const liveBpm = vitals?.worn && vitals.bpm > 0 ? vitals.bpm : null;
 
   // Driven by the clock rather than a constant. The previous version
   // pinned this false, which made the banner unreachable in every state
@@ -54,6 +54,31 @@ export function Home() {
     !dismissed && minutesNow >= sunsetMin - 15 && minutesNow < sunsetMin + 25;
 
   const devices = deviceStateFrom(links);
+
+  /* Before the first night there is nothing true to draw. This screen used
+   * to show a synthetic score, trend and timeline to a brand-new account. */
+  if (!night) {
+    return (
+      <div className="pb-4">
+        <Header
+          title="Tonight"
+          devices={devices}
+          liveBpm={liveBpm}
+          onMenu={openDrawer}
+          onDevices={() => navigate("/devices")}
+        />
+        {/* The live card comes before the empty state on purpose: on the
+            first evening, "the band is reading you" is the whole answer,
+            and "no nights yet" is only the rest of it. */}
+        <LiveNow />
+        <NoNights />
+      </div>
+    );
+  }
+
+  const series = seriesFor(night);
+  const scored = night.score !== null;
+  const band = scored ? bandOfScore(night.score!) : "fair";
 
   /* Sharing an unscored night would send somebody a row of dashes, so the
    * button is absent until there is a score to talk about. */
@@ -74,10 +99,18 @@ export function Home() {
       <Header
         night={night}
         devices={devices}
+        liveBpm={liveBpm}
         onMenu={openDrawer}
         onDevices={() => navigate("/devices")}
         onShare={scored ? share : undefined}
       />
+
+      <LiveNow />
+
+      {/* Everything from here down is last night, and it says so once
+          rather than on each card. The screen used to open on a score with
+          no date near it, on a tab called Tonight. */}
+      <h2 className="label mt-8 px-5 text-[var(--color-ash)]">Last night</h2>
 
       <div className="px-5 pt-2">
         <ScoreChips night={night} />
@@ -132,6 +165,19 @@ export function Home() {
       </section>
 
       <div className="space-y-3 px-5 pt-6">
+        {/* The banner Settings promises. Without it, a night that quietly
+            ran no interventions looked exactly like one where they all
+            failed. */}
+        {monitorOnly && (
+          <div className="rounded-[var(--radius-card)] border border-[var(--color-ash-dim)] p-5">
+            <p className="label text-[var(--color-ash)]">Monitor only</p>
+            <p className="mt-1 text-[length:var(--text-meta)] text-[var(--color-ash)]">
+              Recording as usual. No white noise, aroma or lamp tonight. Alerts and the
+              siren still work.
+            </p>
+          </div>
+        )}
+
         {showSunsetBanner && (
           <div className="rounded-[var(--radius-card)] bg-[var(--color-raised)] p-5">
             <div className="flex items-start justify-between gap-4">
@@ -154,7 +200,13 @@ export function Home() {
                 Delay 30m
               </Button>
               <button
-                onClick={() => navigate("/tonight/session")}
+                // Starts the sunset itself. This used to open the session
+                // screen, which skips the sunset — the one thing the banner
+                // is about.
+                onClick={() => {
+                  windDown();
+                  setDismissed(true);
+                }}
                 className="label text-[var(--color-pulse)]"
               >
                 Start now

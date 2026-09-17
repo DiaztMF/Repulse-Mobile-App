@@ -47,6 +47,7 @@ export function Header({
   onDevices,
   onShare,
   night,
+  liveBpm,
 }: {
   /** Tab roots that are not Home name themselves instead of repeating
    *  the wordmark on every tab. */
@@ -60,6 +61,10 @@ export function Header({
   onShare?: () => void;
   /** The night the screen beneath is showing, when it shows one. */
   night?: Night;
+  /** A pulse arriving right now. Carried in the header so the reading does
+   *  not vanish the moment somebody leaves the home tab — with no watch,
+   *  this bar is the only thing telling them the band is still reading. */
+  liveBpm?: number | null;
 }) {
   return (
     // Grid, not flex-between: the wordmark centers on the screen rather
@@ -89,6 +94,12 @@ export function Header({
       </div>
 
       <div className="flex items-center gap-4 justify-self-end">
+        {liveBpm != null && (
+          <span className="label flex items-center gap-1.5 text-[var(--color-ash)]">
+            <span className="size-1.5 animate-pulse rounded-full bg-[var(--color-pulse)]" />
+            <span className="num">{liveBpm}</span>
+          </span>
+        )}
         {/* Only rendered when there is something to send. It used to call
             `navigator.share?.()`, which is undefined in the Android
             WebView, so the button did nothing at all and said nothing about

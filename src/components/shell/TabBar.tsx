@@ -4,7 +4,10 @@ import { cn } from "@/lib/cn";
 
 const TABS = [
   { to: "/tonight", label: "Tonight", Icon: Moon },
-  { to: "/vitals", label: "Vitals", Icon: Activity },
+  // "Trends", not "Vitals": this tab is a night at a time, looked back on.
+  // Live readings are on Tonight now, and two tabs claiming the same word
+  // is how somebody ends up here waiting for a pulse to move.
+  { to: "/vitals", label: "Trends", Icon: Activity },
   { to: "/health", label: "Health", Icon: HeartPulse },
 ];
 

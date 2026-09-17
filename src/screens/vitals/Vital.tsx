@@ -10,6 +10,8 @@ import {
 import { Hypnogram } from "@/components/vitals/Hypnogram";
 import { seriesFor, formatDuration, bandOfScore } from "@/data/mock";
 import { useStore } from "@/data/store";
+import { PageHeader } from "@/components/shell/PageHeader";
+import { NoNights } from "@/components/ui/NoNights";
 import { METRIC_COLOR, BAND_LABEL } from "@/lib/metrics";
 import { COPY } from "@/lib/copy";
 
@@ -22,9 +24,18 @@ export function Vital() {
   // Hooks run before the guard: an early return above them changes the
   // hook count between renders and tears the component down.
   const { nights } = useStore();
-  const [date, setDate] = useState(nights[0]!.date);
+  const [date, setDate] = useState(nights[0]?.date ?? "");
 
   if (!metric || !KEYS.includes(metric)) return <Navigate to="/vitals/pulse" replace />;
+
+  if (nights.length === 0) {
+    return (
+      <div className="pb-8">
+        <PageHeader title="Trends" />
+        <NoNights />
+      </div>
+    );
+  }
 
   const n = nights.find((x) => x.date === date) ?? nights[0]!;
   const s = seriesFor(n);

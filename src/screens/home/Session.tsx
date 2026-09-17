@@ -32,7 +32,24 @@ export function Session() {
   const navigate = useNavigate();
   const night = useLastNight();
   const monitor = useMonitor();
-  const [state] = useState<State>("monitoring");
+  const state: State =
+    monitor.phase === "WIND_DOWN"
+      ? "wind_down"
+      : monitor.phase === "COMFORT"
+        ? "comfort"
+        : monitor.phase === "WAKE_WINDOW"
+          ? "wake_window"
+          : "monitoring";
+
+  /* Arriving here is starting the night. Nothing did before: this screen
+   * showed live numbers while the machine sat in STANDBY, so no night was
+   * ever recorded and the bedside never left its daytime state.
+   * `startSleep` ignores a session that is already running. */
+  const { startSleep } = monitor;
+  useEffect(() => {
+    startSleep();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   /* The clock, the pulse and the room were all written into the file:
    * 02:14, 58 bpm, an intervention at 01:20. This is the screen somebody
    * watches while the band is on their wrist, and it was the one screen in
@@ -77,7 +94,7 @@ export function Session() {
     return () => window.clearInterval(id);
   }, []);
 
-  const latest = night.events.find((e) => e.type === "comfort");
+  const latest = night?.events.find((e) => e.type === "comfort");
 
   /* Live if anything is arriving off the air. Below, every figure prefers
    * the measurement and falls back to the stored night, so the badge has
@@ -123,7 +140,7 @@ export function Session() {
       <div className="mt-8 flex items-end gap-5">
         <div>
           <p className="num text-[length:var(--text-hero)] leading-none">
-            {bpm ?? (live ? "—" : night.heart.avg)}
+            {bpm ?? (live || !night ? "—" : night.heart.avg)}
           </p>
           <p className="label mt-1 text-[var(--color-ash)]">bpm</p>
         </div>
@@ -137,7 +154,9 @@ export function Session() {
           ? monitor.vitals?.worn === false
             ? "Band not worn"
             : `SpO₂ ${monitor.oxygen ? `${monitor.oxygen.spo2Pct}%` : "—"} · movement ${monitor.motionMg} mg`
-          : `Deep sleep · SpO₂ ${night.breathing.spo2DeltaPct}% from baseline`}
+          : night
+            ? `Deep sleep · SpO₂ ${night.breathing.spo2DeltaPct}% from baseline`
+            : "Waiting for the band"}
       </p>
 
       {latest && (
@@ -163,15 +182,29 @@ export function Session() {
       <div className="mt-10 flex divide-x divide-[var(--color-ash-dim)]/30">
         {[
           [
-            monitor.room?.tempC != null ? `${monitor.room.tempC}°` : live ? "—" : `${night.room.tempC}°`,
+            monitor.room?.tempC != null
+              ? `${monitor.room.tempC}°`
+              : live || !night
+                ? "—"
+                : `${night.room.tempC}°`,
             "Temp",
           ],
           [
-            monitor.room?.humidityPct != null ? `${monitor.room.humidityPct}%` : live ? "—" : `${night.room.rh}%`,
+            monitor.room?.humidityPct != null
+              ? `${monitor.room.humidityPct}%`
+              : live || !night
+                ? "—"
+                : `${night.room.rh}%`,
             "RH",
           ],
-          [monitor.room ? `${monitor.room.lux} lx` : live ? "—" : `${night.room.lux} lx`, "Light"],
-          [monitor.room ? `${monitor.room.db} dB` : live ? "—" : `${night.room.db} dB`, "Noise"],
+          [
+            monitor.room ? `${monitor.room.lux} lx` : live || !night ? "—" : `${night.room.lux} lx`,
+            "Light",
+          ],
+          [
+            monitor.room ? `${monitor.room.db} dB` : live || !night ? "—" : `${night.room.db} dB`,
+            "Noise",
+          ],
         ].map(([v, l], i) => (
           <div key={l} className={i ? "px-3 last:pr-0" : "pr-3"}>
             <p className="num whitespace-nowrap text-[length:var(--text-body)]">{v}</p>
@@ -185,16 +218,26 @@ export function Session() {
       {/* Two taps, not a dialog. A modal in a dark room is harder to read
           than a button that changes its own label. */}
       <button
-        onClick={() =>
-          confirming ? navigate("/tonight", { replace: true }) : setConfirming(true)
-        }
+        onClick={() => {
+          if (!confirming) return setConfirming(true);
+          // Ending is what writes the night down. Leaving the screen alone
+          // used to keep the session running with nobody watching it.
+          monitor.endSession();
+          navigate("/tonight", { replace: true });
+        }}
         className="label h-14 w-full rounded-[var(--radius-pill)] border border-[var(--color-ash-dim)] text-[var(--color-ash)]"
       >
         {confirming ? "Tap again to end the session" : "End session"}
       </button>
 
       <p className="label mt-6 flex justify-between text-[var(--color-ash-dim)]">
-        <span>Band 71% · bedside on</span>
+        {/* Measured, not decorative. This read "Band 71% · bedside on"
+            whatever the band said, on the screen somebody checks at 3am. */}
+        <span>
+          Band{" "}
+          {monitor.bandStatus?.percent != null ? `${monitor.bandStatus.percent}%` : "—"} ·
+          bedside {monitor.links.bedside === "connected" ? "on" : "off"}
+        </span>
         <span>Screen dims in 30s</span>
       </p>
 
