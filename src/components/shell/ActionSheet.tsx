@@ -1,29 +1,13 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Moon, Flag, FlaskConical, Sunset } from "lucide-react";
+import { Moon, Flag, FlaskConical } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { useMonitor } from "@/state/monitor";
 
-type Action = {
-  label: string;
-  note: string;
-  Icon: typeof Moon;
-  to?: string;
-  /** Starts the sunset rather than going anywhere. */
-  windDown?: boolean;
-};
-
-const ACTIONS: Action[] = [
-  {
-    label: "Wind down",
-    note: "The lamp starts at your sunset colour and dims to dark",
-    Icon: Sunset,
-    windDown: true,
-  },
+const ACTIONS = [
   {
     to: "/tonight/session",
     label: "Start sleep",
-    note: "Skip the sunset and begin monitoring now",
+    note: "The lamp dims to dark, then the night is recorded",
     Icon: Moon,
   },
   {
@@ -51,7 +35,6 @@ export function ActionSheet({
   onClose: () => void;
 }) {
   const navigate = useNavigate();
-  const { windDown } = useMonitor();
   const [mounted, setMounted] = useState(open);
   const [active, setActive] = useState(open);
 
@@ -103,7 +86,7 @@ export function ActionSheet({
         </div>
 
         <ul className="space-y-2">
-          {ACTIONS.map(({ to, label, note, Icon, windDown: winds }, index) => (
+          {ACTIONS.map(({ to, label, note, Icon }, index) => (
             <li
               key={label}
               style={{
@@ -117,8 +100,7 @@ export function ActionSheet({
               <button
                 onClick={() => {
                   onClose();
-                  if (winds) windDown();
-                  if (to) navigate(to);
+                  navigate(to);
                 }}
                 className="flex w-full items-center gap-4 rounded-[var(--radius-card)] bg-[var(--color-raised)]/40 hover:bg-[var(--color-raised)] p-3.5 text-left active:scale-[0.98] transition-all duration-200"
               >

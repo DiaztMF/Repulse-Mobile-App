@@ -164,7 +164,16 @@ export function reduce(m: Machine, i: Input): Machine {
 
     // --- ordinary night ------------------------------------------------
     case "sunset-due":
-      return m.phase === "STANDBY" ? { ...m, phase: "WIND_DOWN" } : m;
+      /* The night starts here, not at `asleep`.
+       *
+       * `sessionStartedAt` is what the recorder follows, and WIND_DOWN used
+       * to leave it null — so a sunset that somebody fell asleep during
+       * recorded nothing at all. The lamp dimmed correctly and the morning
+       * had no night in it. The sunset is the first 25 minutes of the
+       * night, so it is counted as such. */
+      return m.phase === "STANDBY"
+        ? { ...m, phase: "WIND_DOWN", sessionStartedAt: m.sessionStartedAt ?? i.at }
+        : m;
 
     case "start-sleep":
       // §5.1: the tap is an override, not the normal way in. It skips the

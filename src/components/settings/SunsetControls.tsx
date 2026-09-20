@@ -5,6 +5,7 @@ import {
   hexToRgb,
   hsToHex,
   readSunset,
+  SUNSET_RAMP_S,
   writeSunset,
   type Sunset,
 } from "@/lib/sunset";
@@ -117,6 +118,24 @@ export function SunsetControls({ wire }: { wire?: boolean }) {
 
   return (
     <>
+      {/* The switch that decides what "Start sleep" does. It sits above the
+          colour because it is the one that can make the rest moot. */}
+      <label className="flex items-start justify-between gap-4 py-4">
+        <span className="min-w-0">
+          <span className="block">Start with the sunset</span>
+          <span className="mt-0.5 block text-[length:var(--text-meta)] text-[var(--color-ash)]">
+            Start sleep opens with {Math.round(SUNSET_RAMP_S / 60)} minutes of dimming light.
+            Off goes straight to dark. Either way the night is recorded from the tap.
+          </span>
+        </span>
+        <input
+          type="checkbox"
+          checked={sunset.startWithSunset}
+          onChange={(e) => save({ ...sunset, startWithSunset: e.target.checked })}
+          className="mt-1 size-5 shrink-0 accent-[var(--color-pulse)]"
+        />
+      </label>
+
       {/* Drawn exactly as picked — the firmware no longer cuts the blue
           when a colour is sent, so the warning has to live here. */}
       <div className="py-4">

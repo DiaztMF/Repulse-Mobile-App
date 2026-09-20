@@ -179,4 +179,40 @@ const scores = {
 assert.equal(chooseIntervention(scores, never), "white_noise", "0.80 beats 0.30");
 assert.equal(chooseIntervention(scores, always), "aroma", "one in five explores");
 
-console.log("ok — an anomaly cancels the sunrise, and every actuator reverses");
+// --- the way into a night, both of them ----------------------------------
+//
+// The sunset used to be a phase with no recorder behind it: WIND_DOWN left
+// `sessionStartedAt` null, and `asleep` — the only event that leaves
+// WIND_DOWN — was never sent by anything in the app. Somebody who wound
+// down and fell asleep lost the whole night. Both halves are asserted here
+// because neither is visible from a screen.
+
+const wound = reduce(initial, { t: "sunset-due", at: T });
+assert.equal(wound.phase, "WIND_DOWN");
+assert.equal(wound.sessionStartedAt, T, "the night is recorded from the sunset, not after it");
+
+const slept = reduce(wound, { t: "asleep", at: T + 1_500_000 });
+assert.equal(slept.phase, "MONITORING", "the sunset ends in a monitored night");
+assert.equal(slept.sessionStartedAt, T, "and keeps the clock it started with");
+
+// Tapping again mid-sunset is somebody already in bed: skip the rest of the
+// ramp without restarting the night's clock.
+const early = reduce(wound, { t: "start-sleep", at: T + 60_000 });
+assert.equal(early.phase, "MONITORING");
+
+// Straight to dark, for the switch turned off.
+const direct = reduce(initial, { t: "start-sleep", at: T });
+assert.equal(direct.phase, "MONITORING");
+assert.equal(direct.sessionStartedAt, T);
+
+// The sunset is an evening thing. It must never interrupt a night already
+// running, least of all an alert.
+for (const phase of ["MONITORING", "COMFORT", "ALERT"] as const) {
+  assert.equal(
+    reduce({ ...initial, phase }, { t: "sunset-due", at: T }).phase,
+    phase,
+    `sunset-due leaves ${phase} alone`,
+  );
+}
+
+console.log("ok — an anomaly cancels the sunrise, every actuator reverses, and both ways into a night record it");

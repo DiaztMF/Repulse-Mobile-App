@@ -12,7 +12,7 @@ import type {
   Vitals,
 } from "./transport";
 import { readNoiseTrack } from "../lib/noise.ts";
-import { hexToRgb, readSunset } from "../lib/sunset.ts";
+import { hexToRgb, readSunset, SUNSET_RAMP_S } from "../lib/sunset.ts";
 
 /**
  * Every byte that crosses the air, in one file. `BLE_GATT_CONTRACT.md` §3
@@ -345,7 +345,7 @@ export function encodeActuator(
         a.mode === "off"
           ? { mode: "off" }
           : a.mode === "sunset"
-            ? { mode: "sunset", brightness: s.brightness, kelvin: 2200, rgb: hexToRgb(s.color), ramp_s: a.rampS ?? 1500 }
+            ? { mode: "sunset", brightness: s.brightness, kelvin: 2200, rgb: hexToRgb(s.color), ramp_s: a.rampS ?? SUNSET_RAMP_S }
             : a.mode === "amber-dim"
               ? { mode: "amber", brightness: 10, kelvin: 2200, ramp_s: 0 }
               : { mode: "alert", brightness: 100, kelvin: 6500, ramp_s: 0 };

@@ -14,11 +14,27 @@ export type Sunset = {
   /** §4.3 wire brightness the sunset starts at. The firmware caps it at
    *  LED_MAX_BRIGHTNESS (100) to protect the supply, so 100 is the top. */
   brightness: number;
+  /**
+   * Whether "Start sleep" opens with the sunset or goes straight to dark.
+   *
+   * There used to be two buttons — Wind down and Start sleep — and nothing
+   * on either of them said that only the second one recorded anything.
+   * Someone winding down and falling asleep lost the night. One button and
+   * this switch say the same thing without the trap.
+   */
+  startWithSunset: boolean;
 };
+
+/** §5.1. The lamp's ramp, and therefore how long WIND_DOWN lasts. */
+export const SUNSET_RAMP_S = 1500;
 
 /** What the firmware drew before this was a setting — 2200 K with blue cut
  *  to 15% — so an app nobody has touched looks exactly as it always did. */
-export const DEFAULT_SUNSET: Sunset = { color: "#ff9205", brightness: 40 };
+export const DEFAULT_SUNSET: Sunset = {
+  color: "#ff9205",
+  brightness: 40,
+  startWithSunset: true,
+};
 
 const HEX = /^#[0-9a-f]{6}$/i;
 
@@ -32,6 +48,9 @@ export function readSunset(): Sunset {
           ? s.color.toLowerCase()
           : DEFAULT_SUNSET.color,
       brightness: Number.isInteger(b) && b >= 1 && b <= 100 ? b : DEFAULT_SUNSET.brightness,
+      // Only an explicit false turns it off, so a setting saved before this
+      // existed keeps the sunset it already had.
+      startWithSunset: s?.startWithSunset !== false,
     };
   } catch {
     return DEFAULT_SUNSET;
