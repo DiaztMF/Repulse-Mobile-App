@@ -84,6 +84,7 @@ const HEARTBEAT_MS = 10_000;
 
 const bytes = (v: DataView) => new Uint8Array(v.buffer, v.byteOffset, v.byteLength);
 const view = (u: Uint8Array) => new DataView(u.buffer, u.byteOffset, u.byteLength);
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export class LiveTransport implements BleTransport {
   private listeners = new Set<(e: BleEvent) => void>();
@@ -246,6 +247,40 @@ export class LiveTransport implements BleTransport {
     }, wait);
   }
 
+  /** The manual "look again". `start` is idempotent, so a radio that never
+   *  came up gets its chance here too — which is the state a tap after
+   *  switching Bluetooth on by hand lands in. */
+  async retry() {
+    if (!this.running) {
+      await this.start();
+      return;
+    }
+    if (this.enabled === false) {
+      try {
+        await BleClient.requestEnable();
+      } catch {
+        // Declined. The screen already says Bluetooth is off.
+      }
+      return;
+    }
+    /* A device stuck "connected" in our books but gone in Android's is the
+     * case a rescan alone cannot fix: the id is still held, so every
+     * sighting is ignored as already-attached. Nothing is dropped here —
+     * `saw` only ignores what we believe we hold. */
+    for (const d of ["band", "bedside"] as Device[]) {
+      if (this.state[d] !== "connected" && this.id[d]) {
+        const id = this.id[d]!;
+        delete this.id[d];
+        try {
+          await BleClient.disconnect(id);
+        } catch {
+          // Already gone, which is what we were asking for.
+        }
+      }
+    }
+    this.rescan();
+  }
+
   async release(device: Device) {
     const id = this.id[device];
     if (!id) return;
@@ -399,6 +434,28 @@ export class LiveTransport implements BleTransport {
     } catch {
       // Not every platform reports it.
     }
+
+    /* A settle beat before the first GATT request.
+     *
+     * The band's attach walks ten sequential round trips — eight
+     * subscriptions plus `sync_time` and `flush_start` — starting the
+     * instant MTU is negotiated. The bedside's is three. That difference
+     * is the whole story in a real log: bedside reconnects clean every
+     * time, and the band drops mid-burst with "Not connected to device."
+     * after MTU had already come back — Android's own connection state,
+     * not a plugin timeout, giving up before request nine or ten.
+     *
+     * A freshly negotiated LE link has not yet had a connection event to
+     * settle its interval on, and ten writes fired back to back before
+     * one happens is exactly the burst that trips it. Bedside's shorter
+     * walk usually finishes inside that same window and gets away with
+     * it; band never does.
+     *
+     * ponytail: one flat delay, not a retry loop or per-write pacing —
+     * the log shows a single stall point, not a flaky one. If a phone
+     * still drops it, add a pause between each of the band's individual
+     * `startNotifications` calls next, not a longer flat delay here. */
+    await sleep(device === "band" ? 400 : 150);
 
     if (device === "band") await this.attachBand(id);
     else await this.attachBedside(id);

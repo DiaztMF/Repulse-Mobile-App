@@ -168,6 +168,21 @@ export interface BleTransport {
    *  be droppable without ending the session for the bedside too. */
   release(device: Device): Promise<void>;
 
+  /**
+   * Look again, now.
+   *
+   * Recovery here is automatic and usually works, and when it does not
+   * there was nothing at all a person could do about it — the Disconnect
+   * button greys out precisely when a device is missing, which is when
+   * somebody wants a button most. Force-quitting the app was the only
+   * route back, and it is the route people were taking.
+   *
+   * It respects the scan budget rather than jumping it: Android blocks an
+   * app silently after five scan starts in thirty seconds, and a button
+   * somebody taps six times must not be the thing that earns the block.
+   */
+  retry(): Promise<void>;
+
   /** Returns an unsubscribe. */
   on(listener: (e: BleEvent) => void): () => void;
 

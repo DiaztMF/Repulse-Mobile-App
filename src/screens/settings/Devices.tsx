@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { useMonitor } from "@/state/monitor";
 import { Button } from "@/components/ui/Button";
@@ -10,12 +11,16 @@ function DeviceCard({
   fields,
   connected,
   onDisconnect,
+  onRetry,
+  retrying,
 }: {
   name: string;
   serial: string;
   fields: Field[];
   connected: boolean;
   onDisconnect: () => void;
+  onRetry: () => void;
+  retrying: boolean;
 }) {
   return (
     <section className="rounded-[var(--radius-card)] bg-[var(--color-surface)] p-5">
@@ -54,17 +59,29 @@ function DeviceCard({
       </dl>
 
       <div className="mt-6 flex items-center gap-4">
-        {/* It now does what it says. The comment here used to read "until
-            that layer exists" — the layer exists, and a permanently
-            disabled control is its own kind of lie. */}
-        <Button
-          variant="secondary"
-          disabled={!connected}
-          onClick={onDisconnect}
-          className="h-9 w-auto px-4 text-[length:var(--text-label)]"
-        >
-          Disconnect
-        </Button>
+        {/* One button, and which one depends on what is wrong. Disconnect
+            used to sit here greyed out whenever the device was missing —
+            offering nothing at the exact moment somebody needs something,
+            which is how force-quitting the app became the way to
+            reconnect. */}
+        {connected ? (
+          <Button
+            variant="secondary"
+            onClick={onDisconnect}
+            className="h-9 w-auto px-4 text-[length:var(--text-label)]"
+          >
+            Disconnect
+          </Button>
+        ) : (
+          <Button
+            variant="secondary"
+            disabled={retrying}
+            onClick={onRetry}
+            className="h-9 w-auto px-4 text-[length:var(--text-label)]"
+          >
+            {retrying ? "Looking…" : "Reconnect"}
+          </Button>
+        )}
         <span className="text-[length:var(--text-meta)] text-[var(--color-ash)]">
           {connected ? "Reconnects on its own" : "Not connected"}
         </span>
@@ -79,7 +96,18 @@ function DeviceCard({
  * corrupts settle times without ever looking wrong.
  */
 export function Devices() {
-  const { links, vitals, bandStatus, release } = useMonitor();
+  const { links, vitals, bandStatus, release, retry } = useMonitor();
+
+  /* Held for a moment after the tap. The scan budget means a retry can sit
+   * waiting several seconds before it starts looking, and a button that
+   * answers nothing in that window reads as a button that does nothing. */
+  const [retrying, setRetrying] = useState(false);
+  const look = () => {
+    setRetrying(true);
+    void retry()
+      .catch((e) => console.error("[ble] retry failed", e))
+      .finally(() => setTimeout(() => setRetrying(false), 10_000));
+  };
 
   // A dash, never a plausible number. Every row on this screen exists
   // because it is a silent failure mode, and a screen invented to catch
@@ -106,6 +134,8 @@ export function Devices() {
           name="Band"
           connected={attached}
           onDisconnect={() => void release("band")}
+          onRetry={look}
+          retrying={retrying}
           serial={attached ? "RePulse Band" : "Not connected"}
           fields={[
             {
@@ -130,6 +160,8 @@ export function Devices() {
           name="Bedside unit"
           connected={links.bedside === "connected"}
           onDisconnect={() => void release("bedside")}
+          onRetry={look}
+          retrying={retrying}
           serial={links.bedside === "connected" ? "RePulse Bedside" : "Not connected"}
           fields={[
             { label: "Signal", value: links.bedside },

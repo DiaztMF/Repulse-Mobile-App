@@ -10,6 +10,7 @@ import {
 } from "react";
 import { Capacitor } from "@capacitor/core";
 import { readNoiseLevel, readNoiseTrack } from "@/lib/noise";
+import { readSunset, SUNSET_RAMP_S } from "@/lib/sunset";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { RepulseMonitor } from "repulse-monitor";
 import { MockTransport, type Scenario } from "@/ble/mock";
@@ -120,6 +121,9 @@ export type Monitor = {
   send: (a: Actuator, opts?: { unclamped?: boolean }) => Promise<void>;
   /** Drops one device and lets the scan find it again. */
   release: (device: Device) => Promise<void>;
+  /** "Look again, now." The only control a person has when automatic
+   *  recovery is not recovering. */
+  retry: () => Promise<void>;
   command: (c: BandCommand) => Promise<void>;
   configure: (c: BandConfig) => Promise<void>;
   /** Raw event tap, for measuring how long something takes to arrive. */
@@ -479,6 +483,26 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(id);
   }, [startedAt]);
 
+  /* The end of the sunset, which is the start of the night proper.
+   *
+   * `asleep` is the only event that moves WIND_DOWN to MONITORING, and
+   * nothing in the app had ever sent it — so the phase sat in WIND_DOWN
+   * until somebody tapped again, with the comfort ladder switched off for
+   * as long as it did. The timer matches the ramp the bedside was given,
+   * so the phase changes at the moment the lamp reaches dark.
+   *
+   * ponytail: a timer, not a clock. A phone whose JavaScript is frozen by
+   * the screen going off wakes late rather than never — and the band's own
+   * escalation never depended on this in the first place. */
+  useEffect(() => {
+    if (phase !== "WIND_DOWN") return;
+    const id = setTimeout(
+      () => dispatch({ t: "asleep", at: Date.now() }),
+      SUNSET_RAMP_S * 1000,
+    );
+    return () => clearTimeout(id);
+  }, [phase]);
+
   // --- the native half ---------------------------------------------------
   //
   // M0's answer, wired in. The service holds the process open with the
@@ -569,6 +593,16 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
          * would have restarted "Monitoring · 3h" from zero. */
         if (phase !== "STANDBY" && phase !== "WIND_DOWN") return;
         setSessionAt(Date.now());
+        /* One button, two ways in. The sunset is the first 25 minutes of
+         * the night rather than a separate thing somebody has to know to
+         * press first — and either way the recorder starts now, because
+         * both events set `sessionStartedAt`. Tapping it again from inside
+         * the sunset skips the rest of the ramp, which is what somebody
+         * already in bed means by it. */
+        if (phase === "STANDBY" && readSunset().startWithSunset) {
+          send({ t: "sunset-due", at: Date.now() });
+          return;
+        }
         send({ t: "start-sleep", at: Date.now() });
       },
       endSession: () => {
@@ -582,6 +616,18 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
          * left the room, and every rescan put the SOS screen back up. */
         void transport?.command({ cmd: "stand_down" }).catch(() => {});
         send({ t: "stage", at: Date.now(), stage: 0 });
+      },
+      retry: async () => {
+        /* Paired once but the transport never came up — Bluetooth off at
+         * launch is the usual way into this — so there is nothing to ask
+         * politely. Build one and start it. */
+        if (!transport && Capacitor.isNativePlatform()) {
+          const live = new LiveTransport();
+          setTransport(live);
+          await live.start().catch((e) => console.error("[ble] retry failed", e));
+          return;
+        }
+        await transport?.retry();
       },
       release: async (device) => {
         await transport?.release(device);

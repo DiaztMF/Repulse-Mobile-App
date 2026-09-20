@@ -102,6 +102,13 @@ export class MockTransport implements BleTransport {
     this.setLink(device, "idle");
   }
 
+  /** Nothing to look for, so it simply attaches again — the demo has to
+   *  see the button do what it says too. */
+  async retry() {
+    this.setLink("band", "connected");
+    this.setLink("bedside", "connected");
+  }
+
   async stop() {
     if (this.timer !== undefined) window.clearInterval(this.timer);
     this.timer = undefined;
