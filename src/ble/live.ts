@@ -199,6 +199,7 @@ export class LiveTransport implements BleTransport {
     if (this.scanning || !this.running || !this.enabled) return;
     this.scanning = true;
     this.scanStartedAt = Date.now();
+    console.log("[ble] scanning");
     try {
       await BleClient.requestLEScan(
         { services: [BAND_SERVICE, BEDSIDE_SERVICE], allowDuplicates: true },
@@ -225,6 +226,7 @@ export class LiveTransport implements BleTransport {
     if (!this.scanning) return;
     if (this.state.band !== "connected" || this.state.bedside !== "connected") return;
     this.scanning = false;
+    console.log("[ble] both attached, scan stopped");
     try {
       await BleClient.stopLEScan();
     } catch {
@@ -356,6 +358,10 @@ export class LiveTransport implements BleTransport {
 
     if (this.id[device]) return;
     this.id[device] = r.device.deviceId;
+    /* The one line that tells "never advertised" apart from "found and
+     * then failed". Without it a device missing from the log is both, and
+     * the two have nothing in common to fix. */
+    console.log(`[ble] ${device} seen, attaching`);
 
     /* One attach at a time, never two.
      *
