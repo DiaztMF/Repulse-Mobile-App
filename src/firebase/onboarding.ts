@@ -74,13 +74,35 @@ export type Progress =
   | { at: "unknown" };
 
 /**
- * Never throws. A reader that fails must not strand anyone at the door —
- * but it says so now instead of claiming success.
+ * How long this read gets before it is treated as unanswerable.
+ *
+ * `getDoc` has no deadline of its own, and a hang is not an error — the
+ * promise simply never settles, so no `catch` runs and no `finally` does
+ * either. The sign-in screen awaited this before navigating, which is how
+ * a Google sign-in that had already *succeeded* left somebody watching a
+ * spinner with no end: the session was live, `onAuthStateChanged` had
+ * fired, and the only thing still waiting was a document read. Backing out
+ * and reopening the app "fixed" it because the guard could see the session
+ * the screen was still blocked on.
+ *
+ * The splash had its own two-second cap for exactly this read. Putting the
+ * deadline here means every caller gets it, including the next one.
+ */
+const READ_TIMEOUT_MS = 4000;
+
+/**
+ * Never throws, and always settles. A reader that fails must not strand
+ * anyone at the door — but it says so now instead of claiming success.
  */
 export async function readProgress(uid: string): Promise<Progress> {
   if (!db) return { at: "done" };
   try {
-    const snap = await getDoc(ref(uid));
+    const snap = await Promise.race([
+      getDoc(ref(uid)),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("progress read timed out")), READ_TIMEOUT_MS),
+      ),
+    ]);
     const at = snap.data()?.onboarding as string | undefined;
     if (!at) return { at: "start" };
     if (at === FINISHED) return { at: "done" };
