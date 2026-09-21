@@ -203,7 +203,7 @@ export function SignIn() {
        * send nothing at all. Saying "sent" leaves somebody refreshing an
        * inbox that will stay empty. */
       setMessage({
-        text: "If that address has a password account, the reset link is on its way. A Google account has no password — use the button below.",
+        text: "If that address has a password account, the reset link is on its way. A Google account has no password, so use the button below.",
         ok: true,
       });
     } catch (e) {

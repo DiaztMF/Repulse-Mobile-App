@@ -14,7 +14,7 @@ export const COPY = {
 
   /** Sending always requires one human tap. Any wording implying
    *  automatic delivery is a false claim. */
-  sosPending: "Message not sent yet — it needs one tap from you.",
+  sosPending: "Message not sent yet. It needs one tap from you.",
 
   /** Shown on every screen while the mock transport is active. */
   mockBadge: "SAMPLE DATA",

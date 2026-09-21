@@ -490,7 +490,7 @@ export class LiveTransport implements BleTransport {
     if (!readable(kind, b)) {
       if (!this.warned.has(kind)) {
         this.warned.add(kind);
-        console.warn(`[ble] ${kind} arrived in ${b.length} bytes, too short to read — dropped`);
+        console.warn(`[ble] ${kind} arrived in ${b.length} bytes, too short to read, dropped`);
       }
       return;
     }
@@ -586,7 +586,7 @@ export class LiveTransport implements BleTransport {
     }
 
     void this.write(id, BAND_SERVICE, B.buffer, flushAck(this.lastSeq)).catch((e) =>
-      console.error("[ble] flush ack failed — the band keeps its buffer, which is the point", e),
+      console.error("[ble] flush ack failed, the band keeps its buffer, which is the point", e),
     );
   }
 
