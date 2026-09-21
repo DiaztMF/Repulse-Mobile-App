@@ -71,6 +71,9 @@ export type Machine = {
    *  warning — it does not end the night. */
   resume: Phase | null;
   stage: 0 | 1 | 2 | 3 | 4;
+  /** §3.5. Kenapa tangga ini naik — layar ALERT mengatakannya kepada
+   *  orangnya, dan "tidak teratur" tidak sama dengan "di luar ambang". */
+  reason: "none" | "irregular" | "threshold" | "manual";
   /** Set while a COMFORT check window is open. §5.3 gives it five
    *  minutes. */
   comfort: {
@@ -92,6 +95,7 @@ export const initial: Machine = {
   phase: "STANDBY",
   resume: null,
   stage: 0,
+  reason: "none",
   comfort: null,
   sessionStartedAt: null,
   bedsideOnline: true,
@@ -119,7 +123,7 @@ export type Input =
    *  row cannot be written without knowing which one it was. */
   | { t: "chose"; intervention: Intervention; volume?: number; track?: number }
   | { t: "settled"; at: number }
-  | { t: "stage"; at: number; stage: 0 | 1 | 2 | 3 | 4 }
+  | { t: "stage"; at: number; stage: 0 | 1 | 2 | 3 | 4; reason?: Machine["reason"] }
   | { t: "link"; device: "band" | "bedside"; up: boolean }
   | { t: "tick"; at: number };
 
@@ -140,16 +144,40 @@ export function reduce(m: Machine, i: Input): Machine {
         // ever leave that phase — not a body answering late, not the
         // person tapping "I am okay" — so the screen threw them straight
         // back at the emergency they had just dismissed.
-        if (m.phase !== "ALERT" && m.phase !== "SOS_SENT") return { ...m, stage: 0 };
-        return { ...m, stage: 0, phase: m.resume ?? "MONITORING", resume: null };
+        if (m.phase !== "ALERT" && m.phase !== "SOS_SENT")
+          return { ...m, stage: 0, reason: "none" };
+        return { ...m, stage: 0, reason: "none", phase: m.resume ?? "MONITORING", resume: null };
       }
-      if (i.stage === 4) return { ...m, stage: 4, phase: "SOS_SENT" };
+      const why = i.reason ?? m.reason;
+      if (i.stage === 4) {
+        /* `resume` harus ikut disimpan di sini juga.
+         *
+         * Tahap 4 bisa datang LANGSUNG — tombol SOS di pergelangan, atau
+         * panel uji — tanpa melewati ALERT. Dulu jalur itu tidak menyimpan
+         * ke mana harus kembali, jadi `resume` tetap null, dan menekan
+         * "saya baik-baik saja" mendarat di MONITORING: seluruh antarmuka
+         * berubah gelap untuk malam yang tidak pernah dimulai, tema tidak
+         * bisa diganti karena mode malam memaksanya, dan satu-satunya jalan
+         * keluar adalah menekan "End session" di panel uji untuk sesi yang
+         * tidak ada. */
+        return {
+          ...m,
+          stage: 4,
+          reason: why,
+          phase: "SOS_SENT",
+          resume:
+            m.phase === "ALERT" || m.phase === "SOS_SENT" ? m.resume : m.phase,
+          comfort: null,
+        };
+      }
       // Rule 2: ALERT outranks everything, so whatever was running stops.
       // Rule 3's actuator flip falls out of the phase change by itself.
-      if (m.phase === "ALERT" || m.phase === "SOS_SENT") return { ...m, stage: i.stage };
+      if (m.phase === "ALERT" || m.phase === "SOS_SENT")
+        return { ...m, stage: i.stage, reason: why };
       return {
         ...m,
         stage: i.stage,
+        reason: why,
         phase: "ALERT",
         resume: m.phase,
         comfort: null,

@@ -28,7 +28,7 @@ const TO_STAGE_4_S = 30;
  * the mechanism.
  */
 export function Alert() {
-  const { stage, links, vitals, synthetic, standDown } = useMonitor();
+  const { stage, stageReason, links, vitals, synthetic, standDown } = useMonitor();
   const [left, setLeft] = useState(TO_STAGE_4_S);
 
   // PRD §5.5: when the band drops mid-ladder the countdown carries on and
@@ -88,10 +88,20 @@ export function Alert() {
       <p className="label mt-16 text-[var(--color-danger)]">
         Something looks wrong
       </p>
+      {/* What the band actually saw. This used to say "irregular" no
+          matter what, including when the band had reported the opposite
+          thing — a pulse outside your usual range is not the same finding,
+          and telling somebody the wrong one at 3am is its own harm. */}
       <p className="mt-6 max-w-[28ch] text-[length:var(--text-title)] font-medium leading-snug">
-        {vitals
-          ? `Your pulse has been irregular at ${vitals.bpm} bpm`
-          : "Your pulse has been irregular"}
+        {stageReason === "manual"
+          ? "You pressed the button on your band"
+          : stageReason === "threshold"
+            ? vitals
+              ? `Your pulse is outside your usual range at ${vitals.bpm} bpm`
+              : "Your pulse is outside your usual range"
+            : vitals
+              ? `Your pulse has been irregular at ${vitals.bpm} bpm`
+              : "Your pulse has been irregular"}
       </p>
 
       {/* Said before the countdown, because it is the thing that actually
@@ -100,12 +110,25 @@ export function Alert() {
         Move your arm and this stops. You do not have to reach for the phone.
       </p>
 
-      <p className="num mt-12 text-[length:var(--text-hero)] leading-none text-[var(--color-danger)]">
-        {left}
-      </p>
-      <p className="label mt-2 text-[var(--color-ash)]">
-        {estimated ? "seconds · estimated" : "seconds until your contacts are alerted"}
-      </p>
+      {/* No countdown before stage 3, because there is nothing to count.
+          The number used to be drawn from the first stage onward and sat
+          frozen at 30 for the first thirty-five seconds — a timer that does
+          not move reads as a timer that is broken, and this is the one
+          screen where nothing may look broken. */}
+      {stage >= 3 ? (
+        <>
+          <p className="num mt-12 text-[length:var(--text-hero)] leading-none text-[var(--color-danger)]">
+            {left}
+          </p>
+          <p className="label mt-2 text-[var(--color-ash)]">
+            {estimated ? "seconds · estimated" : "seconds until your contacts are alerted"}
+          </p>
+        </>
+      ) : (
+        <p className="label mt-12 max-w-[30ch] text-[var(--color-ash)]">
+          Your band is checking. Nobody is contacted unless this keeps going.
+        </p>
+      )}
 
       {/* Stands the ladder down rather than just leaving the screen. The
           old version navigated away while the machine was still in ALERT,

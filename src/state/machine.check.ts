@@ -215,4 +215,36 @@ for (const phase of ["MONITORING", "COMFORT", "ALERT"] as const) {
   );
 }
 
+// --- tahap 4 langsung, lalu "saya baik-baik saja" ------------------------
+//
+// Tombol SOS melompat ke tahap 4 tanpa melewati ALERT. Kalau jalur itu tidak
+// menyimpan ke mana harus kembali, menolaknya mendarat di MONITORING —
+// antarmuka berubah gelap untuk malam yang tidak pernah dimulai, dan
+// satu-satunya jalan keluar adalah mengakhiri sesi yang tidak ada.
+{
+  const sos = reduce(initial, { t: "stage", at: T, stage: 4, reason: "manual" });
+  assert.equal(sos.phase, "SOS_SENT");
+  assert.equal(sos.reason, "manual");
+  assert.equal(sos.resume, "STANDBY", "harus ingat dari mana ia datang");
+
+  const ok = reduce(sos, { t: "stage", at: T + 5000, stage: 0 });
+  assert.equal(ok.phase, "STANDBY", "kembali ke tempat semula, bukan ke malam");
+  assert.equal(ok.stage, 0);
+  assert.equal(ok.reason, "none");
+}
+
+// Lewat ALERT, tempat asalnya juga harus bertahan sampai tahap 4.
+{
+  const night = { ...initial, phase: "MONITORING" as const };
+  const alert = reduce(night, { t: "stage", at: T, stage: 1, reason: "irregular" });
+  assert.equal(alert.phase, "ALERT");
+  assert.equal(alert.reason, "irregular");
+
+  const four = reduce(alert, { t: "stage", at: T + 65000, stage: 4 });
+  assert.equal(four.resume, "MONITORING", "asalnya tidak boleh hilang di tahap 4");
+
+  const back = reduce(four, { t: "stage", at: T + 70000, stage: 0 });
+  assert.equal(back.phase, "MONITORING", "malam yang sedang berjalan dilanjutkan");
+}
+
 console.log("ok — an anomaly cancels the sunrise, every actuator reverses, and both ways into a night record it");
