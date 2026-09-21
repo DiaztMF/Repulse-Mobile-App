@@ -100,7 +100,6 @@ export const router = createBrowserRouter([
       { path: "/contacts", lazy: lazyRoute(() => import("@/screens/onboarding/Contacts"), "Contacts") },
       { path: "/test-panel", lazy: lazyRoute(() => import("@/screens/settings/TestPanel"), "TestPanel") },
       { path: "/conformance", lazy: lazyRoute(() => import("@/screens/settings/Conformance"), "Conformance") },
-      { path: "/family", lazy: lazyRoute(() => import("@/screens/settings/Family"), "Family") },
       { path: "/export", lazy: lazyRoute(() => import("@/screens/settings/Export"), "Export") },
     ],
   },
@@ -108,7 +107,6 @@ export const router = createBrowserRouter([
   // Outside navigation — takes over the screen
   { path: "/alert", lazy: lazyRoute(() => import("@/screens/emergency/Alert"), "Alert") },
   { path: "/sos", lazy: lazyRoute(() => import("@/screens/emergency/Sos"), "Sos") },
-  { path: "/family/view", lazy: lazyRoute(() => import("@/screens/emergency/FamilyView"), "FamilyView") },
   { path: "/emergency/watched", lazy: lazyRoute(() => import("@/screens/emergency/Watched"), "Watched") },
 
   { path: "*", element: <Navigate to="/tonight" replace /> },

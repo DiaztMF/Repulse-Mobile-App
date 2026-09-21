@@ -13,6 +13,7 @@ import { LiveNow } from "@/components/home/LiveNow";
 import { seriesFor, formatDuration, bandOfScore } from "@/data/mock";
 import { useLastNight } from "@/data/store";
 import { useMonitor } from "@/state/monitor";
+import { readSunset } from "@/lib/sunset";
 import { Share } from "@capacitor/share";
 import { BAND_COLOR, BAND_LABEL, METRIC_COLOR } from "@/lib/metrics";
 
@@ -50,6 +51,11 @@ export function Home() {
   const minutesNow = now.getHours() * 60 + now.getMinutes();
   const sunsetMin = 21 * 60 + 40 + delayMin;
   const sunsetAt = `${String(Math.floor(sunsetMin / 60) % 24).padStart(2, "0")}:${String(sunsetMin % 60).padStart(2, "0")}`;
+  /* Read once per render rather than held in state: Settings is a
+     different screen, so by the time this one is looked at again the value
+     is whatever was last saved. */
+  const { startWithSunset: startsWithSunset, rampS } = readSunset();
+  const sunsetMinutes = Math.round(rampS / 60);
   const showSunsetBanner =
     !dismissed && minutesNow >= sunsetMin - 15 && minutesNow < sunsetMin + 25;
 
@@ -181,15 +187,18 @@ export function Home() {
         {showSunsetBanner && (
           <div className="rounded-[var(--radius-card)] bg-[var(--color-raised)] p-5">
             <div className="flex items-start justify-between gap-4">
+              {/* Said "Sunset begins at 21:40" and nothing began — there
+                  is no scheduler behind it. It is a reminder, and Start now
+                  below is the thing that actually runs the sunset. */}
               <p className="text-[length:var(--text-card)]">
-                Sunset begins at {sunsetAt}
+                Usual bedtime, {sunsetAt}
               </p>
               <button onClick={() => setDismissed(true)} aria-label="Dismiss">
                 <X className="size-5 shrink-0 text-[var(--color-ash)]" strokeWidth={1.5} />
               </button>
             </div>
             <p className="mt-1 text-[length:var(--text-meta)] text-[var(--color-ash)]">
-              The lights dim over 25 minutes.
+              Tap Start now and the lights dim over {sunsetMinutes} minutes.
             </p>
             <div className="mt-4 flex items-center gap-6">
               <Button
@@ -311,8 +320,13 @@ export function Home() {
         >
           Start sleep
         </Button>
+        {/* Said "Wake 06:00–06:30" next to a sunset time, and neither
+            happens by itself. What the button does is the only thing worth
+            printing under it. */}
         <p className="label mt-3 text-center text-[var(--color-ash)]">
-          Wake 06:00–06:30 · sunset {sunsetAt}
+          {startsWithSunset
+            ? `${sunsetMinutes} min of dimming light, then the night is recorded`
+            : "Straight to dark, and the night is recorded"}
         </p>
       </div>
     </div>

@@ -107,21 +107,14 @@ export function Ready() {
         ))}
       </div>
 
-      <p className="label mt-10 text-[var(--color-ash)]">Tonight</p>
-      <div className="mt-4 space-y-4">
-        <div className="flex items-baseline justify-between">
-          <span className="text-[var(--color-ash)]">Sunset begins</span>
-          <span className="num text-[length:var(--text-body)]">21:40</span>
-        </div>
-        <div className="flex items-baseline justify-between">
-          <span className="text-[var(--color-ash)]">Wake window</span>
-          <span className="num text-[length:var(--text-body)]">06:00–06:30</span>
-        </div>
-      </div>
-
+      {/* Promised a sunset at 21:40 and a wake window at 06:00, and built
+          neither. Somebody reading this went to bed expecting the lamp to
+          dim by itself, and it never did — the last screen of setup is the
+          worst place to be wrong about what the product does. */}
       <p className="mt-8 text-[var(--color-ash)]">
-        The lights start dimming on their own at 21:40. You do not have to do
-        anything.
+        When you are ready for bed, tap Start sleep. The lamp dims to dark
+        and the night is recorded from that tap. Nothing happens on a
+        schedule. You decide when the night begins.
       </p>
 
       <div className="flex-1" />

@@ -8,7 +8,6 @@ import {
   Phone,
   FlaskConical,
   ListChecks,
-  Users,
   Download,
   X,
   LogOut,
@@ -19,9 +18,8 @@ import { cn } from "@/lib/cn";
 
 const ITEMS = [
   { to: "/settings", label: "Settings", Icon: Settings },
-  { to: "/devices", label: "Devices & battery", Icon: Watch },
+  { to: "/devices", label: "Devices", Icon: Watch },
   { to: "/contacts", label: "Emergency contacts", Icon: Phone },
-  { to: "/family", label: "Family", Icon: Users },
   { to: "/export", label: "Export", Icon: Download },
   { to: "/test-panel", label: "Test panel", Icon: FlaskConical },
   { to: "/conformance", label: "GATT conformance", Icon: ListChecks },

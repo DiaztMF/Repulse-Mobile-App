@@ -138,21 +138,25 @@ export function Devices() {
           retrying={retrying}
           serial={attached ? "RePulse Band" : "Not connected"}
           fields={[
-            {
-              label: "Battery",
-              // §3.6's 255 arrives as null: no divider is fitted, so there
-              // is nothing measuring it. A dash, never a number — a band
-              // that claims full all night and then dies is the silent
-              // failure this whole product argues against.
-              value: bandStatus?.percent != null ? `${bandStatus.percent}%` : dash,
-              ...(bandStatus?.charging ? { note: "charging" } : {}),
-            },
+            /* Baterai pernah berdiri di sini dan selamanya menampilkan
+               tanda hubung. PIN_BATTERY_ADC = -1 di papan ini: pembagi
+               tegangannya tidak dipasang, jadi firmware melaporkan 255 yang
+               tiba sebagai null, setiap kali, selamanya. Baris yang tidak
+               akan pernah punya angka bukan diagnostik, cuma pertanyaan
+               yang terus diulang. Pasang pembagi tegangan dan kembalikan
+               barisnya. */
             { label: "Signal", value: attached ? "connected" : links.band },
             // §3.1: to a MAX30102 an unworn band and a stopped heart read
             // the same, so this is the flag that decides whether a missing
             // pulse is an emergency or a bedside table.
             { label: "Worn", value: vitals ? (vitals.worn ? "yes" : "no") : dash },
-            { label: "Clock", value: clock },
+            /* Bukan jam tangan. Ini soal apakah jam internal gelang sudah
+               disetel oleh ponsel: kejadian yang direkam saat ponsel tidak
+               ada membawa stempel waktu MILIK GELANG, jadi jam yang tidak
+               pernah disetel mengirim peristiwa tadi malam dengan waktu
+               yang salah, dan tidak ada tampilan mana pun yang terlihat
+               keliru karenanya. */
+            { label: "Time sync", value: clock },
           ]}
         />
 
@@ -165,10 +169,17 @@ export function Devices() {
           serial={links.bedside === "connected" ? "RePulse Bedside" : "Not connected"}
           fields={[
             { label: "Signal", value: links.bedside },
-            // Users are entitled to know the hardware can act on its own.
+            /* Nyata, bukan janji: bedside memindai siaran gelang sendiri,
+               dan begitu ia melihat tahap 3 ke atas tanpa ponsel yang
+               tersambung, ia membunyikan sirenenya tanpa menunggu perintah
+               siapa pun (repulse_bedside.ino, onBandSeen). Inilah yang
+               bekerja saat ponsel mati atau tertinggal di ruangan lain. */
             {
-              label: "Standalone siren",
+              label: "Siren without your phone",
               value: links.bedside === "connected" ? "armed" : dash,
+              ...(links.bedside === "connected"
+                ? { note: "sounds on its own" }
+                : {}),
             },
           ]}
         />
@@ -186,8 +197,8 @@ export function Devices() {
 
         <p className="px-1 pt-4 text-[length:var(--text-meta)] text-[var(--color-ash)]">
           The bedside unit sounds its siren on its own if your phone is
-          unreachable during an alert. It cannot be commanded to stay quiet
-          from here.
+          unreachable during an alert. It cannot be told to stay quiet from
+          here.
         </p>
       </div>
     </div>
