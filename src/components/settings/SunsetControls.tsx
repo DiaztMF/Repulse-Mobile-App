@@ -5,7 +5,7 @@ import {
   hexToRgb,
   hsToHex,
   readSunset,
-  SUNSET_RAMP_S,
+  RAMP_LIMITS,
   writeSunset,
   type Sunset,
 } from "@/lib/sunset";
@@ -124,7 +124,7 @@ export function SunsetControls({ wire }: { wire?: boolean }) {
         <span className="min-w-0">
           <span className="block">Start with the sunset</span>
           <span className="mt-0.5 block text-[length:var(--text-meta)] text-[var(--color-ash)]">
-            Start sleep opens with {Math.round(SUNSET_RAMP_S / 60)} minutes of dimming light.
+            Start sleep opens with {Math.round(sunset.rampS / 60)} minutes of dimming light.
             Off goes straight to dark. Either way the night is recorded from the tap.
           </span>
         </span>
@@ -169,6 +169,32 @@ export function SunsetControls({ wire }: { wire?: boolean }) {
           </button>
         )}
       </div>
+      {/* Only worth showing while there is a sunset to shorten. */}
+      {sunset.startWithSunset && (
+        <div className="py-4">
+          <div className="flex items-baseline justify-between gap-4">
+            <span>Sunset length</span>
+            <span className="num text-[var(--color-ash)]">
+              {Math.round(sunset.rampS / 60)} min
+            </span>
+          </div>
+          <input
+            type="range"
+            min={RAMP_LIMITS.min}
+            max={RAMP_LIMITS.max}
+            step={RAMP_LIMITS.step}
+            aria-label="Sunset length"
+            value={sunset.rampS}
+            onChange={(e) => save({ ...sunset, rampS: Number(e.target.value) })}
+            className="mt-3 w-full accent-[var(--color-pulse)]"
+          />
+          <span className="mt-1 block text-[length:var(--text-meta)] text-[var(--color-ash)]">
+            How long the lamp takes to reach dark. The night is recorded from
+            the tap either way.
+          </span>
+        </div>
+      )}
+
       <div className="py-4">
         <div className="flex items-baseline justify-between gap-4">
           <span>Sunset brightness</span>

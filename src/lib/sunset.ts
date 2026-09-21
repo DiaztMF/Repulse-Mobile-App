@@ -23,10 +23,22 @@ export type Sunset = {
    * this switch say the same thing without the trap.
    */
   startWithSunset: boolean;
+  /**
+   * §5.1. How long the lamp takes to reach dark, and therefore how long
+   * WIND_DOWN lasts — it is sent to the bedside as `ramp_s` and used as
+   * the timer that ends the sunset here. Two uses, one number, so it can
+   * never be the case that the lamp is still dimming after the app has
+   * decided the sunset is over.
+   */
+  rampS: number;
 };
 
-/** §5.1. The lamp's ramp, and therefore how long WIND_DOWN lasts. */
+/** What the ramp was before it could be changed. */
 export const SUNSET_RAMP_S = 1500;
+
+/** Five minutes is the shortest that still reads as dimming rather than
+ *  switching off; an hour is longer than anyone waits awake for a lamp. */
+export const RAMP_LIMITS = { min: 300, max: 3600, step: 300 };
 
 /** What the firmware drew before this was a setting — 2200 K with blue cut
  *  to 15% — so an app nobody has touched looks exactly as it always did. */
@@ -34,9 +46,18 @@ export const DEFAULT_SUNSET: Sunset = {
   color: "#ff9205",
   brightness: 40,
   startWithSunset: true,
+  rampS: SUNSET_RAMP_S,
 };
 
 const HEX = /^#[0-9a-f]{6}$/i;
+
+/* A stored zero would end WIND_DOWN on the same tick it started and send
+ * the bedside a ramp of nothing — the lamp would snap off instead of
+ * fading, which is the one thing the sunset exists to avoid. */
+const ramp = (n: number) =>
+  Number.isFinite(n) && n >= RAMP_LIMITS.min && n <= RAMP_LIMITS.max
+    ? Math.round(n)
+    : SUNSET_RAMP_S;
 
 export function readSunset(): Sunset {
   try {
@@ -51,6 +72,7 @@ export function readSunset(): Sunset {
       // Only an explicit false turns it off, so a setting saved before this
       // existed keeps the sunset it already had.
       startWithSunset: s?.startWithSunset !== false,
+      rampS: ramp(Number(s?.rampS)),
     };
   } catch {
     return DEFAULT_SUNSET;

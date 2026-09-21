@@ -10,7 +10,7 @@ import {
 } from "react";
 import { Capacitor } from "@capacitor/core";
 import { readNoiseLevel, readNoiseTrack } from "@/lib/noise";
-import { readSunset, SUNSET_RAMP_S } from "@/lib/sunset";
+import { readSunset } from "@/lib/sunset";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { RepulseMonitor } from "repulse-monitor";
 import { MockTransport, type Scenario } from "@/ble/mock";
@@ -18,7 +18,9 @@ import { LiveTransport } from "@/ble/live";
 import { useAuth } from "@/firebase/auth";
 import { fetchInterventions, saveNight, saveVerification } from "@/firebase/nights";
 import { NightRecorder, nightDate } from "@/data/night";
-import { DEFAULT_BASELINE_BPM, readBaseline } from "@/lib/baseline";
+import { DEFAULT_BASELINE_BPM, readBaseline, writeBaseline } from "@/lib/baseline";
+import { readTuning } from "@/lib/tuning";
+import { fetchBaseline } from "@/firebase/onboarding";
 import type {
   Actuator,
   BandCommand,
@@ -83,6 +85,9 @@ export const TUNING = {
 export type Monitor = {
   phase: Machine["phase"];
   stage: Machine["stage"];
+  /** §3.5. Apa yang dilihat band, supaya layar ALERT tidak menebak apakah
+   *  temuannya irama tidak teratur atau denyut di luar rentang biasa. */
+  stageReason: Machine["reason"];
   rows: Machine["rows"];
   links: Record<Device, Link>;
   vitals: Vitals | null;
@@ -275,13 +280,13 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
           break;
         case "escalation":
           // Mirrored, never decided here. PRD §4.1.
-          dispatch({ t: "stage", at: e.data.at, stage: e.data.stage });
+          dispatch({ t: "stage", at: e.data.at, stage: e.data.stage, reason: e.data.reason });
           break;
         case "sos":
           // The button is a person saying "now". §3.5 reason 3 covers it,
           // and the band reports the stage itself — this is the path for
           // when we heard the press before the stage.
-          dispatch({ t: "stage", at: e.data.at, stage: 4 });
+          dispatch({ t: "stage", at: e.data.at, stage: 4, reason: "manual" });
           break;
         // §3.6. Battery, charge state, and the band's own clock — the last
         // of which is a silent failure mode: a drifted clock corrupts
@@ -472,6 +477,52 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
     };
   }, [startedAt, uid]);
 
+  /* Denyut istirahat akun ini, dipulihkan ke perangkat baru.
+   *
+   * Kalibrasi menyimpan dua salinan: satu lokal untuk keputusan di sisi
+   * aplikasi, satu di akun supaya ponsel berikutnya tidak perlu mengukur
+   * ulang. Ini setengah yang membaca salinan akun itu — hanya kalau lokal
+   * memang kosong, karena yang lokal selalu lebih baru.
+   *
+   * Yang lain tidak ikut dipulihkan, dan itu disengaja: izin Android dan
+   * nomor kontak benar-benar hilang saat aplikasi dipasang ulang, jadi
+   * memulihkannya akan melewatkan seseorang dari layar yang memberi izin
+   * yang dibutuhkan malamnya. Denyut istirahat tidak hilang ke mana-mana. */
+  useEffect(() => {
+    if (!uid || readBaseline() !== null) return;
+    let live = true;
+    void fetchBaseline(uid).then((bpm) => {
+      if (!live || bpm === null) return;
+      writeBaseline(bpm);
+      console.log("[baseline] dipulihkan dari akun:", bpm);
+    });
+    return () => {
+      live = false;
+    };
+  }, [uid]);
+
+  /* Dan diteruskan ke gelang setiap kali ia tersambung.
+   *
+   * §3.7 menaruh tangga eskalasi di firmware supaya ia tetap jalan tanpa
+   * ponsel — tetapi itu berarti gelang memakai SALINANNYA SENDIRI, dan
+   * satu-satunya yang pernah menuliskannya adalah layar kalibrasi. Gelang
+   * yang baru diflash, atau ponsel baru yang tidak mengulang kalibrasi,
+   * menjalankan seluruh malam dengan 62 bpm pabrik. Dikirim di sini, bukan
+   * di sana, karena "setiap kali tersambung" adalah kapan ia dibutuhkan. */
+  useEffect(() => {
+    if (!transport || links.band !== "connected") return;
+    const bpm = readBaseline();
+    /* Seluruh set, bukan cuma denyut istirahat. Layar Settings mengirim
+     * setiap perubahan saat itu juga, tetapi gelang yang mati semalaman
+     * — atau baru diflash — kembali ke default pabriknya, dan satu-satunya
+     * saat yang tahu nilai sebenarnya adalah ponsel. */
+    void transport
+      .configure({ ...readTuning(), ...(bpm === null ? {} : { baseline_bpm: bpm }) })
+      .catch(() => {
+        // Gelang tetap punya salinan lamanya. Tidak ada yang rusak.
+      });
+  }, [transport, links.band]);
+
   /* The recorder's own clock. Its ledgers advance on elapsed time, and a
    * band that has dropped off the air sends nothing to advance them with —
    * which is precisely the silence that has to be counted as offline
@@ -498,7 +549,7 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
     if (phase !== "WIND_DOWN") return;
     const id = setTimeout(
       () => dispatch({ t: "asleep", at: Date.now() }),
-      SUNSET_RAMP_S * 1000,
+      readSunset().rampS * 1000,
     );
     return () => clearTimeout(id);
   }, [phase]);
@@ -563,6 +614,7 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
     return {
       phase,
       stage: machine.stage,
+      stageReason: machine.reason,
       rows: machine.rows,
       links,
       vitals,
@@ -692,6 +744,7 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
   }, [
     phase,
     machine.stage,
+    machine.reason,
     machine.rows,
     links,
     vitals,
