@@ -1,9 +1,20 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Moon, Flag, FlaskConical } from "lucide-react";
+import { Moon, FlaskConical, TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/cn";
 
-const ACTIONS = [
+/* "Log an event" pernah ada di sini dan tidak pernah melakukan apa pun:
+ * ia membawa orang ke /tonight, layar yang sama yang baru saja mereka
+ * tinggalkan, dan tidak ada satu baris pun di seluruh src/ yang mencatat
+ * apa pun. Sebuah tombol yang berjanji "tandai sesuatu yang kamu perhatikan"
+ * lalu diam-diam membuangnya lebih buruk daripada tidak ada tombolnya. */
+const ACTIONS: {
+  to: string;
+  label: string;
+  note: string;
+  Icon: typeof Moon;
+  danger?: boolean;
+}[] = [
   {
     to: "/tonight/session",
     label: "Start sleep",
@@ -11,16 +22,23 @@ const ACTIONS = [
     Icon: Moon,
   },
   {
-    to: "/tonight",
-    label: "Log an event",
-    note: "Mark something you noticed",
-    Icon: Flag,
-  },
-  {
     to: "/test-panel",
     label: "Test panel",
     note: "Drive each actuator by hand",
     Icon: FlaskConical,
+  },
+  /* /sos ada sejak awal dan tidak pernah bisa dicapai dengan tangan: satu-
+   * satunya jalan ke sana adalah gelang mencapai stage 4 sendiri. Artinya
+   * seseorang yang sadar bahwa ia butuh bantuan — justru kasus yang paling
+   * mendesak — tidak punya apa pun untuk ditekan. Tombol fisik di gelang
+   * melakukan hal yang sama, tetapi menuntut tahan dua detik penuh dan
+   * harus sedang dipakai. */
+  {
+    to: "/sos",
+    label: "Send for help",
+    note: "Opens the message. Nothing is sent until you tap send",
+    Icon: TriangleAlert,
+    danger: true,
   },
 ];
 
@@ -86,7 +104,7 @@ export function ActionSheet({
         </div>
 
         <ul className="space-y-2">
-          {ACTIONS.map(({ to, label, note, Icon }, index) => (
+          {ACTIONS.map(({ to, label, note, Icon, danger }, index) => (
             <li
               key={label}
               style={{
@@ -104,7 +122,12 @@ export function ActionSheet({
                 }}
                 className="flex w-full items-center gap-4 rounded-[var(--radius-card)] bg-[var(--color-raised)]/40 hover:bg-[var(--color-raised)] p-3.5 text-left active:scale-[0.98] transition-all duration-200"
               >
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[var(--color-raised)] text-[var(--color-pulse)]">
+                <span
+                  className={cn(
+                    "flex size-10 shrink-0 items-center justify-center rounded-full bg-[var(--color-raised)]",
+                    danger ? "text-[var(--color-danger)]" : "text-[var(--color-pulse)]",
+                  )}
+                >
                   <Icon className="size-5" strokeWidth={1.5} />
                 </span>
                 <span>

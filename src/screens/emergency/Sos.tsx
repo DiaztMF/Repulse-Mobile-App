@@ -27,11 +27,35 @@ import {
 export function Sos() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { vitals, synthetic, standDown } = useMonitor();
+  const { vitals, synthetic, standDown, phase } = useMonitor();
   const [sent, setSent] = useState(false);
   const [position, setPosition] = useState<Position>(null);
   const [locating, setLocating] = useState(true);
   const [at] = useState(() => Date.now());
+
+  /**
+   * Berdiri turun DAN pergi, karena yang pertama saja tidak cukup begitu
+   * layar ini bisa dibuka dengan tangan.
+   *
+   * `standDown` mengirim stage 0, dan reducer hanya memindahkan fase kalau
+   * fasenya ALERT atau SOS_SENT. Dibuka dari laci menu, fasenya STANDBY —
+   * jadi tidak ada yang berubah, dan EscalationRoute yang memantau
+   * PERUBAHAN fase tidak punya apa pun untuk ditanggapi. Tombolnya bekerja
+   * sempurna dan tidak melakukan apa-apa.
+   *
+   * Perintah stand_down tetap dikirim: kalau gelang memang sedang di stage
+   * 4, itulah satu-satunya jalan keluarnya (§3.8). Kalau tidak, gelang
+   * mengabaikannya dan yang tersisa hanya navigasi ini.
+   */
+  const leave = () => {
+    /* Hanya kalau memang ada keadaan darurat untuk diakhiri. Ladder::reset()
+     * di firmware membisukan deteksi anomali selama 180 detik setiap kali
+     * dipanggil — itu benar setelah seseorang berkata "saya baik-baik
+     * saja", tetapi menutup layar yang dibuka sendiri dari laci menu tidak
+     * boleh diam-diam membuat gelang buta selama tiga menit. */
+    if (phase === "ALERT" || phase === "SOS_SENT") standDown();
+    navigate("/tonight", { replace: true });
+  };
 
   const contacts = savedContacts();
   const contact = contacts[0];
@@ -78,7 +102,7 @@ export function Sos() {
         {/* Same reason as Cancel below: the phase has to leave SOS_SENT or
             the router hands this screen straight back. */}
         <button
-          onClick={standDown}
+          onClick={leave}
           className="label mt-4 h-14 w-full max-w-[320px] rounded-[var(--radius-pill)] border border-[var(--color-ash-dim)] text-[var(--color-ash)]"
         >
           Close
@@ -145,7 +169,7 @@ export function Sos() {
           navigating left the machine in SOS_SENT, so the router put the
           person straight back on the emergency they had just dismissed. */}
       <button
-        onClick={standDown}
+        onClick={leave}
         className="label mt-4 h-14 w-full rounded-[var(--radius-pill)] border border-[var(--color-ivory)] text-[var(--color-ivory)]"
       >
         Cancel, I am okay
