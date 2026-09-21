@@ -141,6 +141,50 @@ export async function reached(uid: string, route: string) {
   }
 }
 
+/**
+ * Denyut istirahat, di samping akunnya.
+ *
+ * Kalibrasi dulu hanya menulis ke localStorage, dan itu jawaban yang salah
+ * untuk pertanyaan yang salah. Izin Android dan nomor kontak memang milik
+ * PONSEL — memasang ulang aplikasi benar-benar menghapusnya, jadi
+ * menyimpannya per perangkat sudah tepat (lihat DEVICE_KEY di atas).
+ *
+ * Denyut istirahat bukan begitu. Angka 75 tetap 75 di ponsel mana pun.
+ * Menyimpannya per perangkat berarti setiap ponsel baru, setiap pemasangan
+ * ulang, dan setiap pembersihan data menuntut tiga menit duduk diam lagi
+ * untuk mengukur ulang sesuatu yang sudah diketahui — dan sampai itu
+ * dilakukan, gelang kembali memakai 62 bpm milik orang asing.
+ */
+export async function saveBaseline(uid: string, bpm: number) {
+  if (!db || !uid) return;
+  try {
+    await setDoc(ref(uid), { baselineBpm: bpm }, { merge: true });
+  } catch (e) {
+    // Salinan lokal sudah ditulis; yang hilang cuma kemampuan pindah
+    // perangkat tanpa mengukur ulang.
+    console.error("[baseline] tidak tersimpan ke akun", e);
+  }
+}
+
+/** Null kalau akunnya belum pernah dikalibrasi, atau tidak bisa dibaca. */
+export async function fetchBaseline(uid: string): Promise<number | null> {
+  if (!db || !uid) return null;
+  try {
+    const snap = await Promise.race([
+      getDoc(ref(uid)),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("baseline read timed out")), READ_TIMEOUT_MS),
+      ),
+    ]);
+    const n = Number(snap.data()?.baselineBpm);
+    /* Rentang yang sama dengan readBaseline(): nol yang tersimpan akan
+     * membuat setiap detak jantung menjadi anomali. */
+    return Number.isFinite(n) && n >= 30 && n <= 120 ? n : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function finish(uid: string) {
   // First, and outside the Firestore guard: this is the record that
   // decides whether this phone is set up, and it has to be written even

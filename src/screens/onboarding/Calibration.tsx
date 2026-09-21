@@ -5,9 +5,15 @@ import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { GOOD, holdGate } from "@/lib/fitGate";
 import { restingFrom } from "@/lib/screening";
-import { writeBaseline } from "@/lib/baseline";
+import { DEFAULT_BASELINE_BPM, readBaseline, writeBaseline } from "@/lib/baseline";
+import { fetchBaseline, saveBaseline } from "@/firebase/onboarding";
+import { useAuth } from "@/firebase/auth";
 
-type Stage = "explain" | "fit" | "running" | "done";
+/* "known" adalah tahap pembuka kalau akun ini sudah pernah diukur. Tanpa
+ * itu, layar ini menawarkan tiga menit duduk diam untuk mengukur ulang
+ * sesuatu yang sudah diketahui — dan seseorang yang menurut saja akan
+ * melakukannya, karena tidak ada yang memberitahunya bahwa itu sia-sia. */
+type Stage = "known" | "explain" | "fit" | "running" | "done";
 
 /**
  * Shorter than the contract's worked example, which is `duration_s: 180`.
@@ -57,10 +63,63 @@ function Ring({ progress, label }: { progress: number; label: string }) {
  * against that baseline for the next two weeks — so a bad one means
  * false alarms every night.
  */
+/**
+ * Melewati kalibrasi, dan mengatakan harganya.
+ *
+ * Tanpa angkamu sendiri, gelang memakai baseline pabrik 62 bpm dengan
+ * ambang ±16 — jadi apa pun di luar 46-78 dianggap anomali. Untuk orang
+ * yang denyut istirahatnya 75, itu berarti layar darurat sepanjang malam.
+ * Itu bukan kemungkinan teoretis; itu yang terjadi di perangkat.
+ *
+ * Tetap boleh dilewati: gelang yang belum dirakit atau tidak dipakai
+ * membuat tiga menit duduk diam menjadi tiga menit menatap layar kosong.
+ * Yang tidak boleh adalah melewatinya tanpa tahu akibatnya.
+ */
+function Skip() {
+  const navigate = useNavigate();
+  return (
+    <button
+      onClick={() => navigate("/onboarding/contacts")}
+      className="label mt-6 self-center text-center text-[var(--color-ash)]"
+    >
+      Skip for now
+      <span className="mt-1 block text-[length:var(--text-meta)] text-[var(--color-ash-dim)]">
+        Alerts will use {DEFAULT_BASELINE_BPM} bpm until you do this.
+        Once measured, it is remembered on your account.
+      </span>
+    </button>
+  );
+}
+
 export function Calibration() {
   const navigate = useNavigate();
-  const [stage, setStage] = useState<Stage>("explain");
+  const uid = useAuth().user?.uid;
+  /* Mulai dari salinan lokal, yang tidak butuh jaringan. Salinan akun
+   * menyusul di bawah untuk perangkat yang lokalnya masih kosong. */
+  const [known, setKnown] = useState<number | null>(readBaseline);
+  const [stage, setStage] = useState<Stage>(
+    readBaseline() !== null ? "known" : "explain",
+  );
   const [quality, setQuality] = useState(0);
+
+  /* Perangkat baru: lokalnya kosong, tapi akunnya mungkin sudah punya
+   * angkanya. Hanya boleh memindahkan tahap kalau orangnya belum menyentuh
+   * apa pun — merebut layar dari seseorang yang sudah menekan "Start"
+   * beberapa detik lalu lebih buruk daripada satu pengukuran berlebih. */
+  useEffect(() => {
+    if (!uid || known !== null) return;
+    let live = true;
+    void fetchBaseline(uid).then((bpm) => {
+      if (!live || bpm === null) return;
+      writeBaseline(bpm);
+      setKnown(bpm);
+      setStage((now) => (now === "explain" ? "known" : now));
+    });
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uid]);
   const [stable, setStable] = useState(false);
   const [left, setLeft] = useState(DURATION_S);
 
@@ -155,6 +214,9 @@ export function Calibration() {
     if (bpm === null) return;
     setRecorded(bpm);
     writeBaseline(bpm);
+    /* Dan di samping akunnya, supaya tiga menit ini cukup sekali seumur
+     * hidup akun — bukan sekali per ponsel. */
+    if (uid) void saveBaseline(uid, bpm);
     // The band keeps its own copy so the ladder still works with no phone
     // in the room (§3.7).
     void configure({ baseline_bpm: bpm }).catch(() => {});
@@ -174,6 +236,43 @@ export function Calibration() {
 
       <div className="flex flex-1 flex-col px-6">
 
+      {stage === "known" && (
+        <>
+          <h1 className="mt-8 text-[length:var(--text-title)] font-medium leading-snug">
+            Your resting pulse is already measured
+          </h1>
+          <p className="mt-4 text-[var(--color-ash)]">
+            It is kept on your account, so a new phone does not have to measure
+            it again. Every alert threshold is set against this number.
+          </p>
+
+          <p className="num mt-12 text-center text-[length:var(--text-hero)] leading-none">
+            {known}
+          </p>
+          <p className="label mt-2 text-center text-[var(--color-ash)]">
+            resting bpm
+          </p>
+
+          <div className="flex-1" />
+          <Button
+            size="lg"
+            register="system"
+            onClick={() => navigate("/onboarding/contacts")}
+          >
+            Keep this
+          </Button>
+          {/* Masih boleh diukur ulang — denyut istirahat bergeser oleh
+              kebugaran, obat, dan usia. Yang salah cuma mengukur ulang
+              karena tidak diberi tahu bahwa angkanya sudah ada. */}
+          <button
+            onClick={() => setStage("explain")}
+            className="label mt-6 self-center text-[var(--color-ash)]"
+          >
+            Measure again
+          </button>
+        </>
+      )}
+
       {stage === "explain" && (
         <>
           <h1 className="mt-8 text-[length:var(--text-title)] font-medium leading-snug">
@@ -190,6 +289,7 @@ export function Calibration() {
           <Button size="lg" register="system" onClick={() => setStage("fit")}>
             Start
           </Button>
+          <Skip />
         </>
       )}
 
@@ -220,6 +320,7 @@ export function Calibration() {
           >
             Start calibration
           </Button>
+          <Skip />
         </>
       )}
 

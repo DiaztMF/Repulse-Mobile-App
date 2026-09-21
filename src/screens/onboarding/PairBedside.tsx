@@ -135,7 +135,14 @@ export function PairBedside() {
 
       <div className="flex-1" />
 
-      {(!searching || off) && (
+      {/* Selalu ada, termasuk selagi memindai.
+        *
+        * Dulu tombol ini hanya muncul saat pencarian sudah berhenti atau
+        * Bluetooth mati — yaitu justru BUKAN keadaan yang biasa. Dalam
+        * keadaan biasa layar ini memindai tanpa batas waktu, dan satu-
+        * satunya jalan keluar adalah menunggu bedside ditemukan. Orang yang
+        * bedside-nya belum dirakit terjebak di sini. */}
+      {(
         <Button
           size="lg"
           register={!searching ? "system" : undefined}
@@ -149,7 +156,7 @@ export function PairBedside() {
              reachable from the test panel. */
           onClick={() => navigate("/onboarding/contacts")}
         >
-          {!searching ? "Continue" : "Continue without a bedside unit"}
+          {!searching ? "Continue" : "Skip, set this up later"}
         </Button>
       )}
       </div>
