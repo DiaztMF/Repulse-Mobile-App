@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { useMonitor } from "@/state/monitor";
+import { Capacitor } from "@capacitor/core";
 import { Button } from "@/components/ui/Button";
 
 type Field = { label: string; value: string; note?: string };
@@ -13,6 +14,7 @@ function DeviceCard({
   onDisconnect,
   onRetry,
   retrying,
+  web,
 }: {
   name: string;
   serial: string;
@@ -21,6 +23,7 @@ function DeviceCard({
   onDisconnect: () => void;
   onRetry: () => void;
   retrying: boolean;
+  web: boolean;
 }) {
   return (
     <section className="rounded-[var(--radius-card)] bg-[var(--color-surface)] p-5">
@@ -79,11 +82,18 @@ function DeviceCard({
             onClick={onRetry}
             className="h-9 w-auto px-4 text-[length:var(--text-label)]"
           >
-            {retrying ? "Looking…" : "Reconnect"}
+            {retrying ? (web ? "Waiting for your pick…" : "Looking…") : web ? "Connect" : "Reconnect"}
           </Button>
         )}
+        {/* A browser cannot promise this. Web Bluetooth drops every link
+            when the tab closes, and reaching a device it has not been
+            shown before needs a person to pick it out of the chooser. */}
         <span className="text-[length:var(--text-meta)] text-[var(--color-ash)]">
-          {connected ? "Reconnects on its own" : "Not connected"}
+          {connected
+            ? web
+              ? "Held while this tab is open"
+              : "Reconnects on its own"
+            : "Not connected"}
         </span>
       </div>
     </section>
@@ -97,6 +107,7 @@ function DeviceCard({
  */
 export function Devices() {
   const { links, vitals, bandStatus, release, retry } = useMonitor();
+  const web = !Capacitor.isNativePlatform();
 
   /* Held for a moment after the tap. The scan budget means a retry can sit
    * waiting several seconds before it starts looking, and a button that
@@ -106,7 +117,7 @@ export function Devices() {
     setRetrying(true);
     void retry()
       .catch((e) => console.error("[ble] retry failed", e))
-      .finally(() => setTimeout(() => setRetrying(false), 10_000));
+      .finally(() => setTimeout(() => setRetrying(false), web ? 0 : 10_000));
   };
 
   // A dash, never a plausible number. Every row on this screen exists
@@ -136,6 +147,7 @@ export function Devices() {
           onDisconnect={() => void release("band")}
           onRetry={look}
           retrying={retrying}
+          web={web}
           serial={attached ? "RePulse Band" : "Not connected"}
           fields={[
             /* Baterai pernah berdiri di sini dan selamanya menampilkan
@@ -166,6 +178,7 @@ export function Devices() {
           onDisconnect={() => void release("bedside")}
           onRetry={look}
           retrying={retrying}
+          web={web}
           serial={links.bedside === "connected" ? "RePulse Bedside" : "Not connected"}
           fields={[
             { label: "Signal", value: links.bedside },

@@ -580,6 +580,89 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
     }
   }, [isNight]);
 
+  /**
+   * The browser's answer to the foreground service, such as it is.
+   *
+   * A night recorded in a tab ends the moment the screen sleeps: the
+   * timers stop, the notifications stop arriving, and the recorder
+   * counts the silence as offline minutes. A screen wake lock is the only
+   * thing a page is given here, and it holds only while the tab is
+   * visible — which is exactly the deal the site is offered under. It is
+   * not a substitute for the service, and the phone still keeps the one
+   * that works with the screen off.
+   *
+   * Re-requested on visibility, because the browser drops the lock every
+   * time the tab is hidden and never hands it back on its own.
+   */
+  useEffect(() => {
+    if (Capacitor.isNativePlatform() || !isNight) return;
+    const wake = (navigator as Navigator & {
+      wakeLock?: { request: (t: "screen") => Promise<{ release: () => Promise<void> }> };
+    }).wakeLock;
+    if (!wake) return;
+
+    let held: { release: () => Promise<void> } | null = null;
+    let live = true;
+
+    const take = () => {
+      if (!live || document.visibilityState !== "visible" || held) return;
+      void wake
+        .request("screen")
+        .then((s) => {
+          if (!live) return void s.release().catch(() => {});
+          held = s;
+          console.log("[web] screen wake lock held for the night");
+        })
+        .catch((e) => console.warn("[web] no wake lock; the night ends when the screen sleeps", e));
+    };
+
+    const onVisible = () => {
+      held = null;
+      take();
+    };
+    take();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      live = false;
+      document.removeEventListener("visibilitychange", onVisible);
+      void held?.release().catch(() => {});
+    };
+  }, [isNight]);
+
+  /**
+   * The web's share of "ask the phone to light up".
+   *
+   * Stage 3's contract text is a hard buzz and a screen that lights
+   * itself. The buzz is the band's and happens either way; the screen is
+   * Android's full-screen intent, and no browser has an equivalent or is
+   * going to get one. A notification is what is actually on offer: it
+   * reaches somebody whose tab is behind another window, and it does
+   * nothing at all for somebody whose phone is locked.
+   *
+   * Only while the tab is hidden. A notification for a screen the person
+   * is already looking at is noise on top of an alert.
+   */
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) return;
+    if (machine.stage < 3) return;
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    if (document.visibilityState === "visible") return;
+    try {
+      const n = new Notification("RePulse: something looks wrong", {
+        body: "Open RePulse. Nobody has been contacted yet.",
+        tag: "repulse-alert",
+        requireInteraction: true,
+      } as NotificationOptions);
+      n.onclick = () => {
+        window.focus();
+        n.close();
+      };
+      return () => n.close();
+    } catch (e) {
+      console.warn("[web] alert notification refused", e);
+    }
+  }, [machine.stage]);
+
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
     // Stage 3 is the rung whose contract text is "hard buzz + ask the
@@ -645,6 +728,19 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
          * would have restarted "Monitoring · 3h" from zero. */
         if (phase !== "STANDBY" && phase !== "WIND_DOWN") return;
         setSessionAt(Date.now());
+        /* Asked here because here there is a tap.
+         *
+         * A browser cannot wake a sleeping screen the way the native
+         * full-screen intent does, and nothing will give it that. What it
+         * can do is put an alert in front of somebody whose tab is behind
+         * another window, and a permission prompt needs a gesture to be
+         * anything other than an annoyance somebody blocks forever. This
+         * is the one gesture that means "I am going to sleep now". */
+        if (!Capacitor.isNativePlatform() && typeof Notification !== "undefined") {
+          if (Notification.permission === "default") {
+            void Notification.requestPermission().catch(() => {});
+          }
+        }
         /* One button, two ways in. The sunset is the first 25 minutes of
          * the night rather than a separate thing somebody has to know to
          * press first — and either way the recorder starts now, because
@@ -673,10 +769,15 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
         /* Paired once but the transport never came up — Bluetooth off at
          * launch is the usual way into this — so there is nothing to ask
          * politely. Build one and start it. */
-        if (!transport && Capacitor.isNativePlatform()) {
+        if (!transport) {
           const live = new LiveTransport();
           setTransport(live);
-          await live.start().catch((e) => console.error("[ble] retry failed", e));
+          /* `retry`, not `start`. The transport's own retry starts a radio
+           * that is not running and then goes on to look — which on the
+           * web means opening the chooser. Calling `start` here stopped
+           * short of that, so the first tap did nothing visible and only
+           * the second one asked. */
+          await live.retry().catch((e) => console.error("[ble] retry failed", e));
           return;
         }
         await transport?.retry();
@@ -689,8 +790,16 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
       configure: async (c) => transport?.configure(c),
       listen: (fn) => transport?.on(fn) ?? (() => {}),
       connect: async () => {
-        if (!Capacitor.isNativePlatform()) return false;
-        /* A radio that is already up is left alone.
+        /* The web reaches here too now.
+         *
+         * It used to return false on anything but a phone, which is what
+         * made repulse.web.app a picture of the app rather than the app:
+         * every screen asked for a radio, was told there was none, and
+         * fell back to sample data. `start()` on the web sets up and stops
+         * short of finding anything, because Web Bluetooth has no scan a
+         * page may begin unasked. `retry()` is the gesture that asks.
+         *
+         * A radio that is already up is left alone.
          *
          * This used to tear the transport down and build a new one every
          * time, and three screens ask for it on mount — so every visit to

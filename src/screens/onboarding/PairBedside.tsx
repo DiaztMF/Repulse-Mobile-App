@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { DeviceArt } from "@/components/ui/DeviceArt";
 import { useMonitor } from "@/state/monitor";
+import { Capacitor } from "@capacitor/core";
 
 type Stage = "searching" | "connected";
 
@@ -27,8 +28,12 @@ const CAUSES = [
  */
 export function PairBedside() {
   const navigate = useNavigate();
-  const { connect, links, bluetooth } = useMonitor();
+  const { connect, links, bluetooth, retry } = useMonitor();
   const [slow, setSlow] = useState(false);
+  /* Same as the band's screen: a browser never finds anything by itself,
+     so the chooser has to be opened from a tap. */
+  const web = !Capacitor.isNativePlatform();
+  const [asking, setAsking] = useState(false);
   /** No radio at all — a browser, or Bluetooth switched off. Distinct from
    *  "searching": one is worth waiting through and the other never ends.
    *  This screen has no skip by design, and a screen with no skip and no
@@ -80,12 +85,18 @@ export function PairBedside() {
       <div className="flex flex-1 flex-col px-6">
 
       <p className="label mt-8 text-center text-[var(--color-ivory)]">
-        {searching ? "Searching for bedside unit…" : "Bedside unit connected"}
+        {!searching
+          ? "Bedside unit connected"
+          : web
+            ? "Choose your bedside unit"
+            : "Searching for bedside unit…"}
       </p>
       <p className="mt-3 text-center text-[var(--color-ash)]">
-        {searching
-          ? "It should be plugged in and beside your pillow."
-          : "Plugged in · strong signal"}
+        {!searching
+          ? "Plugged in · strong signal"
+          : web
+            ? "Plug it in, then pick RePulse Bedside from the list your browser shows."
+            : "It should be plugged in and beside your pillow."}
       </p>
 
       <div className="mt-10">
@@ -142,6 +153,21 @@ export function PairBedside() {
         * keadaan biasa layar ini memindai tanpa batas waktu, dan satu-
         * satunya jalan keluar adalah menunggu bedside ditemukan. Orang yang
         * bedside-nya belum dirakit terjebak di sini. */}
+      {web && searching && (
+        <Button
+          size="lg"
+          register="system"
+          className="mb-3"
+          disabled={asking}
+          onClick={() => {
+            setAsking(true);
+            void retry().finally(() => setAsking(false));
+          }}
+        >
+          {asking ? "Waiting for your pick…" : "Choose bedside unit"}
+        </Button>
+      )}
+
       {(
         <Button
           size="lg"

@@ -1,4 +1,5 @@
 import { BleClient, type ScanResult } from "@capacitor-community/bluetooth-le";
+import { Capacitor } from "@capacitor/core";
 import {
   decodeAck,
   decodeAdvertisement,
@@ -102,6 +103,35 @@ export class LiveTransport implements BleTransport {
    *  40 Hz does not bury itself in its own log. */
   private warned = new Set<Packet>();
 
+  /**
+   * Web Bluetooth instead of Android's stack, and the difference is not a
+   * detail: there is no continuous scan a page may start, and no device a
+   * page may reach without a person picking it out of the browser's own
+   * chooser first.
+   *
+   * So on the web this transport finds nothing by itself. It waits to be
+   * asked, once per device, from a real tap. Everything after that
+   * (connect, subscribe, write) is the same code the phone runs, because
+   * the plugin backs all three with Web Bluetooth calls that behave the
+   * same way.
+   *
+   * What the browser cannot do at all: run with the tab closed. That is
+   * why the phone is still what watches a night, and the site is what
+   * demonstrates one.
+   */
+  private readonly web = !Capacitor.isNativePlatform();
+
+  /**
+   * Devices the browser has granted this origin, by our name for them.
+   *
+   * Kept apart from `id`, which is emptied whenever a link drops, because
+   * a grant outlives the connection: Chrome lets a page reconnect to a
+   * device somebody has already chosen without asking again. Holding the
+   * id here is what makes a dropped band come back on its own instead of
+   * demanding another trip through the chooser.
+   */
+  private granted: Partial<Record<Device, string>> = {};
+
   private scanning = false;
   /** The adapter's own switch. Null until it has answered once. */
   private enabled: boolean | null = null;
@@ -142,6 +172,17 @@ export class LiveTransport implements BleTransport {
       throw e;
     }
     this.heartbeat = setInterval(() => this.beat(), HEARTBEAT_MS);
+
+    /* `startEnabledNotifications` and `requestEnable` both throw
+     * "not available on web" — a browser is not allowed to know whether
+     * the adapter is on, let alone switch it on. `initialize` above has
+     * already refused if there is no radio at all, so reaching here is as
+     * much as the web can be told. */
+    if (this.web) {
+      this.enabled = true;
+      this.emit({ kind: "radio", on: true });
+      return;
+    }
 
     /* Bluetooth switched off is a state to wait out, not a failure.
      *
@@ -196,6 +237,7 @@ export class LiveTransport implements BleTransport {
    * firmware is held to.
    */
   private async scan() {
+    if (this.web) return this.reattach();
     if (this.scanning || !this.running || !this.enabled) return;
     this.scanning = true;
     this.scanStartedAt = Date.now();
@@ -223,6 +265,7 @@ export class LiveTransport implements BleTransport {
    * lost the connection — which restarts the scan below.
    */
   private async idle() {
+    if (this.web) return;
     if (!this.scanning) return;
     if (this.state.band !== "connected" || this.state.bedside !== "connected") return;
     this.scanning = false;
@@ -255,6 +298,13 @@ export class LiveTransport implements BleTransport {
   async retry() {
     if (!this.running) {
       await this.start();
+      if (this.web) await this.ask();
+      return;
+    }
+    /* On the web this IS the gesture. Called straight out of a tap, which
+     * is the only context the browser will open its chooser in. */
+    if (this.web) {
+      await this.ask();
       return;
     }
     if (this.enabled === false) {
@@ -283,10 +333,88 @@ export class LiveTransport implements BleTransport {
     this.rescan();
   }
 
+  /**
+   * Ask for the next device that is not attached, band before bedside.
+   *
+   * One per tap, because `requestDevice` resolves to exactly one device
+   * and each call needs its own gesture. Two taps attach both, which is
+   * the whole shape of the difference from the phone: there the single
+   * scan finds both and attaches them unasked.
+   */
+  private async ask() {
+    const device: Device | null =
+      this.state.band !== "connected"
+        ? "band"
+        : this.state.bedside !== "connected"
+          ? "bedside"
+          : null;
+    if (!device) return;
+
+    // Already chosen once, so no chooser: straight back on.
+    if (this.granted[device]) {
+      await this.reattach();
+      return;
+    }
+
+    const service = device === "band" ? BAND_SERVICE : BEDSIDE_SERVICE;
+    this.link(device, "scanning");
+    let found;
+    try {
+      /* `services` filters the chooser down to our own firmware, so the
+       * list holds the band and nothing else in the building. It also has
+       * to appear in `optionalServices`: on the web a service absent from
+       * both lists cannot be read or written even after connecting. */
+      found = await BleClient.requestDevice({
+        services: [service],
+        optionalServices: [service],
+      });
+    } catch (e) {
+      /* Cancelling the chooser lands here, and a person closing a dialog
+       * is not a fault. Back to idle so the button offers itself again. */
+      this.link(device, "idle");
+      console.log(`[ble] ${device} chooser closed without a pick`, e);
+      return;
+    }
+
+    this.granted[device] = found.deviceId;
+    this.id[device] = found.deviceId;
+    console.log(`[ble] ${device} chosen, attaching`);
+    this.attaching = this.attaching.then(() =>
+      this.attachOrDrop(device, found.deviceId),
+    );
+    await this.attaching;
+  }
+
+  /**
+   * Reconnect every granted device that is not attached, with no chooser.
+   *
+   * This is what the web gets in place of a rescan, and it is reached by
+   * the same paths: the disconnect callback, `release`, and the retry
+   * button, all of which already route through `rescan` and its ten-second
+   * spacing. A device nobody has chosen yet is skipped, because reaching
+   * one needs a tap and this can run from a timer.
+   */
+  private async reattach() {
+    for (const device of ["band", "bedside"] as Device[]) {
+      if (this.state[device] === "connected") continue;
+      const id = this.granted[device];
+      if (!id || this.id[device]) continue;
+      this.id[device] = id;
+      console.log(`[ble] ${device} reattaching to a device already granted`);
+      this.attaching = this.attaching.then(() => this.attachOrDrop(device, id));
+      await this.attaching;
+    }
+  }
+
   async release(device: Device) {
     const id = this.id[device];
     if (!id) return;
     delete this.id[device];
+    /* The grant goes too, or Disconnect would not disconnect: `rescan`
+     * below reaches `reattach`, which puts every granted device straight
+     * back on. Asking again costs one trip through the chooser, which is
+     * the honest price of having said stop. */
+    if (this.web) delete this.granted[device];
     try {
       await BleClient.disconnect(id);
     } catch {
@@ -326,6 +454,7 @@ export class LiveTransport implements BleTransport {
       this.link(device as Device, "idle");
     }
     this.id = {};
+    this.granted = {};
     this.listeners.clear();
   }
 

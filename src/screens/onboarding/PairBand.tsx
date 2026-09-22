@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { DeviceArt } from "@/components/ui/DeviceArt";
 import { useMonitor } from "@/state/monitor";
+import { Capacitor } from "@capacitor/core";
 
 type Stage = "searching" | "connecting" | "connected" | "no-radio";
 
@@ -20,8 +21,14 @@ type Stage = "searching" | "connecting" | "connected" | "no-radio";
  */
 export function PairBand() {
   const navigate = useNavigate();
-  const { connect, links, bluetooth } = useMonitor();
+  const { connect, links, bluetooth, retry } = useMonitor();
   const [radio, setRadio] = useState<boolean | null>(null);
+  /* In a browser nothing searches. Web Bluetooth has no scan a page may
+     start on its own, so the device has to be picked out of the browser's
+     own chooser, and that dialog only opens from a real tap. Saying
+     "Searching…" here would be a lie that never resolves. */
+  const web = !Capacitor.isNativePlatform();
+  const [asking, setAsking] = useState(false);
 
   // Started once, on arrival. The transport keeps scanning until it finds
   // something, so re-running this would only restart the search that is
@@ -59,7 +66,7 @@ export function PairBand() {
           : "searching";
 
   const TITLE: Record<Stage, string> = {
-    searching: "Searching for band…",
+    searching: web ? "Choose your band" : "Searching for band…",
     connecting: "Reconnecting",
     connected: "Band connected",
     "no-radio": "No Bluetooth",
@@ -73,7 +80,9 @@ export function PairBand() {
   };
 
   const SUB: Record<Stage, string> = {
-    searching: "Make sure the band is switched on and within reach.",
+    searching: web
+      ? "Switch the band on, then pick RePulse Band from the list your browser shows."
+      : "Make sure the band is switched on and within reach.",
     connecting: "The band answered and then went quiet. Still trying.",
     connected: "Paired. It will reconnect on its own from now on.",
     "no-radio":
@@ -131,6 +140,21 @@ export function PairBand() {
 
           A band nobody can find is a reason to carry on without one, not a
           reason to trap the person holding the phone. */}
+      {web && stage === "searching" && (
+        <Button
+          size="lg"
+          register="system"
+          className="mb-3"
+          disabled={asking}
+          onClick={() => {
+            setAsking(true);
+            void retry().finally(() => setAsking(false));
+          }}
+        >
+          {asking ? "Waiting for your pick…" : "Choose band"}
+        </Button>
+      )}
+
       {stage !== "connecting" && stage !== "connected" && (
         <Button
           size="lg"
