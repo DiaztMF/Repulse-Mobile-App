@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { armSos } from "@/lib/sos";
 import { Plus, X, Check } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -71,6 +72,10 @@ export function Contacts() {
       } catch {
         // ignore write errors
       }
+      // Native holds its own copy for the screen-off path. Saving here and
+      // not there is how somebody changes their emergency contact and the
+      // message still goes to the old one.
+      void armSos();
 
       if (isOnboarding) {
         return navigate("/ready");

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { useMonitor } from "@/state/monitor";
+import type { Device } from "@/ble/transport";
 import { Capacitor } from "@capacitor/core";
 import { Button } from "@/components/ui/Button";
 
@@ -112,12 +113,17 @@ export function Devices() {
   /* Held for a moment after the tap. The scan budget means a retry can sit
    * waiting several seconds before it starts looking, and a button that
    * answers nothing in that window reads as a button that does nothing. */
-  const [retrying, setRetrying] = useState(false);
-  const look = () => {
-    setRetrying(true);
-    void retry()
+  /* Per device, not one flag for the screen.
+   *
+   * Both cards shared it, so pressing Connect on the bedside put the band
+   * card into "Looking…" as well — and on the web both buttons asked for
+   * the same device, because neither said which one it was. */
+  const [retrying, setRetrying] = useState<Device | null>(null);
+  const look = (device: Device) => {
+    setRetrying(device);
+    void retry(device)
       .catch((e) => console.error("[ble] retry failed", e))
-      .finally(() => setTimeout(() => setRetrying(false), web ? 0 : 10_000));
+      .finally(() => setTimeout(() => setRetrying(null), web ? 0 : 10_000));
   };
 
   // A dash, never a plausible number. Every row on this screen exists
@@ -145,8 +151,8 @@ export function Devices() {
           name="Band"
           connected={attached}
           onDisconnect={() => void release("band")}
-          onRetry={look}
-          retrying={retrying}
+          onRetry={() => look("band")}
+          retrying={retrying === "band"}
           web={web}
           serial={attached ? "RePulse Band" : "Not connected"}
           fields={[
@@ -176,8 +182,8 @@ export function Devices() {
           name="Bedside unit"
           connected={links.bedside === "connected"}
           onDisconnect={() => void release("bedside")}
-          onRetry={look}
-          retrying={retrying}
+          onRetry={() => look("bedside")}
+          retrying={retrying === "bedside"}
           web={web}
           serial={links.bedside === "connected" ? "RePulse Bedside" : "Not connected"}
           fields={[

@@ -16,7 +16,10 @@ import { RepulseMonitor } from "repulse-monitor";
 import { MockTransport, type Scenario } from "@/ble/mock";
 import { LiveTransport } from "@/ble/live";
 import { useAuth } from "@/firebase/auth";
+import { armSos, defaultOwner } from "@/lib/sos";
 import { fetchInterventions, saveNight, saveVerification } from "@/firebase/nights";
+import { useStore } from "@/data/store";
+import type { Night } from "@/data/mock";
 import { NightRecorder, nightDate } from "@/data/night";
 import { DEFAULT_BASELINE_BPM, readBaseline, writeBaseline } from "@/lib/baseline";
 import { readTuning } from "@/lib/tuning";
@@ -128,7 +131,7 @@ export type Monitor = {
   release: (device: Device) => Promise<void>;
   /** "Look again, now." The only control a person has when automatic
    *  recovery is not recovering. */
-  retry: () => Promise<void>;
+  retry: (device?: Device) => Promise<void>;
   command: (c: BandCommand) => Promise<void>;
   configure: (c: BandConfig) => Promise<void>;
   /** Raw event tap, for measuring how long something takes to arrive. */
@@ -155,6 +158,10 @@ const PAIRED_KEY = "repulse.paired";
  *  only must not start dosing the room because somebody refreshed. */
 const MONITOR_ONLY_KEY = "repulse.monitorOnly";
 
+/** A night the last launch could not finish writing. See the rescue
+ *  handler below for why it exists and why it is localStorage. */
+const PENDING_NIGHT_KEY = "repulse.pendingNight";
+
 const Ctx = createContext<Monitor | null>(null);
 
 export function useMonitor(): Monitor {
@@ -173,7 +180,8 @@ const NO_SCORES: Scores = {
 
 export function MonitorProvider({ children }: { children: ReactNode }) {
   const [machine, dispatch] = useReducer(reduce, initial);
-  const uid = useAuth().user?.uid;
+  const { user } = useAuth();
+  const uid = user?.uid;
   const [scores, setScores] = useState<Scores>(NO_SCORES);
   const [transport, setTransport] = useState<BleTransport | null>(null);
   const [vitals, setVitals] = useState<Vitals | null>(null);
@@ -183,6 +191,9 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
    *  screen printed "Monitoring · 3h 44m" from a constant without it. */
   const [sessionAt, setSessionAt] = useState<number | null>(null);
   const [motionMg, setMotionMg] = useState(0);
+  /** Set when the bedside answers a command with a non-zero status, and
+   *  read when the spell that command belonged to is written down. */
+  const refused = useRef(false);
   const [bandStatus, setBandStatus] = useState<BandStatus | null>(null);
   const [bluetooth, setBluetooth] = useState<boolean | null>(null);
   const [monitorOnly, setMonitorOnlyState] = useState(() => {
@@ -210,6 +221,11 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
   /** Accumulates the night while it happens. A ref rather than state: it
    *  changes on every notification and nothing renders from it. */
   const recorder = useRef<NightRecorder | null>(null);
+
+  /* The store fetches once per sign-in, so a night written after that
+   * was invisible until the app was relaunched. This is what tells it to
+   * look again. */
+  const refreshNights = useStore().refresh;
 
   /** A session is running. Dims the interface, and is what the native
    *  service's lifetime follows. */
@@ -254,6 +270,21 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
           break;
         case "room":
           setRoom(e.data);
+          break;
+        case "ack":
+          /* §4.4. Nothing read this before, and the silence cost the
+           * learning loop its honesty: the bedside refuses aroma once the
+           * night's four events are spent (status 2), the app went on
+           * counting the attempt, and five minutes later scored it failed.
+           * Enough of those and §7.2 concludes the diffuser never works
+           * and stops choosing it — from a limit, not from the sleeper.
+           *
+           * A refusal means no intervention happened, which is exactly
+           * what `bedside_offline` already means to the recorder. */
+          if (e.status !== "done") {
+            refused.current = true;
+            console.warn(`[bedside] command ${e.commandId} came back ${e.status}`);
+          }
           break;
         case "radio":
           setBluetooth(e.on);
@@ -322,7 +353,13 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
   // real wrist moves it.
 
   useEffect(() => {
-    if (!vitals?.worn) return;
+    /* `held` is the last real pulse being shown again because the sensor
+     * is between beats, and §3.1 is explicit that it may be displayed and
+     * may not be decided on. Without this line a substituted number could
+     * open a COMFORT window, and the diffuser would fire on a reading the
+     * band never took. The night record already excludes held samples; the
+     * trigger did not. */
+    if (!vitals?.worn || vitals.held) return;
     const now = vitals.at;
     // The recorded pulse if calibration ever measured one. A threshold
     // hung off a stranger's 62 fires on a person whose resting rate is 48
@@ -413,6 +450,7 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
         : pick === "aroma"
           ? ({ kind: "aroma", seconds: 25 } as const)
           : ({ kind: "light", mode: "off" } as const);
+    refused.current = false;
     void transport.send(command);
     dispatch({
       t: "chose",
@@ -432,15 +470,18 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
     for (const row of machine.rows) {
       if (written.current.has(row.timestamp)) continue;
       written.current.add(row.timestamp);
+      // A refused command is an intervention that never ran. Scored as a
+      // failure it teaches the opposite of what happened.
+      const unrun = row.bedside_offline || refused.current;
       recorder.current?.comfort(
         Date.parse(row.timestamp),
-        row.intervention
+        row.intervention && !unrun
           ? row.intervention.type === "light"
             ? "dim_light"
             : row.intervention.type
           : undefined,
         row.settle_time_s,
-        row.bedside_offline,
+        unrun,
       );
       void saveVerification(uid, row).catch(() => {
         // Losing a row costs one data point. Throwing here would take the
@@ -463,7 +504,42 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
     if (startedAt == null || !uid) return;
     recorder.current = new NightRecorder(startedAt);
 
+    /**
+     * The night, in case nothing ever ends it politely.
+     *
+     * Until now the only write was the cleanup below, and a React cleanup
+     * does not run when a process dies. Force-quit the app, let Android
+     * reclaim it, close the browser tab: eight hours of a night existed
+     * only in memory and went with it. There was no partial record and no
+     * trace that anything had been recorded at all.
+     *
+     * `pagehide` and not `visibilitychange`, deliberately. Hidden fires
+     * every single night when the screen goes off, and `finish` closes
+     * the open staging window as a side effect, so snapshotting on hidden
+     * would chop the night into five-minute fragments. `pagehide` fires
+     * when the page is actually being torn down or frozen.
+     *
+     * Written to localStorage rather than Firestore because this has
+     * milliseconds and no network. The flush that follows it is at the
+     * top of the next launch, and `saveNight` keeps the longest session
+     * of an evening — so if the night does end properly later, the fuller
+     * record wins and this snapshot is simply discarded.
+     */
+    const rescue = () => {
+      const r = recorder.current;
+      if (!r) return;
+      try {
+        const night = r.finish(Date.now(), nightDate(r.startedAt));
+        localStorage.setItem(PENDING_NIGHT_KEY, JSON.stringify(night));
+        console.log("[night] snapshot kept for the next launch");
+      } catch (e) {
+        console.error("[night] snapshot failed", e);
+      }
+    };
+    window.addEventListener("pagehide", rescue);
+
     return () => {
+      window.removeEventListener("pagehide", rescue);
       const r = recorder.current;
       recorder.current = null;
       if (!r) return;
@@ -473,9 +549,61 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
        * the opposite of what the rule asks for. `saveNight` protects the
        * date from being overwritten by something shorter. */
       const night = r.finish(Date.now(), nightDate(r.startedAt));
-      void saveNight(uid, night).catch((e) => console.error("[night] not saved", e));
+      /* The snapshot has served its purpose the moment a real end exists,
+       * and leaving it would replay a shorter night at the next launch. */
+      try {
+        localStorage.removeItem(PENDING_NIGHT_KEY);
+      } catch {
+        // Then the flush below writes it and saveNight keeps the longer.
+      }
+      void saveNight(uid, night)
+        .then(refreshNights)
+        .catch((e) => console.error("[night] not saved", e));
     };
-  }, [startedAt, uid]);
+  }, [startedAt, uid, refreshNights]);
+
+  /**
+   * Whatever the last launch could not finish writing.
+   *
+   * Runs once a session is signed in, before anything else touches the
+   * account, so a rescued night is in Firestore before the store reads
+   * it. A snapshot that cannot be parsed is dropped rather than retried
+   * forever.
+   */
+  useEffect(() => {
+    if (!uid) return;
+    let raw: string | null = null;
+    try {
+      raw = localStorage.getItem(PENDING_NIGHT_KEY);
+    } catch {
+      return;
+    }
+    if (!raw) return;
+    let night: Night;
+    try {
+      night = JSON.parse(raw) as Night;
+      if (typeof night?.date !== "string") throw new Error("no date");
+    } catch (e) {
+      console.error("[night] snapshot unreadable, dropped", e);
+      try {
+        localStorage.removeItem(PENDING_NIGHT_KEY);
+      } catch {
+        // Nothing left to do about it.
+      }
+      return;
+    }
+    void saveNight(uid, night)
+      .then(() => {
+        console.log("[night] rescued", night.date);
+        try {
+          localStorage.removeItem(PENDING_NIGHT_KEY);
+        } catch {
+          // It will be written again next launch, harmlessly.
+        }
+        refreshNights();
+      })
+      .catch((e) => console.error("[night] rescue failed, kept for next time", e));
+  }, [uid, refreshNights]);
 
   /* Denyut istirahat akun ini, dipulihkan ke perangkat baru.
    *
@@ -728,6 +856,12 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
          * would have restarted "Monitoring · 3h" from zero. */
         if (phase !== "STANDBY" && phase !== "WIND_DOWN") return;
         setSessionAt(Date.now());
+        /* The native sender is loaded here, before the screen goes dark.
+         * From this point the emergency message can leave the phone with
+         * no JavaScript running at all, which is the only state the phone
+         * is reliably in when the band reports stage 4 at 3am. */
+        defaultOwner(user?.email?.split("@")[0] ?? "Someone");
+        void armSos(vitals?.bpm);
         /* Asked here because here there is a tap.
          *
          * A browser cannot wake a sleeping screen the way the native
@@ -765,7 +899,7 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
         void transport?.command({ cmd: "stand_down" }).catch(() => {});
         send({ t: "stage", at: Date.now(), stage: 0 });
       },
-      retry: async () => {
+      retry: async (device) => {
         /* Paired once but the transport never came up — Bluetooth off at
          * launch is the usual way into this — so there is nothing to ask
          * politely. Build one and start it. */
@@ -777,10 +911,10 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
            * web means opening the chooser. Calling `start` here stopped
            * short of that, so the first tap did nothing visible and only
            * the second one asked. */
-          await live.retry().catch((e) => console.error("[ble] retry failed", e));
+          await live.retry(device).catch((e) => console.error("[ble] retry failed", e));
           return;
         }
-        await transport?.retry();
+        await transport?.retry(device);
       },
       release: async (device) => {
         await transport?.release(device);
@@ -853,6 +987,7 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
   }, [
     phase,
     machine.stage,
+    user?.email,
     machine.reason,
     machine.rows,
     links,

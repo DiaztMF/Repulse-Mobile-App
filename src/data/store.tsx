@@ -1,4 +1,12 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { configured } from "@/firebase/app";
 import { fetchInterventions, fetchNights } from "@/firebase/nights";
 import { useAuth } from "@/firebase/auth";
@@ -15,6 +23,17 @@ type Store = {
   /** True while showing synthetic data, so screens can label it. */
   sample: boolean;
   loading: boolean;
+  /**
+   * Read the account again.
+   *
+   * This was missing, and it is why a measured night did not show up in
+   * the morning. The fetch below runs once per sign-in; `saveNight` writes
+   * from the monitor, which has no way to reach in here. So the night
+   * somebody had just slept sat in Firestore while every screen went on
+   * drawing what had been fetched the previous evening, and only a
+   * relaunch ever corrected it.
+   */
+  refresh: () => void;
 };
 
 /** No project configured: the app still has to be walkable and
@@ -24,11 +43,18 @@ const DEMO: Store = {
   interventions: MOCK_INTERVENTIONS,
   sample: true,
   loading: false,
+  refresh: () => {},
 };
 
 /** Signed in with nothing recorded. Not the same as the demo, and it
  *  must never borrow the demo's nights — see `NoNights`. */
-const NOTHING: Store = { nights: [], interventions: [], sample: false, loading: false };
+const NOTHING: Store = {
+  nights: [],
+  interventions: [],
+  sample: false,
+  loading: false,
+  refresh: () => {},
+};
 
 const StoreContext = createContext<Store>(DEMO);
 
@@ -50,6 +76,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<Store>(
     configured ? { ...NOTHING, loading: true } : DEMO,
   );
+
+  /* Bumped to ask for the account again. A counter rather than calling
+   * the fetch directly, so the effect below stays the only place that
+   * touches the network and keeps its own cancellation. */
+  const [round, setRound] = useState(0);
+  const refresh = useCallback(() => setRound((n) => n + 1), []);
 
   useEffect(() => {
     if (!configured || !ready || !user) return;
@@ -76,21 +108,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           // Nothing recorded is not sample data; it is nothing.
           sample: !empty && nights.some((n) => n.seeded),
           loading: false,
+          refresh,
         });
       })
       .catch((e) => {
         // Unreadable is not "here are fourteen nights". The screens say
         // nothing has been recorded, which is at least not an invention.
         console.error("[store] could not read nights", e);
-        if (live) setState(NOTHING);
+        if (live) setState({ ...NOTHING, refresh });
       });
 
     return () => {
       live = false;
     };
-  }, [user, ready]);
+  }, [user, ready, round, refresh]);
 
-  return <StoreContext.Provider value={state}>{children}</StoreContext.Provider>;
+  /* `refresh` folded in here too, so the value carries it before the
+   * first fetch has answered and while there is no project at all. */
+  const value = useMemo<Store>(() => ({ ...state, refresh }), [state, refresh]);
+
+  return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }
 
 export function useStore() {

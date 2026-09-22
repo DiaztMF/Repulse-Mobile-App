@@ -5,7 +5,7 @@
  *  nowhere and reports success; wrong wording breaks §12.
  */
 import assert from "node:assert/strict";
-import { mapsUrl, messageBody, smsUrl, waNumber, whatsappUrl } from "./sos.ts";
+import { FIX_STALE_MS, mapsUrl, messageBody, smsUrl, waNumber, whatsappUrl } from "./sos.ts";
 
 // --- the number ----------------------------------------------------------
 //
@@ -23,13 +23,27 @@ assert.equal(waNumber("6281234567890"), "6281234567890");
 // --- the body ------------------------------------------------------------
 
 const at = new Date("2026-08-14T02:16:00Z").getTime();
-const position = { lat: -6.914744, lon: 107.60981, accuracyM: 12 };
+const position = { lat: -6.914744, lon: 107.60981, accuracyM: 12, at };
 
 const full = messageBody({ owner: "Andi", at, position, bpm: 132 });
 assert.ok(full.startsWith("Andi may need help."), "who, first");
 assert.ok(full.includes("Detected at"), "and when");
 assert.ok(full.includes("maps.google.com"), "and where");
 assert.ok(full.includes("132 bpm"));
+// Precision is part of the ask: the contact gets coordinates and how far off
+// they may be, not a neighbourhood.
+assert.ok(full.includes("-6.914744,107.609810"), "actual coordinates, six decimals");
+assert.ok(full.includes("(12 m)"), "and how precise they are");
+
+// A fix from before the incident is still worth sending, but it has to be
+// labelled or it sends someone to where the person used to be.
+const stale = messageBody({
+  owner: "Andi",
+  at,
+  position: { ...position, at: at - FIX_STALE_MS - 60_000 },
+});
+assert.ok(stale.includes("Last seen at"), "an old pin says it is old");
+assert.ok(stale.includes("maps.google.com"), "and still carries the link");
 // §12: the disclaimer travels with the message, because this is the text
 // most likely to be forwarded to a doctor.
 assert.ok(full.includes("Not a medical device."));

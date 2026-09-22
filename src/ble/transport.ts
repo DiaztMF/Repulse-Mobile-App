@@ -23,6 +23,20 @@ export type Vitals = {
   worn: boolean;
   /** §3.1 status bits 3-0, 0-15. Calibration gates on this. */
   signalQuality: number;
+  /**
+   * §3.1 bit 6. The bpm is the last figure the band actually measured,
+   * not a new reading.
+   *
+   * Wrist optics stutter, and a cycle with no usable beat used to be sent
+   * as bpm zero — which reads as "no pulse" and made the live number
+   * blink to nothing every few seconds on a healthy person. The band now
+   * sends what it last knew, for up to thirty seconds and only while it
+   * is worn, and says so here.
+   *
+   * Show it; never decide on it. The night's averages, the resting pulse
+   * and every personal threshold count fresh samples only.
+   */
+  held: boolean;
 };
 
 /** §3.2 `0002`. */
@@ -129,8 +143,15 @@ export type Actuator =
   | { kind: "light"; mode: "off" | "sunset" | "amber-dim" | "white-flash"; rampS?: number }
   /** §5.3 caps this at 20-30s per event. The app enforces it and so does
    *  the bedside firmware — independently, because one of them will be
-   *  wrong eventually. */
-  | { kind: "aroma"; seconds: number }
+   *  wrong eventually.
+   *
+   *  `hold` is the test panel's exception and nothing else may set it: the
+   *  diffuser stays on until it is switched off, and the night's event
+   *  quota is not spent. A limit you cannot hold open is a limit you
+   *  cannot calibrate against, and calibrating is what the panel is for.
+   *  The automatic path never passes it, so §5.3 still governs every
+   *  intervention the machine starts by itself. */
+  | { kind: "aroma"; seconds: number; hold?: boolean }
   | { kind: "siren"; on: boolean };
 
 /** §3.8 `0009`. */
@@ -155,6 +176,17 @@ export type BandConfig = Partial<{
   stage3_s: number;
   motion_response_threshold_mg: number;
   spo2_sample_interval_s: number;
+  /** §3.7. How long a reading must stay out of band before the ladder
+   *  starts, how good the signal has to be to be trusted with that
+   *  decision, and the switch that pauses the ladder entirely. Listed
+   *  because `encodeBandConfig` sends whatever it is handed: the keys
+   *  reached the band either way, and a type that did not name them made
+   *  a firmware field look like a typo to the next person reading. */
+  anomaly_hold_s: number;
+  anomaly_min_quality: number;
+  anomaly_enabled: number;
+  /** How long anomalies are ignored after stand down. */
+  standdown_cooldown_s: number;
 }>;
 
 export interface BleTransport {
@@ -180,8 +212,15 @@ export interface BleTransport {
    * It respects the scan budget rather than jumping it: Android blocks an
    * app silently after five scan starts in thirty seconds, and a button
    * somebody taps six times must not be the thing that earns the block.
+   *
+   * `device` names which one the tap was about, and it matters only on
+   * the web. There one scan cannot find both: each device comes out of
+   * its own chooser dialog, so a screen with a Connect button per card
+   * has to be able to say which card was pressed. Left out, the next
+   * device that is not attached is chosen. On a phone it is ignored,
+   * because the single scan finds both regardless.
    */
-  retry(): Promise<void>;
+  retry(device?: Device): Promise<void>;
 
   /** Returns an unsubscribe. */
   on(listener: (e: BleEvent) => void): () => void;

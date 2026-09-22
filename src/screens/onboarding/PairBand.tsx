@@ -148,7 +148,7 @@ export function PairBand() {
           disabled={asking}
           onClick={() => {
             setAsking(true);
-            void retry().finally(() => setAsking(false));
+            void retry("band").finally(() => setAsking(false));
           }}
         >
           {asking ? "Waiting for your pick…" : "Choose band"}

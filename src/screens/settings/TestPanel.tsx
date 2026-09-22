@@ -146,8 +146,14 @@ export function TestPanel() {
     {
       key: "aroma",
       label: "Aroma",
-      note: "25s, capped at 30s in firmware",
-      act: (n) => monitor.send({ kind: "aroma", seconds: n ? 25 : 0 }),
+      // Latched rather than timed. A 25-second burst is what an
+      // intervention sends, and it is also too short to check that the
+      // mist reaches the bed, that the relay polarity is right, or that
+      // the tank is not empty. Unlimited here, still capped everywhere
+      // the machine sends it by itself.
+      note: "stays on until you switch it off · no limit on tests",
+      act: (n) =>
+        monitor.send(n ? { kind: "aroma", seconds: 0, hold: true } : { kind: "aroma", seconds: 0 }),
     },
     {
       key: "siren",
@@ -525,13 +531,6 @@ export function TestPanel() {
         </p>
         <Button variant="secondary" className="mt-4" onClick={() => navigate("/ready")}>
           Skip calibration
-        </Button>
-        <Button
-          variant="secondary"
-          className="mt-3"
-          onClick={() => navigate("/emergency/watched")}
-        >
-          Show a watched person's alert
         </Button>
 
         <h2 className="label mt-8 text-[var(--color-ash)]">Demo data</h2>

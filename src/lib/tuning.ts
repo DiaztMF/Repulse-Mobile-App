@@ -22,6 +22,21 @@ export type Tuning = {
   stage1_s: number;
   stage2_s: number;
   stage3_s: number;
+  /** Berapa lama keadaan di luar ambang harus bertahan sebelum tangga
+   *  mulai. Kendali paling ampuh atas alarm palsu: gelang yang ikatannya
+   *  belum pas bergoyang satu dua detik, dan tidak ada yang sesingkat itu
+   *  adalah orang yang sedang celaka. */
+  anomaly_hold_s: number;
+  /** Kualitas sinyal minimum sebelum angka denyut boleh dipakai
+   *  memutuskan. Lima adalah angka terkecil yang menjamin ada denyut baru:
+   *  di bawah itu, cahaya terang tanpa denyut pun lolos. */
+  anomaly_min_quality: number;
+  /** Berapa lama gelang mengabaikan anomali setelah seseorang berkata
+   *  dirinya baik-baik saja. Tombol SOS selalu menembusnya. */
+  standdown_cooldown_s: number;
+  /** 0 menghentikan tangga sama sekali. Malam tetap direkam dan tombol
+   *  SOS tetap bekerja; yang berhenti hanya alarm yang naik sendiri. */
+  anomaly_enabled: number;
 };
 
 /** Sama persis dengan yang ada di repulse_band.ino dan ladder.h. Kalau
@@ -32,6 +47,10 @@ export const DEFAULTS: Tuning = {
   stage1_s: 20,
   stage2_s: 15,
   stage3_s: 30,
+  anomaly_hold_s: 12,
+  anomaly_min_quality: 5,
+  standdown_cooldown_s: 180,
+  anomaly_enabled: 1,
 };
 
 /** Batas yang ditolak firmware atau yang tidak masuk akal secara klinis.
@@ -43,6 +62,10 @@ export const LIMITS: Record<keyof Tuning, { min: number; max: number; step: numb
   stage1_s: { min: 5, max: 60, step: 5 },
   stage2_s: { min: 5, max: 60, step: 5 },
   stage3_s: { min: 5, max: 120, step: 5 },
+  anomaly_hold_s: { min: 0, max: 120, step: 2 },
+  anomaly_min_quality: { min: 0, max: 15, step: 1 },
+  standdown_cooldown_s: { min: 60, max: 1800, step: 60 },
+  anomaly_enabled: { min: 0, max: 1, step: 1 },
 };
 
 export function clampTuning(k: keyof Tuning, v: number): number {

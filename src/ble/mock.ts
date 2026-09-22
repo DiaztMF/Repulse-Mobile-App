@@ -104,7 +104,7 @@ export class MockTransport implements BleTransport {
 
   /** Nothing to look for, so it simply attaches again — the demo has to
    *  see the button do what it says too. */
-  async retry() {
+  async retry(_device?: Device) {
     this.setLink("band", "connected");
     this.setLink("bedside", "connected");
   }
@@ -232,6 +232,7 @@ export class MockTransport implements BleTransport {
         bpm,
         rrMs: Math.round(60000 / bpm),
         worn: true,
+        held: false,
         signalQuality: 12,
       },
     };

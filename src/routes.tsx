@@ -107,7 +107,6 @@ export const router = createBrowserRouter([
   // Outside navigation — takes over the screen
   { path: "/alert", lazy: lazyRoute(() => import("@/screens/emergency/Alert"), "Alert") },
   { path: "/sos", lazy: lazyRoute(() => import("@/screens/emergency/Sos"), "Sos") },
-  { path: "/emergency/watched", lazy: lazyRoute(() => import("@/screens/emergency/Watched"), "Watched") },
 
   { path: "*", element: <Navigate to="/tonight" replace /> },
     ],

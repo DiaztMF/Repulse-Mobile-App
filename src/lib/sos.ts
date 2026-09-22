@@ -1,4 +1,6 @@
 import { Capacitor } from "@capacitor/core";
+import { Geolocation } from "@capacitor/geolocation";
+import { RepulseMonitor } from "repulse-monitor";
 
 /**
  * The emergency message: who it goes to, what it says, and how it leaves
@@ -40,36 +42,73 @@ export function waNumber(raw: string): string {
   return digits;
 }
 
-export type Position = { lat: number; lon: number; accuracyM: number } | null;
+export type Fix = { lat: number; lon: number; accuracyM: number; at: number };
+export type Position = Fix | null;
+
+const FIX_KEY = "repulse.lastFix";
+
+/** The last fix this phone ever got, so a message sent indoors still carries
+ *  coordinates instead of an apology. */
+export function lastFix(): Fix | null {
+  try {
+    const raw = localStorage.getItem(FIX_KEY);
+    if (!raw) return null;
+    const f = JSON.parse(raw) as Fix;
+    return typeof f?.lat === "number" && typeof f?.lon === "number" ? f : null;
+  } catch {
+    return null;
+  }
+}
+
+function remember(f: Fix): Fix {
+  try {
+    localStorage.setItem(FIX_KEY, JSON.stringify(f));
+  } catch {
+    /* Private mode. The fix still travels in this message. */
+  }
+  return f;
+}
 
 /**
- * Best-effort location. A refusal is not an error — the message goes
- * without coordinates rather than not going at all, because a contact who
- * knows something is wrong and has no map is still better off than a
- * contact who was never told.
+ * Keeps the fix current for as long as the caller cares, and returns the
+ * function that stops it.
+ *
+ * A one-shot read is wrong for this screen. GPS converges over seconds, and
+ * the seconds somebody spends deciding whether to send are exactly those
+ * seconds. Whatever the screen holds when Send is tapped has to be where the
+ * person is now, not where they were when the alarm fired.
  */
-export async function currentPosition(timeoutMs = 8000): Promise<Position> {
-  if (!("geolocation" in navigator)) return null;
-  return new Promise((resolve) => {
-    const done = (p: Position) => resolve(p);
-    const id = window.setTimeout(() => done(null), timeoutMs);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        window.clearTimeout(id);
-        done({
+export async function watchPosition(onFix: (f: Fix) => void): Promise<() => void> {
+  let id: string | null = null;
+  let stopped = false;
+  try {
+    if (Capacitor.isNativePlatform()) {
+      const state = await Geolocation.checkPermissions();
+      if (state.location !== "granted") await Geolocation.requestPermissions();
+    }
+    id = await Geolocation.watchPosition({ enableHighAccuracy: true, timeout: 15_000 }, (pos) => {
+      if (stopped || !pos) return;
+      onFix(
+        remember({
           lat: pos.coords.latitude,
           lon: pos.coords.longitude,
-          accuracyM: Math.round(pos.coords.accuracy),
-        });
-      },
-      () => {
-        window.clearTimeout(id);
-        done(null);
-      },
-      { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 60_000 },
-    );
-  });
+          accuracyM: Math.round(pos.coords.accuracy ?? 0),
+          at: pos.timestamp || Date.now(),
+        }),
+      );
+    });
+  } catch {
+    /* Refused or no radio. The caller already has the last known fix. */
+  }
+  return () => {
+    stopped = true;
+    if (id) void Geolocation.clearWatch({ id });
+  };
 }
+
+/** Older than this and the message says so, because a stale pin presented as
+ *  current sends someone to the wrong house. */
+export const FIX_STALE_MS = 120_000;
 
 export function mapsUrl(p: NonNullable<Position>): string {
   return `https://maps.google.com/?q=${p.lat.toFixed(6)},${p.lon.toFixed(6)}`;
@@ -96,13 +135,119 @@ export function messageBody(opts: {
     `Detected at ${clock(opts.at)}.`,
   ];
   if (opts.bpm) lines.push(`Heart rate ${opts.bpm} bpm.`);
-  lines.push(
-    opts.position
-      ? `Location: ${mapsUrl(opts.position)}`
-      : "Location unavailable, please call.",
-  );
+  if (opts.position) {
+    const age = opts.at - opts.position.at;
+    const label =
+      age > FIX_STALE_MS
+        ? `Last seen at ${clock(opts.position.at)}`
+        : "Location";
+    lines.push(`${label} (${opts.position.accuracyM} m): ${mapsUrl(opts.position)}`);
+  } else {
+    lines.push("Location unavailable, please call.");
+  }
   lines.push("Sent from RePulse. Not a medical device.");
   return lines.join("\n");
+}
+
+export type Delivery = { contact: Contact; sent: boolean; reason?: string };
+
+/**
+ * Tells the native side who to reach and where we are, so it can send the
+ * message without a WebView.
+ *
+ * Cheap and idempotent, so it is called generously: at the start of a
+ * night, whenever contacts change, and on every fix the SOS screen sees.
+ * The cost of arming too often is a SharedPreferences write. The cost of
+ * arming too rarely is an emergency message with yesterday's location.
+ */
+export async function armSos(bpm?: number): Promise<void> {
+  if (!Capacitor.isNativePlatform()) return;
+  const contacts = savedContacts();
+  if (contacts.length === 0) return;
+  const fix = lastFix();
+  try {
+    await RepulseMonitor.armSos({
+      owner: ownerName(),
+      numbers: contacts.map((c) => `+${waNumber(c.phone)}`),
+      ...(bpm ? { bpm } : {}),
+      ...(fix ? { lat: fix.lat, lon: fix.lon, accuracyM: fix.accuracyM, fixAt: fix.at } : {}),
+    });
+  } catch (e) {
+    console.error("[sos] could not arm the native sender", e);
+  }
+}
+
+const OWNER_KEY = "repulse.owner";
+
+/**
+ * The name the emergency message opens with.
+ *
+ * Stored rather than derived, for two reasons. Native has no idea who is
+ * signed in and still has to compose the message with no JavaScript
+ * running. And the derived version was the local part of an email address,
+ * so a contact woken at 3am read "demo may need help" and had to work out
+ * who that was.
+ */
+export function rememberOwner(name: string) {
+  try {
+    const clean = name.trim().slice(0, 40);
+    if (clean) localStorage.setItem(OWNER_KEY, clean);
+  } catch {
+    /* Private mode. The message says "Someone" instead. */
+  }
+}
+
+/** Fills the name in from the account only while nobody has chosen one.
+ *  A night starting must never overwrite what Settings was told. */
+export function defaultOwner(name: string) {
+  try {
+    if (!localStorage.getItem(OWNER_KEY)) rememberOwner(name);
+  } catch {
+    /* Nothing to default into. */
+  }
+}
+
+export function ownerName(): string {
+  try {
+    return localStorage.getItem(OWNER_KEY) || "Someone";
+  } catch {
+    return "Someone";
+  }
+}
+
+/**
+ * Sends the message to every saved contact, with nobody touching the phone.
+ *
+ * SMS, because it is the only channel Android lets an app deliver on
+ * unattended. WhatsApp and the SMS app both stop at a compose screen no
+ * matter how the link is built, and during the emergency this screen exists
+ * for, the person who would tap Send is the person who cannot.
+ *
+ * Failures are returned, never swallowed: the screen shows which contacts
+ * were reached and offers WhatsApp for the ones that were not.
+ */
+export async function sendToAll(contacts: Contact[]): Promise<Delivery[]> {
+  if (!Capacitor.isNativePlatform()) {
+    // A browser has no radio. The web build keeps the manual buttons.
+    return contacts.map((contact) => ({
+      contact,
+      sent: false,
+      reason: "a browser cannot send a message by itself",
+    }));
+  }
+  // Armed first so the send uses the fix that arrived a second ago rather
+  // than the one from when the night started.
+  await armSos();
+  try {
+    const { results } = await RepulseMonitor.sendSos();
+    return contacts.map((contact) => {
+      const r = results.find((x) => x.to === `+${waNumber(contact.phone)}`);
+      return { contact, sent: r?.sent ?? false, reason: r?.reason ?? "no answer from the sender" };
+    });
+  } catch (e) {
+    const reason = e instanceof Error ? e.message : String(e);
+    return contacts.map((contact) => ({ contact, sent: false, reason }));
+  }
 }
 
 /**

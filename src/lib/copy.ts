@@ -12,9 +12,16 @@ export const COPY = {
   breathingScreening:
     "Your breathing pattern during sleep shows a sign worth having checked by a doctor.",
 
-  /** Sending always requires one human tap. Any wording implying
-   *  automatic delivery is a false claim. */
-  sosPending: "Message not sent yet. It needs one tap from you.",
+  /** The message now leaves by itself, by SMS, because during the
+   *  emergency this screen exists for nobody is free to find a Send
+   *  button. The wording therefore promises a send and offers the way
+   *  out, and must never promise a send that has already happened. */
+  sosPending: "Going out to your emergency contacts. Stop it below if you are okay.",
+
+  /** The browser build. No web API sends an SMS, so the send genuinely
+   *  does need a person, and the screen has to say which of the two it
+   *  is rather than showing the phone's wording everywhere. */
+  sosManual: "A browser cannot send this by itself. It needs one tap from you.",
 
   /** Shown on every screen while the mock transport is active. */
   mockBadge: "SAMPLE DATA",

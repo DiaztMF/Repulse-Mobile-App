@@ -41,15 +41,39 @@ const le32 = (n: number) => [n & 0xff, (n >> 8) & 0xff, (n >> 16) & 0xff, (n >> 
 
 // --- §3.1 vitals: status byte, then up to five 3-byte samples ------------
 
-// worn = bit 7, signal_quality = bits 3-0. 0b1000_1100 = worn, quality 12.
+// worn = bit 7, held = bit 6, signal_quality = bits 3-0.
+// 0b1000_1100 = worn, not held, quality 12.
 const vitals = decodeVitals(u8(0b1000_1100, 62, ...le16(968), 63, ...le16(952)), at);
 assert.equal(vitals.length, 2, "both samples in the batch are decoded");
-assert.deepEqual(vitals[0], { at, bpm: 62, rrMs: 968, worn: true, signalQuality: 12 });
+assert.deepEqual(vitals[0], {
+  at,
+  bpm: 62,
+  rrMs: 968,
+  worn: true,
+  held: false,
+  signalQuality: 12,
+});
 assert.equal(vitals[1]!.rrMs, 952);
 
 // The flag that stops a band on a table from raising an ALERT. To a
 // MAX30102, "no pulse" and "not being worn" look identical.
 assert.equal(decodeVitals(u8(0b0000_1100, 0, ...le16(0)), at)[0]!.worn, false);
+
+/* Bit 6: the bpm is remembered, not measured.
+ *
+ * This has to survive the trip, because the two sides of it disagree on
+ * purpose: the live display shows a held figure, and the night recorder
+ * refuses it. Decoded as fresh, thirty seconds of held samples become
+ * thirty copies of one beat inside the resting pulse that every personal
+ * threshold is measured against. The band also sends rr_ms zero with it,
+ * since an interval has no remembered version.
+ */
+const heldPacket = decodeVitals(u8(0b1100_1100, 71, ...le16(0)), at)[0]!;
+assert.equal(heldPacket.held, true, "bit 6 decodes as held");
+assert.equal(heldPacket.worn, true, "worn still reads alongside held");
+assert.equal(heldPacket.bpm, 71, "the remembered figure still arrives");
+assert.equal(heldPacket.rrMs, 0, "no interval travels with a held reading");
+assert.equal(heldPacket.signalQuality, 12, "quality keeps meaning quality");
 assert.equal(decodeVitals(u8(0b1000_0000, 62, ...le16(968)), at)[0]!.signalQuality, 0);
 
 // --- §3.2 oxygen ---------------------------------------------------------
@@ -185,6 +209,23 @@ const raw = JSON.parse(
   ),
 );
 assert.equal(raw.aroma.duration_s, 60, "the conformance path sends what it says it sends");
+
+// The test panel's latch: no duration, and the flag the firmware needs to
+// skip both the cap and the night's quota. Sending a duration here would
+// let the bedside time it out from under a test that is still running.
+const held = JSON.parse(
+  new TextDecoder().decode(encodeActuator({ kind: "aroma", seconds: 0, hold: true }, 7)),
+);
+assert.equal(held.aroma.on, true, "a held aroma is on even with no duration");
+assert.equal(held.aroma.hold, true);
+assert.equal(held.aroma.duration_s, 0, "no duration, or the firmware would time it out");
+
+// The automatic path must never carry the flag, or §5.3 stops meaning
+// anything the moment an intervention fires.
+const auto = JSON.parse(
+  new TextDecoder().decode(encodeActuator({ kind: "aroma", seconds: 25 }, 8)),
+);
+assert.equal(auto.aroma.hold, undefined, "only the test panel holds it open");
 
 const off = JSON.parse(new TextDecoder().decode(encodeActuator({ kind: "aroma", seconds: 0 }, 1)));
 assert.equal(off.aroma.on, false);

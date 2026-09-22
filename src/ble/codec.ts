@@ -59,12 +59,13 @@ const REASON: Record<number, Escalation["reason"]> = {
 export function decodeVitals(b: Uint8Array, at: number): Vitals[] {
   const status = b[0]!;
   const worn = (status & 0b1000_0000) !== 0;
+  const held = (status & 0b0100_0000) !== 0;
   const signalQuality = status & 0b0000_1111;
 
   const out: Vitals[] = [];
   const v = dv(b);
   for (let o = 1; o + 2 < b.length; o += 3) {
-    out.push({ at, bpm: b[o]!, rrMs: v.getUint16(o + 1, true), worn, signalQuality });
+    out.push({ at, bpm: b[o]!, rrMs: v.getUint16(o + 1, true), worn, held, signalQuality });
   }
   return out;
 }
@@ -355,12 +356,18 @@ export function encodeActuator(
       // §4.3 caps this at 30s and the firmware refuses anything longer with
       // status 2. Clamped here as well — two independent limits, because
       // one of them will be wrong eventually and it must not be both.
+      //
+      // `hold` sends no duration at all: the bedside latches the diffuser
+      // on and leaves it on. It is the manual path only, and the firmware
+      // spends no part of the night's quota on it.
       return utf8({
         command_id: commandId,
-        aroma: {
-          on: a.seconds > 0,
-          duration_s: opts?.unclamped ? a.seconds : Math.min(30, Math.max(0, a.seconds)),
-        },
+        aroma: a.hold
+          ? { on: true, duration_s: 0, hold: true }
+          : {
+              on: a.seconds > 0,
+              duration_s: opts?.unclamped ? a.seconds : Math.min(30, Math.max(0, a.seconds)),
+            },
       });
     case "siren":
       return utf8({ command_id: commandId, siren: { on: a.on } });
@@ -425,7 +432,9 @@ export function replay(entries: BufferEntry[]): BleEvent[] {
         // the absence, and every reader of rrMs already treats it so.
         out.push({
           kind: "vitals",
-          data: { at, bpm: e.bpm, rrMs: 0, worn: true, signalQuality: 0 },
+          /* A replayed offline beat is a real measurement the band made
+           * while nobody was listening, so it is not `held`. */
+          data: { at, bpm: e.bpm, rrMs: 0, worn: true, held: false, signalQuality: 0 },
         });
         out.push({ kind: "motion", data: { at, levelMg: e.levelMg } });
         if (e.spo2Pct > 0)

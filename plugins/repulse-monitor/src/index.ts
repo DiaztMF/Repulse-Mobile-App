@@ -42,6 +42,38 @@ export interface RepulseMonitorPlugin {
    */
   raiseAlert(options: { stage: number; reason?: string }): Promise<void>;
 
+  /**
+   * Hands native everything it needs to send the emergency message on its
+   * own: who, which numbers, the last pulse, the last fix.
+   *
+   * Call it while the app is awake. Native keeps it in SharedPreferences,
+   * so it survives the WebView freezing and the process being restarted —
+   * which is the state the phone is actually in when the band reports an
+   * emergency at 3am.
+   */
+  armSos(options: {
+    owner: string;
+    numbers: string[];
+    bpm?: number;
+    lat?: number;
+    lon?: number;
+    accuracyM?: number;
+    fixAt?: number;
+  }): Promise<{ armed: boolean }>;
+
+  /**
+   * Sends the armed message now, from native code, with no compose screen
+   * and no tap.
+   *
+   * The same path the service takes by itself on a stage-4 report, so the
+   * two can never send twice: a repeat inside two minutes is reported as
+   * already sent rather than delivered again. `force` overrides that, for
+   * a person deliberately sending a second time.
+   */
+  sendSos(options?: { force?: boolean }): Promise<{
+    results: { to: string; sent: boolean; reason?: string }[];
+  }>;
+
   /** Stands the alert down without dismissing the service. */
   clearAlert(): Promise<void>;
 
@@ -55,8 +87,12 @@ export interface RepulseMonitorPlugin {
    * asks for these itself, but O3 has to be able to ask before anything is
    * running, and to show the truth rather than a checkbox somebody ticked.
    */
-  checkPermissions(): Promise<{ nearby: PermissionState }>;
-  requestPermissions(): Promise<{ nearby: PermissionState }>;
+  checkPermissions(): Promise<{ nearby: PermissionState; sms: PermissionState }>;
+  /** Without `permissions` Android asks for every alias at once, which is
+   *  two unexplained dialogs back to back. Both callers name one. */
+  requestPermissions(options?: {
+    permissions?: ("nearby" | "sms")[];
+  }): Promise<{ nearby: PermissionState; sms: PermissionState }>;
 
   /**
    * O4. Only the manufacturer, and only for the wording.

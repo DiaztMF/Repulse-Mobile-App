@@ -161,7 +161,7 @@ export function PairBedside() {
           disabled={asking}
           onClick={() => {
             setAsking(true);
-            void retry().finally(() => setAsking(false));
+            void retry("bedside").finally(() => setAsking(false));
           }}
         >
           {asking ? "Waiting for your pick…" : "Choose bedside unit"}

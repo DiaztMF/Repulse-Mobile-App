@@ -295,16 +295,16 @@ export class LiveTransport implements BleTransport {
   /** The manual "look again". `start` is idempotent, so a radio that never
    *  came up gets its chance here too — which is the state a tap after
    *  switching Bluetooth on by hand lands in. */
-  async retry() {
+  async retry(device?: Device) {
     if (!this.running) {
       await this.start();
-      if (this.web) await this.ask();
+      if (this.web) await this.ask(device);
       return;
     }
     /* On the web this IS the gesture. Called straight out of a tap, which
      * is the only context the browser will open its chooser in. */
     if (this.web) {
-      await this.ask();
+      await this.ask(device);
       return;
     }
     if (this.enabled === false) {
@@ -341,13 +341,27 @@ export class LiveTransport implements BleTransport {
    * the whole shape of the difference from the phone: there the single
    * scan finds both and attaches them unasked.
    */
-  private async ask() {
+  private async ask(want?: Device) {
+    /* Asked for by name wherever the caller knows it, and every caller
+     * that has a button per device does.
+     *
+     * Guessing was a bug with a very specific shape: band before bedside,
+     * always. So "Choose bedside unit" on the bedside pairing screen
+     * opened the BAND chooser whenever the band was not yet attached,
+     * which on that screen is the normal case — the band's own screen
+     * offers a skip. The dialog named the wrong device, picking the
+     * bedside in it did nothing, and the bedside looked like the half
+     * that would not connect. */
     const device: Device | null =
-      this.state.band !== "connected"
-        ? "band"
-        : this.state.bedside !== "connected"
-          ? "bedside"
-          : null;
+      want && this.state[want] !== "connected"
+        ? want
+        : want
+          ? null
+          : this.state.band !== "connected"
+            ? "band"
+            : this.state.bedside !== "connected"
+              ? "bedside"
+              : null;
     if (!device) return;
 
     // Already chosen once, so no chooser: straight back on.

@@ -8,6 +8,11 @@
 
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <!-- Android 10 and up refuse a location request made from the
+         background unless a foreground service is running that declares
+         the location type. Without this the SOS follow-up fix never
+         arrives, and nothing in the log says why. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
@@ -28,26 +33,29 @@
         android:name="android.permission.BLUETOOTH_SCAN"
         android:usesPermissionFlags="neverForLocation" />
 
-    <!-- The BLE plugin declares this unbounded, for scanning on Android 11
-         and older where there was no other way. On 12 and up we hold
-         BLUETOOTH_SCAN with neverForLocation instead, and an app that also
-         asks for location is contradicting its own declaration — in the one
-         place a user actually reads it, the permission list of a product
-         that watches them sleep. Capped rather than removed: the older path
-         genuinely cannot scan without it. -->
-    <uses-permission
-        android:name="android.permission.ACCESS_FINE_LOCATION"
-        android:maxSdkVersion="30"
-        tools:node="replace" />
-    <uses-permission
-        android:name="android.permission.ACCESS_COARSE_LOCATION"
-        android:maxSdkVersion="30"
-        tools:node="replace" />
+    <!-- Location is NOT capped here any more.
+         It used to be declared with maxSdkVersion="30" and tools:node="replace",
+         to keep the BLE plugin's unbounded version out of the permission list
+         of a product that watches people sleep. That cap silently removed the
+         permission on every Android 12 and newer phone, which is every phone
+         this runs on, and the SOS message went out saying the location was
+         unavailable. SOS needs a real fix, so the permission is real.
+
+         BLUETOOTH_SCAN keeps neverForLocation regardless: scan results are
+         still never used to infer position. -->
 
     <!-- Android 14+ requires this to put a notification in front of a
          locked screen. Without it the alert becomes an ordinary heads-up
          banner that a sleeping person will never see. -->
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+
+    <!-- The emergency message leaves the phone by itself. SMS is the only
+         channel on Android an app may send on without a person tapping
+         Send, and the client asked for exactly that: nobody should have to
+         find a Send button during a medical emergency. Play Store
+         distribution needs a declaration form for this permission; a
+         sideloaded build does not. -->
+    <uses-permission android:name="android.permission.SEND_SMS" />
 
     <application>
         <!-- connectedDevice, not dataSync: dataSync is capped at six hours
@@ -56,7 +64,7 @@
              exists to hold a link to the band. -->
         <service
             android:name="id.repulse.monitor.MonitorService"
-            android:foregroundServiceType="connectedDevice"
+            android:foregroundServiceType="connectedDevice|location"
             android:exported="false" />
     </application>
 

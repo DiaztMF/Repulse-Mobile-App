@@ -12,9 +12,9 @@ import type { BleEvent } from "@/ble/transport";
 const MIN = 60_000;
 const start = new Date(2026, 7, 19, 22, 30).getTime(); // 19 Aug 2026, 22:30 local
 
-const vitals = (bpm: number, rrMs: number, worn = true): BleEvent => ({
+const vitals = (bpm: number, rrMs: number, worn = true, held = false): BleEvent => ({
   kind: "vitals",
-  data: { at: 0, bpm, rrMs, worn, signalQuality: 12 },
+  data: { at: 0, bpm, rrMs, worn, held, signalQuality: 12 },
 });
 const motion = (levelMg: number): BleEvent => ({ kind: "motion", data: { at: 0, levelMg } });
 const room = (lux: number): BleEvent => ({
@@ -377,6 +377,41 @@ function run(r: NightRecorder, minutes: number, at: number, each: (sec: number) 
   assert.equal(nightDate(late), "2026-08-19");
   const early = new Date(2026, 7, 20, 7, 10).getTime();
   assert.equal(nightDate(early), "2026-08-20");
+}
+
+// --- a remembered pulse is shown, never recorded -------------------------
+//
+// §3.1 bit 6. The band holds its last measured figure for up to thirty
+// seconds so the live number stops blinking to zero every time the wrist
+// optics stutter. At ~1 Hz that is thirty copies of one beat, and if they
+// reached the record they would land in the resting pulse that every
+// personal threshold for the next fortnight is measured against.
+//
+// The band is still connected while it holds, so the night must NOT count
+// the stretch as offline either. Both halves are checked here because they
+// pull in opposite directions and it would be easy to fix one by breaking
+// the other.
+{
+  const r = new NightRecorder(start);
+  let t = start;
+  // Ten real beats at 60, then ten held samples claiming 200.
+  for (let i = 0; i < 10; i++) {
+    t += 1000;
+    r.feed(vitals(60, 1000), t);
+  }
+  for (let i = 0; i < 10; i++) {
+    t += 1000;
+    r.feed(vitals(200, 0, true, true), t);
+  }
+  const n = r.finish(t, nightDate(start));
+
+  assert.equal(n.heart.max, 60, "a held figure never enters the pulse statistics");
+  assert.equal(n.heart.avg, 60, "nor the average");
+  assert.equal(
+    n.counts.offlineMin,
+    0,
+    "a band that is holding is still a band that is reporting",
+  );
 }
 
 console.log("ok — a night aggregates from its own events, and claims nothing it cannot measure");

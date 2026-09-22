@@ -10,7 +10,12 @@ import android.content.Intent
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
+import android.Manifest
+import android.content.pm.PackageManager
+import android.content.pm.ServiceInfo
 import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
+import androidx.core.content.ContextCompat
 
 /**
  * Stays alive while the screen is off, and puts the alert in front of a
@@ -70,7 +75,25 @@ class MonitorService : Service() {
             // promotion then fails, the alert has already gone out — this
             // is the one message that has to survive everything else
             // going wrong.
-            ACTION_ALERT -> showAlert(intent.getIntExtra(EXTRA_STAGE, 3))
+            ACTION_ALERT -> {
+                val stage = intent.getIntExtra(EXTRA_STAGE, 3)
+                showAlert(stage)
+                // Stage 4 is the band saying the ladder ran out, or the
+                // person holding its button down. The message goes from
+                // here rather than from the WebView, because at 3am with
+                // the screen off there may not be a WebView running: M0
+                // measured JavaScript stopping the moment the Activity is
+                // no longer visible. SosSender ignores a repeat within two
+                // minutes, so the screen doing the same thing a moment
+                // later sends nothing twice.
+                if (stage >= 4) {
+                    try {
+                        SosSender.send(applicationContext, false)
+                    } catch (e: Exception) {
+                        android.util.Log.e("RePulse", "SOS from the service failed", e)
+                    }
+                }
+            }
             ACTION_CLEAR -> notifier().cancel(ALERT_ID)
             else -> running = true
         }
@@ -102,14 +125,60 @@ class MonitorService : Service() {
      * refusal arrives as a SecurityException on the main thread. Letting
      * it through kills the app at the one hour it exists to survive.
      */
-    private fun promote(): Boolean = try {
-        startForeground(ONGOING_ID, ongoing(title, body))
-        true
-    } catch (e: Exception) {
+    private fun promote(): Boolean {
+        val notification = ongoing(title, body)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            return try {
+                startForeground(ONGOING_ID, notification)
+                true
+            } catch (e: Exception) {
+                fellOver(e)
+            }
+        }
+
+        // Location is claimed only while the permission is actually held.
+        // Android 14 verifies the claim and kills the service outright if
+        // it is not true, and the night would end at the moment it began.
+        val located = ContextCompat.checkSelfPermission(
+            this, Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(
+                this, Manifest.permission.ACCESS_COARSE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+
+        val types =
+            if (located) {
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+            } else {
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+            }
+
+        return try {
+            ServiceCompat.startForeground(this, ONGOING_ID, notification, types)
+            true
+        } catch (e: Exception) {
+            // Watching the night matters more than the follow-up fix does,
+            // so a refusal of the richer claim retries with the plain one
+            // rather than taking the service down with it.
+            android.util.Log.e("RePulse", "foreground service refused the location type", e)
+            try {
+                ServiceCompat.startForeground(
+                    this, ONGOING_ID, notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE,
+                )
+                true
+            } catch (second: Exception) {
+                fellOver(second)
+            }
+        }
+    }
+
+    private fun fellOver(e: Exception): Boolean {
         android.util.Log.e("RePulse", "foreground service refused", e)
         running = false
         stopSelf()
-        false
+        return false
     }
 
     override fun onDestroy() {

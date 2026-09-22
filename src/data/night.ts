@@ -231,9 +231,21 @@ export class NightRecorder {
          * it sends zeroes. Averaging those in walks the resting pulse down
          * towards a figure no living wrist produces, and §3.1 measures every
          * personal threshold for the next fortnight against it. */
-        if (e.data.bpm > 0) this.bpm.push(e.data.bpm);
-        if (e.data.rrMs > 0) this.rr.push(e.data.rrMs);
-        this.winVitals.push(e.data);
+        /* §3.1 bit 6: a remembered figure, sent so the live display stops
+         * blinking to zero. It must not reach any of these.
+         *
+         * Averaging it in would count one measurement many times over —
+         * thirty seconds of held samples at ~1 Hz is thirty copies of the
+         * same beat — and the resting pulse is the figure every personal
+         * threshold for the next fortnight is measured against. The band
+         * is still connected and still reporting, though, so `sampled`
+         * runs either way and the night does not count the gap as
+         * offline. */
+        if (!e.data.held) {
+          if (e.data.bpm > 0) this.bpm.push(e.data.bpm);
+          if (e.data.rrMs > 0) this.rr.push(e.data.rrMs);
+          this.winVitals.push(e.data);
+        }
         this.sampled(at);
         break;
       }

@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
 import com.getcapacitor.PermissionState
 import com.getcapacitor.Plugin
@@ -14,8 +15,11 @@ import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
 import com.getcapacitor.annotation.Permission
 import com.getcapacitor.annotation.PermissionCallback
+import org.json.JSONArray
+import org.json.JSONObject
 
 private const val NEARBY = "nearby"
+private const val SMS = "sms"
 
 /** PRD O4: the number one cause of a night that stops without telling
  *  anybody. Each pair is package to activity. */
@@ -47,7 +51,8 @@ private val AUTOSTART_SCREENS = listOf(
                 Manifest.permission.BLUETOOTH_CONNECT,
                 Manifest.permission.BLUETOOTH_SCAN,
             ]
-        )
+        ),
+        Permission(alias = SMS, strings = [Manifest.permission.SEND_SMS])
     ]
 )
 class RepulseMonitorPlugin : Plugin() {
@@ -166,6 +171,76 @@ class RepulseMonitorPlugin : Plugin() {
         } else {
             context.startService(intent)
         }
+    }
+
+    /**
+     * Hands the native side everything it needs to send the emergency
+     * message without asking JavaScript anything.
+     *
+     * Called while the app is awake, which is the only time it can read its
+     * own contacts and its own last fix. What it stores has to survive the
+     * WebView being frozen, the Activity being destroyed, and the process
+     * being restarted by the OS, so it goes to SharedPreferences rather
+     * than to memory.
+     */
+    @PluginMethod
+    fun armSos(call: PluginCall) {
+        val numbers = call.getArray("numbers")
+        if (numbers == null || numbers.length() == 0) {
+            call.reject("at least one number is required")
+            return
+        }
+        val payload = JSONObject()
+            .put("owner", call.getString("owner") ?: "Someone")
+            .put("numbers", JSONArray().apply {
+                for (i in 0 until numbers.length()) put(numbers.getString(i))
+            })
+        call.getInt("bpm")?.let { payload.put("bpm", it) }
+        call.getDouble("lat")?.let { payload.put("lat", it) }
+        call.getDouble("lon")?.let { payload.put("lon", it) }
+        call.getInt("accuracyM")?.let { payload.put("accuracyM", it) }
+        // Milliseconds do not survive getInt, and a fix timestamp is a
+        // 13-digit number. Read as a double and put back as a long, or
+        // every fix looks like 1970 and every message says "last seen".
+        call.getDouble("fixAt")?.let { payload.put("fixAt", it.toLong()) }
+
+        SosSender.arm(context, payload)
+        call.resolve(JSObject().put("armed", true))
+    }
+
+    /**
+     * Sends the armed message now, from native code.
+     *
+     * The same function the service calls when the band reports stage 4,
+     * so a message sent with the screen off and one sent from the SOS
+     * screen are the same message, built once, deduplicated once.
+     */
+    @PluginMethod
+    fun sendSos(call: PluginCall) {
+        if (getPermissionState(SMS) != PermissionState.GRANTED) {
+            requestPermissionForAlias(SMS, call, "smsResult")
+            return
+        }
+        deliver(call)
+    }
+
+    @PermissionCallback
+    fun smsResult(call: PluginCall) {
+        // A refusal is still an answer. SosSender reports it per number so
+        // the screen can say which contacts were not reached.
+        deliver(call)
+    }
+
+    private fun deliver(call: PluginCall) {
+        /* Waits, because this is the screen asking and the screen has to
+         * print the truth. Plugin methods run off the main thread, so the
+         * wait costs nothing but the seconds the radio needs. */
+        val results = SosSender.send(context, call.getBoolean("force", false) == true, 8_000L)
+        /* JSArray.from() takes an array or a Collection, and a JSONArray is
+         * neither: it threw, the results never reached JavaScript, and the
+         * screen said nothing left the phone while the SMS was already on
+         * its way. The string constructor is the conversion that exists. */
+        call.resolve(JSObject().put("results", JSArray(results.toString())))
     }
 
     @PluginMethod
