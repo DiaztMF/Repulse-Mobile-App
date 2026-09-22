@@ -59,15 +59,30 @@ export function Ready() {
       detail: links.bedside === "connected" ? "Connected" : "Not connected",
       ok: links.bedside === "connected",
     },
+    /* Kept, and now with a way out of it.
+     *
+     * Menghapusnya memang menghilangkan tanda X, dan itu justru bahayanya:
+     * angka ini adalah pembanding SETIAP ambang alarm (§3.1). Nol yang
+     * tidak diketahui berarti gelang memakai 62 bpm milik orang asing dan
+     * membunyikan alarm sepanjang malam pada tubuh yang sehat. Barisnya
+     * bukan keluhan kosmetik, ia satu-satunya tempat orang diberi tahu.
+     *
+     * Yang SALAH sebelumnya adalah jalan buntunya: kalibrasi sekarang bisa
+     * dilewati, jadi X ini muncul untuk hampir semua orang, di layar yang
+     * tidak menawarkan apa pun untuk memperbaikinya. */
     {
       title: "Your resting pulse",
       detail: baseline != null ? `${baseline} bpm` : "Not measured yet",
       ok: baseline != null,
+      to: "/calibration",
+      cta: "Measure it now",
     },
     {
       title: "Emergency contact",
       detail: contact ?? "None saved, add one before tonight",
       ok: contact !== null,
+      to: "/onboarding/contacts",
+      cta: "Add a contact",
     },
   ];
 
@@ -95,13 +110,24 @@ export function Ready() {
                 <Check className="size-3.5 text-[var(--color-base)]" strokeWidth={3} />
               )}
             </span>
-            <div>
+            <div className="min-w-0">
               <p className="text-[length:var(--text-card)] font-medium">
                 {d.title}
               </p>
               <p className="mt-0.5 text-[length:var(--text-meta)] text-[var(--color-ash)]">
                 {d.detail}
               </p>
+              {/* Only where there is something to do about it. A band that
+                  is switched off fixes itself the moment it is switched
+                  on; a pulse nobody measured never does. */}
+              {d.ok === false && d.to && (
+                <button
+                  onClick={() => navigate(d.to)}
+                  className="label mt-2 text-[var(--color-pulse)]"
+                >
+                  {d.cta}
+                </button>
+              )}
             </div>
           </div>
         ))}
