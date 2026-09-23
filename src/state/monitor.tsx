@@ -16,7 +16,7 @@ import { RepulseMonitor } from "repulse-monitor";
 import { MockTransport, type Scenario } from "@/ble/mock";
 import { LiveTransport } from "@/ble/live";
 import { useAuth } from "@/firebase/auth";
-import { armSos, defaultOwner } from "@/lib/sos";
+import { armSos, defaultOwner, endSos } from "@/lib/sos";
 import { fetchInterventions, saveNight, saveVerification } from "@/firebase/nights";
 import { useStore } from "@/data/store";
 import type { Night } from "@/data/mock";
@@ -897,6 +897,10 @@ export function MonitorProvider({ children }: { children: ReactNode }) {
          * nobody was having, the bedside sounded it the moment the phone
          * left the room, and every rescan put the SOS screen back up. */
         void transport?.command({ cmd: "stand_down" }).catch(() => {});
+        /* This emergency is over, so the repeat guard that belonged to it
+         * goes with it. Otherwise the next SOS within two minutes reports
+         * itself sent and reaches nobody. */
+        void endSos();
         send({ t: "stage", at: Date.now(), stage: 0 });
       },
       retry: async (device) => {

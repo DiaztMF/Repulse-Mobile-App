@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { armSos } from "@/lib/sos";
+import { armSos, messageBody } from "@/lib/sos";
 import { Plus, X, Check } from "lucide-react";
 import { PageHeader } from "@/components/shell/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -13,6 +13,15 @@ const RELATIONS = ["Parent", "Sibling", "Partner", "Child", "Friend", "Other"];
 const empty = (): Contact => ({ name: "", phone: "", relation: "Parent" });
 
 const CONTACTS_KEY = "repulse_emergency_contacts";
+
+/* A fixed instant, not Date.now(). This is a preview of the FORMAT, and a
+ * clock that ticks while somebody reads it is a clock answering a question
+ * nobody asked. It has to run through the same messageBody() the SOS
+ * screen actually sends, or this card is free to drift from the truth the
+ * moment either one changes — which is exactly how it went stale last
+ * time: hand-written text said "waits for one tap" months after sending
+ * became automatic. */
+const PREVIEW_AT = new Date("2026-01-01T02:16:43").getTime();
 
 /** Indonesian numbers, written the way people actually type them. */
 const usable = (c: Contact) =>
@@ -180,15 +189,17 @@ export function Contacts() {
       {/* Shown before the system is agreed to, not after. People are
           entitled to see exactly what will go out in their name. */}
       <p className="label mt-8 text-[var(--color-ash)]">What they receive</p>
-      <div className="mt-3 rounded-[var(--radius-card)] bg-[var(--color-raised)] p-5 text-[var(--color-ivory)]">
-        <p>Andi may need help.</p>
-        <p className="mt-1">Detected at 02:16.</p>
-        <p className="mt-1 text-[var(--color-ash)]">
-          Location: maps.google.com/…
-        </p>
+      <div className="mt-3 whitespace-pre-line rounded-[var(--radius-card)] bg-[var(--color-raised)] p-5 text-[var(--color-ivory)]">
+        {messageBody({
+          owner: "Andi",
+          at: PREVIEW_AT,
+          position: { lat: -6.914744, lon: 107.60981, accuracyM: 12, at: PREVIEW_AT },
+          bpm: 118,
+        })}
       </div>
       <p className="mt-4 text-[length:var(--text-meta)] text-[var(--color-ash)]">
-        Nothing goes out on its own. This message waits for one tap from you.
+        Sent as an SMS from this phone, with nobody needing to unlock it. On
+        the web this needs one tap; on the phone it goes out on its own.
       </p>
 
       <div className="flex-1" />

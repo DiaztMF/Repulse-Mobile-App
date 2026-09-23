@@ -114,8 +114,20 @@ export function mapsUrl(p: NonNullable<Position>): string {
   return `https://maps.google.com/?q=${p.lat.toFixed(6)},${p.lon.toFixed(6)}`;
 }
 
-const clock = (at: number) =>
-  new Date(at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+/**
+ * The time the message carries, to the second.
+ *
+ * Seconds matter here in a way they do not anywhere else in the app: this
+ * line is read next to a call log and an ambulance record, and "02.16" and
+ * "02.16.43" answer different questions about how long somebody has been
+ * down. Dots rather than colons because that is how Indonesian writes a
+ * clock time.
+ */
+const clock = (at: number) => {
+  const d = new Date(at);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getHours())}.${pad(d.getMinutes())}.${pad(d.getSeconds())}`;
+};
 
 /**
  * The message body.
@@ -150,6 +162,18 @@ export function messageBody(opts: {
 }
 
 export type Delivery = { contact: Contact; sent: boolean; reason?: string };
+
+/** Tells native the emergency is over, so the next one is not treated as a
+ *  repeat of this one. Called from stand down, which is the only place a
+ *  person says an emergency has ended. */
+export async function endSos(): Promise<void> {
+  if (!Capacitor.isNativePlatform()) return;
+  try {
+    await RepulseMonitor.endSos();
+  } catch (e) {
+    console.error("[sos] could not close the emergency", e);
+  }
+}
 
 /**
  * Tells the native side who to reach and where we are, so it can send the

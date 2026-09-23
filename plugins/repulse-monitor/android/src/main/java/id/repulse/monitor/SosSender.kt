@@ -57,14 +57,51 @@ object SosSender {
      *  presenting it as where the person is now. Mirrors FIX_STALE_MS. */
     private const val STALE_MS = 120_000L
 
-    /** How long an active fix is worth waiting for, after the message has
-     *  already gone. Past this the GPS is not going to lock — indoors,
-     *  usually — and the follow-up simply never happens. */
-    private const val FRESH_TIMEOUT_MS = 25_000L
+    /** Good enough to knock on a door with. Once a fix is better than this
+     *  the updates stop: the next one would move the pin by less than the
+     *  width of the building. */
+    private const val TARGET_ACCURACY_M = 10f
 
-    /** A follow-up is only worth a second SMS if it actually moves the pin
-     *  further than the first one's own error bar. */
+    /** How long the GPS is allowed to keep trying, after the message has
+     *  already gone. A cold lock takes 20 to 40 seconds outdoors and never
+     *  arrives at all in some rooms, so this is generous rather than
+     *  hopeful — and it costs nothing when the target is reached early,
+     *  because reaching it ends the watch. */
+    private const val FRESH_TIMEOUT_MS = 180_000L
+
+    /** A follow-up is only worth an SMS if it actually moves the pin
+     *  further than the last one's own error bar. */
     private const val WORTH_RESENDING_M = 60f
+
+    /** The floor between two updates.
+     *
+     * Without it this is a pager. Android reports a fix about once a
+     * second, and "keep sending while accuracy is worse than 10 m" taken
+     * literally is thirty messages per contact on the way from 60 m to
+     * 8 m — at which point the person reading them has stopped reading
+     * them, which is the one outcome worse than sending nothing. */
+    private const val UPDATE_MIN_GAP_MS = 30_000L
+
+    /** And a hard ceiling on top of the gap, because the gap alone still
+     *  allows six messages across three minutes. Three is enough to show a
+     *  pin walking in towards a house. */
+    private const val MAX_UPDATES = 3
+
+    /**
+     * Ends the current emergency, so the next one is allowed to send.
+     *
+     * The dedupe window exists so a stage-4 report and the screen that
+     * opens a moment later do not send twice. It was never meant to
+     * outlive the emergency itself: after somebody says they are okay,
+     * the next SOS is a NEW emergency, and refusing it for the rest of
+     * two minutes is a safety feature eating a safety feature. That is
+     * what made a second SOS look like it sent and arrive nowhere, and
+     * what made restarting the app "fix" it - restarting simply took
+     * longer than the window.
+     */
+    fun endEmergency(context: Context) {
+        prefs(context).edit().remove(KEY_LAST_SENT).apply()
+    }
 
     fun arm(context: Context, payload: JSONObject) {
         prefs(context).edit().putString(KEY_PAYLOAD, payload.toString()).apply()
@@ -265,7 +302,8 @@ object SosSender {
     fun compose(context: Context, payload: JSONObject): String {
         val now = System.currentTimeMillis()
         val owner = payload.optString("owner", "Someone")
-        val clock = SimpleDateFormat("HH:mm", Locale.UK)
+        // Sama persis dengan clock() di src/lib/sos.ts, sampai titiknya.
+        val clock = SimpleDateFormat("HH.mm.ss", Locale.UK)
 
         val lines = mutableListOf("$owner may need help.", "Detected at ${clock.format(Date(now))}.")
         val bpm = payload.optInt("bpm", 0)
@@ -291,17 +329,27 @@ object SosSender {
     }
 
     /**
-     * Asks the GPS for a real fix AFTER the message has gone, and sends a
-     * short second message if the answer moves the pin.
+     * Keeps the pin moving in after the message has gone, and stops as soon
+     * as it is good enough to act on.
      *
-     * This order is the whole point. A cold GPS takes 20 to 40 seconds to
-     * lock, and a first message that waits for it is a message that arrives
-     * after the emergency is over — or never, indoors. So the coarse
-     * cached position goes immediately, and precision follows when the
-     * hardware has it.
+     * The order matters more than anything else here. A cold GPS needs 20
+     * to 40 seconds, so a first message that waits for a good fix is a
+     * message that arrives after the emergency is over, or never. The
+     * coarse cached position goes out immediately, and precision follows.
      *
-     * One follow-up, never a stream: a contact being buzzed every few
-     * seconds cannot tell an update from a new emergency.
+     * What follows is deliberately not every fix the radio produces:
+     *
+     * - a fix better than TARGET_ACCURACY_M ends the watch, and its message
+     *   always goes out, ignoring both the gap and the ceiling. That is the
+     *   one the contact actually needs
+     * - anything coarser has to wait out UPDATE_MIN_GAP_MS, and has to be
+     *   meaningfully better or meaningfully somewhere else, and counts
+     *   against MAX_UPDATES
+     * - nothing at all is sent when the fix is neither better nor
+     *   elsewhere, however many times the radio repeats it
+     *
+     * So the worst case is four messages to each contact and the common
+     * case is one or two, while the target is still what ends it.
      */
     private fun followUp(
         context: Context,
@@ -309,7 +357,6 @@ object SosSender {
         manager: SmsManager,
         numbers: JSONArray,
     ) {
-        val before = freshest(context, payload)
         val lm = try {
             context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
         } catch (e: Exception) {
@@ -323,48 +370,63 @@ object SosSender {
 
         // Its own thread with its own Looper: this can be called from the
         // service, and location updates need somewhere to be delivered
-        // that is not the caller's stack.
+        // that is not the caller's stack. The timeout below runs on the
+        // same Looper, so nothing here needs locking.
         val thread = HandlerThread("repulse-sos-fix").apply { start() }
         val handler = Handler(thread.looper)
+
+        val first = freshest(context, payload)
+        var lastLat = first?.lat
+        var lastLon = first?.lon
+        var bestAccuracy = first?.accuracyM?.toFloat() ?: Float.MAX_VALUE
+        var lastUpdateMs = 0L
+        var updates = 0
         var done = false
 
         val listener = object : LocationListener {
             override fun onLocationChanged(location: Location) {
-                synchronized(this@SosSender) {
-                    if (done) return
-                    done = true
-                }
-                try {
-                    lm.removeUpdates(this)
-                } catch (e: Exception) {
-                    /* Already removed by the timeout. */
-                }
+                if (done) return
                 remember(context, payload, location)
 
-                val moved = before == null ||
-                    distance(before, location) > maxOf(WORTH_RESENDING_M, location.accuracy)
-                if (moved) {
-                    val text = String.format(
-                        Locale.UK,
-                        "RePulse location update (%d m): https://maps.google.com/?q=%.6f,%.6f",
-                        location.accuracy.toInt(), location.latitude, location.longitude,
-                    )
-                    for (i in 0 until numbers.length()) {
-                        val to = numbers.optString(i)
-                        if (to.isBlank()) continue
-                        try {
-                            val parts = manager.divideMessage(text)
-                            if (parts.size > 1) {
-                                manager.sendMultipartTextMessage(to, null, parts, null, null)
-                            } else {
-                                manager.sendTextMessage(to, null, text, null, null)
-                            }
-                        } catch (e: Exception) {
-                            android.util.Log.e("RePulse", "location update refused for $to", e)
-                        }
-                    }
+                val now = System.currentTimeMillis()
+                // Some devices report 0 when they do not know. Zero is not
+                // a perfect fix, and treating it as one would end the watch
+                // on the worst reading of the night.
+                val accuracy = if (location.accuracy > 0f) location.accuracy else Float.MAX_VALUE
+                val reached = accuracy < TARGET_ACCURACY_M
+
+                val moved = lastLat == null || lastLon == null ||
+                    distanceBetween(lastLat!!, lastLon!!, location) > WORTH_RESENDING_M
+                // Half the error bar gone, or 15 m of it, whichever is the
+                // larger claim. Anything smaller is the same pin drawn
+                // again.
+                val sharper = bestAccuracy - accuracy >= maxOf(15f, bestAccuracy * 0.5f)
+                val allowed = updates < MAX_UPDATES && now - lastUpdateMs >= UPDATE_MIN_GAP_MS
+
+                /* Worth telling somebody, or the same pin drawn again.
+                 * The first message may already have carried a good cached
+                 * fix, and "reached" alone would answer it with an update
+                 * that says exactly the same thing. */
+                val worthTelling = sharper || moved
+
+                if (worthTelling && (reached || allowed)) {
+                    sendUpdate(manager, numbers, location)
+                    updates++
+                    lastUpdateMs = now
+                    lastLat = location.latitude
+                    lastLon = location.longitude
+                    if (accuracy < bestAccuracy) bestAccuracy = accuracy
                 }
-                thread.quitSafely()
+
+                if (reached || updates >= MAX_UPDATES) {
+                    done = true
+                    try {
+                        lm.removeUpdates(this)
+                    } catch (e: Exception) {
+                        /* Already gone. */
+                    }
+                    thread.quitSafely()
+                }
             }
 
             @Deprecated("Required on API below 30, and this app runs from 23.")
@@ -384,20 +446,43 @@ object SosSender {
         }
 
         handler.postDelayed({
-            synchronized(this@SosSender) {
-                if (done) return@postDelayed
-                done = true
-            }
+            if (done) return@postDelayed
+            done = true
             try {
                 lm.removeUpdates(listener)
             } catch (e: Exception) {
                 /* Nothing to remove. */
             }
-            // No lock in 25 seconds. The first message already carries the
-            // best answer this phone had, and silence is the right amount
-            // of noise to add to it.
+            // Never locked well enough, indoors usually. Whatever already
+            // went out carries the best this phone had, and more silence is
+            // the right amount of noise to add to that.
             thread.quitSafely()
         }, FRESH_TIMEOUT_MS)
+    }
+
+    /** One update, to every armed number. Failures are logged and dropped:
+     *  the first message already arrived, and a contact who cannot be
+     *  reached now could not be reached then either. */
+    private fun sendUpdate(manager: SmsManager, numbers: JSONArray, location: Location) {
+        val text = String.format(
+            Locale.UK,
+            "RePulse location update (%d m): https://maps.google.com/?q=%.6f,%.6f",
+            location.accuracy.toInt(), location.latitude, location.longitude,
+        )
+        for (i in 0 until numbers.length()) {
+            val to = numbers.optString(i)
+            if (to.isBlank()) continue
+            try {
+                val parts = manager.divideMessage(text)
+                if (parts.size > 1) {
+                    manager.sendMultipartTextMessage(to, null, parts, null, null)
+                } else {
+                    manager.sendTextMessage(to, null, text, null, null)
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("RePulse", "location update refused for " + to, e)
+            }
+        }
     }
 
     /** Keeps the armed payload current, so a second emergency starts from
@@ -414,9 +499,9 @@ object SosSender {
         }
     }
 
-    private fun distance(from: Fix, to: Location): Float {
+    private fun distanceBetween(lat: Double, lon: Double, to: Location): Float {
         val out = FloatArray(1)
-        Location.distanceBetween(from.lat, from.lon, to.latitude, to.longitude, out)
+        Location.distanceBetween(lat, lon, to.latitude, to.longitude, out)
         return out[0]
     }
 

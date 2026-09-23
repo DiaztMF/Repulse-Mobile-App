@@ -104,6 +104,26 @@ body {
    silently dropped. That is how seven screens lost their top or bottom
    padding on every device without a notch. Needing both means writing
    one class: `pt-[calc(env(safe-area-inset-top)+2.5rem)]`. */
+/* No blanket padding-top/bottom on body.
+
+   One was tried here, to clear the status and navigation bars on Android
+   15's forced edge-to-edge. It was the wrong layer: Header (sticky) and
+   PageHeader already carry their own `.safe-t`, on every screen that has
+   one, and have for a long time — that comment above is theirs, not new.
+   A second inset on body stacked on top of the first wherever both existed:
+   at rest the page sat one whole status-bar-height lower than it should,
+   because the header's own safe-t was still there doing its job UNDER an
+   extra empty margin body had already added above it. Scrolling hid the
+   bug rather than fixing it — a sticky header snaps to the true top the
+   moment it scrolls past its own start position, which only body's copy
+   of the padding was pushing down.
+
+   The handful of screens with no header at all (Alert, SOS, a few of
+   onboarding) either already carry their own explicit
+   `pt-[calc(env(safe-area-inset-top)+…)]` — same pattern, same file — or
+   are a separate, narrower gap to close there directly if one is ever
+   found, not by reaching for body again. */
+
 .safe-t {
   padding-top: env(safe-area-inset-top);
 }

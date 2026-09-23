@@ -66,6 +66,20 @@ const VENDORS: Record<string, Vendor> = {
     toggles: ["Allow background activity"],
     manual: "Open Battery on the page that opened and set it to Unrestricted.",
   },
+  // Unverified against real hardware, same caveat as vivo/huawei/samsung
+  // above. Infinix, Tecno and itel all share one Phone Manager app
+  // (`com.transsion.phonemanager`, see AUTOSTART_SCREENS on the native
+  // side) with a single Autostart toggle per app — this used to resolve
+  // that activity just fine and still send nobody there, because this map
+  // never had a key any of the three manufacturer strings would hit.
+  // Reported case: SMS permission would not "stay on" on an Infinix phone
+  // until Autostart was granted first, and this screen was the one place
+  // that asks for it.
+  infinix: {
+    label: "Infinix",
+    toggles: ["Autostart"],
+    manual: "Open Phone Manager, then App Management or Autostart Manager, find RePulse, and turn Autostart on. SMS permission will not stay granted without it.",
+  },
 };
 
 // ColorOS answers for all three, and so do their toggle names.
@@ -74,6 +88,14 @@ VENDORS.oneplus = { ...VENDORS.oppo!, label: "OnePlus" };
 VENDORS.redmi = { ...VENDORS.xiaomi! };
 VENDORS.poco = { ...VENDORS.xiaomi! };
 VENDORS.honor = { ...VENDORS.huawei!, label: "Honor" };
+// Same Phone Manager app as Infinix, under the same parent company.
+VENDORS.tecno = { ...VENDORS.infinix!, label: "Tecno" };
+VENDORS.itel = { ...VENDORS.infinix!, label: "itel" };
+// iQOO reports its own manufacturer string despite sharing Vivo's
+// `com.iqoo.secure` autostart activity (already in AUTOSTART_SCREENS) —
+// same class of bug as Infinix: the native intent resolves, but nothing
+// in this map ever sent an iQOO phone to it.
+VENDORS.iqoo = { ...VENDORS.vivo!, label: "iQOO" };
 
 /**
  * O4 — Vendor autostart. The number one cause of silent failure on

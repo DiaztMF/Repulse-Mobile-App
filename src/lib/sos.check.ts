@@ -28,6 +28,10 @@ const position = { lat: -6.914744, lon: 107.60981, accuracyM: 12, at };
 const full = messageBody({ owner: "Andi", at, position, bpm: 132 });
 assert.ok(full.startsWith("Andi may need help."), "who, first");
 assert.ok(full.includes("Detected at"), "and when");
+// To the second, and with dots: "02.16" and "02.16.43" answer different
+// questions about how long somebody has been down.
+assert.ok(/Detected at \d{2}\.\d{2}\.\d{2}\./.test(full), "hh.mm.ss, dots not colons");
+assert.ok(!full.includes(":") || full.includes("https://"), "no colon outside the link");
 assert.ok(full.includes("maps.google.com"), "and where");
 assert.ok(full.includes("132 bpm"));
 // Precision is part of the ask: the contact gets coordinates and how far off

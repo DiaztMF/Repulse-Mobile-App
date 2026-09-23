@@ -23,15 +23,21 @@
          true tomorrow.
 
          neverForLocation: scan results are never used to infer position,
-         and saying so keeps the location prompt out of the way.
-
-         ponytail: no legacy BLUETOOTH/BLUETOOTH_ADMIN for API < 31 — that
-         path also needs ACCESS_FINE_LOCATION to scan at all. Add both if a
-         pre-Android-12 phone ever has to run this. -->
+         and saying so keeps the location prompt out of the way. -->
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission
         android:name="android.permission.BLUETOOTH_SCAN"
         android:usesPermissionFlags="neverForLocation" />
+
+    <!-- minSdkVersion is 23, and a real budget Redmi in the field can still
+         be on Android 11 or below, where BLUETOOTH_CONNECT/SCAN above do
+         not exist as permissions at all — the scan would return nothing,
+         silently, on exactly the phone this app most needs to work on.
+         Normal-level, granted at install, no dialog. ACCESS_FINE_LOCATION
+         is what actually gates scan results pre-12, and it is already
+         requested at O3 regardless of Android version. -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
 
     <!-- Location is NOT capped here any more.
          It used to be declared with maxSdkVersion="30" and tools:node="replace",

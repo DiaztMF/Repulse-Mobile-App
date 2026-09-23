@@ -215,6 +215,14 @@ class RepulseMonitorPlugin : Plugin() {
      * so a message sent with the screen off and one sent from the SOS
      * screen are the same message, built once, deduplicated once.
      */
+    /** Called when a person stands the alarm down. Closes the emergency
+     *  so the next SOS is not mistaken for a repeat of this one. */
+    @PluginMethod
+    fun endSos(call: PluginCall) {
+        SosSender.endEmergency(context)
+        call.resolve()
+    }
+
     @PluginMethod
     fun sendSos(call: PluginCall) {
         if (getPermissionState(SMS) != PermissionState.GRANTED) {

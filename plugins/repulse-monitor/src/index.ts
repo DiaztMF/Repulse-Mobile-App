@@ -70,6 +70,15 @@ export interface RepulseMonitorPlugin {
    * already sent rather than delivered again. `force` overrides that, for
    * a person deliberately sending a second time.
    */
+  /**
+   * Closes the current emergency so the next SOS can send.
+   *
+   * Without it the two-minute repeat guard outlives the emergency it was
+   * protecting, and the second SOS of the evening reports success while
+   * reaching nobody.
+   */
+  endSos(): Promise<void>;
+
   sendSos(options?: { force?: boolean }): Promise<{
     results: { to: string; sent: boolean; reason?: string }[];
   }>;
